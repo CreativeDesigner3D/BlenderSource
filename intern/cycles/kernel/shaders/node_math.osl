@@ -1,0 +1,109 @@
+/*
+ * Copyright 2011-2013 Blender Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include "stdcycles.h"
+#include "node_math.h"
+
+/* OSL asin, acos, and pow functions are safe by default. */
+shader node_math(string type = "add",
+                 float Value1 = 0.5,
+                 float Value2 = 0.5,
+                 float Value3 = 0.5,
+                 output float Value = 0.0)
+{
+  if (type == "add")
+    Value = Value1 + Value2;
+  else if (type == "subtract")
+    Value = Value1 - Value2;
+  else if (type == "multiply")
+    Value = Value1 * Value2;
+  else if (type == "divide")
+    Value = safe_divide(Value1, Value2);
+  else if (type == "power")
+    Value = pow(Value1, Value2);
+  else if (type == "logarithm")
+    Value = safe_log(Value1, Value2);
+  else if (type == "sqrt")
+    Value = safe_sqrt(Value1);
+  else if (type == "inversesqrt")
+    Value = inversesqrt(Value1);
+  else if (type == "absolute")
+    Value = fabs(Value1);
+  else if (type == "radians")
+    Value = radians(Value1);
+  else if (type == "degrees")
+    Value = degrees(Value1);
+  else if (type == "minimum")
+    Value = min(Value1, Value2);
+  else if (type == "maximum")
+    Value = max(Value1, Value2);
+  else if (type == "less_than")
+    Value = Value1 < Value2;
+  else if (type == "greater_than")
+    Value = Value1 > Value2;
+  else if (type == "round")
+    Value = floor(Value1 + 0.5);
+  else if (type == "floor")
+    Value = floor(Value1);
+  else if (type == "ceil")
+    Value = ceil(Value1);
+  else if (type == "fraction")
+    Value = Value1 - floor(Value1);
+  else if (type == "modulo")
+    Value = safe_modulo(Value1, Value2);
+  else if (type == "trunc")
+    Value = trunc(Value1);
+  else if (type == "snap")
+    Value = floor(safe_divide(Value1, Value2)) * Value2;
+  else if (type == "wrap")
+    Value = wrap(Value1, Value2, Value3);
+  else if (type == "pingpong")
+    Value = pingpong(Value1, Value2);
+  else if (type == "sine")
+    Value = sin(Value1);
+  else if (type == "cosine")
+    Value = cos(Value1);
+  else if (type == "tangent")
+    Value = tan(Value1);
+  else if (type == "sinh")
+    Value = sinh(Value1);
+  else if (type == "cosh")
+    Value = cosh(Value1);
+  else if (type == "tanh")
+    Value = tanh(Value1);
+  else if (type == "arcsine")
+    Value = asin(Value1);
+  else if (type == "arccosine")
+    Value = acos(Value1);
+  else if (type == "arctangent")
+    Value = atan(Value1);
+  else if (type == "arctan2")
+    Value = atan2(Value1, Value2);
+  else if (type == "sign")
+    Value = sign(Value1);
+  else if (type == "exponent")
+    Value = exp(Value1);
+  else if (type == "compare")
+    Value = ((Value1 == Value2) || (abs(Value1 - Value2) <= max(Value3, 1e-5))) ? 1.0 : 0.0;
+  else if (type == "multiply_add")
+    Value = Value1 * Value2 + Value3;
+  else if (type == "smoothmin")
+    Value = smoothmin(Value1, Value2, Value3);
+  else if (type == "smoothmax")
+    Value = -(smoothmin(-Value1, -Value2, Value3));
+  else
+    warning("%s", "Unknown math operator!");
+}

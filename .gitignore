@@ -1,52 +1,48 @@
-# Prerequisites
-*.d
+# generic files to ignore
+.*
 
-# Object files
-*.o
-*.ko
-*.obj
-*.elf
+# python temp paths
+__pycache__/
+*.py[cod]
 
-# Linker output
-*.ilk
-*.map
-*.exp
+# editors
+*~
+*.swp
+*.swo
+*#
 
-# Precompiled Headers
-*.gch
-*.pch
+# Indexes for emacs, vi & others
+TAGS
+tags
 
-# Libraries
-*.lib
-*.a
-*.la
-*.lo
+# QtCreator
+CMakeLists.txt.user
 
-# Shared objects (inc. Windows DLLs)
-*.dll
-*.so
-*.so.*
-*.dylib
+# ms-windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
 
-# Executables
-*.exe
-*.out
-*.app
-*.i*86
-*.x86_64
-*.hex
+# commonly used paths in blender
+/blender.bin
+/BUILD_NOTES.txt
 
-# Debug files
-*.dSYM/
-*.su
-*.idb
-*.pdb
+# local patches
+/*.patch
+/*.diff
 
-# Kernel Module Compile Results
-*.mod*
-*.cmd
-.tmp_versions/
-modules.order
-Module.symvers
-Mkfile.old
-dkms.conf
+# in-source doc-gen
+/doc/doxygen/html/
+/doc/python_api/sphinx-in-tmp/
+/doc/python_api/sphinx-in/
+/doc/python_api/sphinx-out/
+/doc/python_api/rst/bmesh.ops.rst
+
+# in-source lib downloads
+/build_files/build_environment/downloads
+
+# in-source buildbot signing configuration
+/build_files/buildbot/codesign/config_server.py
+
+# smoke simulation noise tile (generated)
+waveletNoiseTile.bin

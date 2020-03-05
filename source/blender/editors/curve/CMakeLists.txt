@@ -1,0 +1,63 @@
+# ***** BEGIN GPL LICENSE BLOCK *****
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software Foundation,
+# Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+# ***** END GPL LICENSE BLOCK *****
+
+set(INC
+  ../include
+  ../../blenkernel
+  ../../blenlib
+  ../../blentranslation
+  ../../depsgraph
+  ../../gpu
+  ../../makesdna
+  ../../makesrna
+  ../../windowmanager
+  ../../../../intern/clog
+  ../../../../intern/glew-mx
+  ../../../../intern/guardedalloc
+  ../../../../extern/curve_fit_nd
+)
+
+set(INC_SYS
+  ${GLEW_INCLUDE_PATH}
+)
+
+set(SRC
+  curve_ops.c
+  editcurve.c
+  editcurve_add.c
+  editcurve_paint.c
+  editcurve_select.c
+  editcurve_undo.c
+  editfont.c
+  editfont_undo.c
+
+  curve_intern.h
+)
+
+set(LIB
+  bf_blenkernel
+  bf_blenlib
+  extern_curve_fit_nd
+)
+
+if(WITH_INTERNATIONAL)
+  add_definitions(-DWITH_INTERNATIONAL)
+endif()
+
+add_definitions(${GL_DEFINITIONS})
+
+blender_add_lib(bf_editor_curve "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")

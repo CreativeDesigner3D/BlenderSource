@@ -1,0 +1,73 @@
+diff -Naur orig/cmake/FindIlmBase.cmake openvdb/cmake/FindIlmBase.cmake
+--- orig/cmake/FindIlmBase.cmake	2019-12-06 13:11:33 -0700
++++ openvdb/cmake/FindIlmBase.cmake	2020-01-16 09:06:32 -0700
+@@ -225,6 +225,12 @@
+   list(APPEND CMAKE_FIND_LIBRARY_SUFFIXES
+     "-${IlmBase_VERSION_MAJOR}_${IlmBase_VERSION_MINOR}.lib"
+   )
++  list(APPEND CMAKE_FIND_LIBRARY_SUFFIXES
++    "_s.lib"
++  )
++  list(APPEND CMAKE_FIND_LIBRARY_SUFFIXES
++    "_s_d.lib"
++  )
+ else()
+   if(ILMBASE_USE_STATIC_LIBS)
+     list(APPEND CMAKE_FIND_LIBRARY_SUFFIXES
+diff -Naur orig/cmake/FindOpenEXR.cmake openvdb/cmake/FindOpenEXR.cmake
+--- orig/cmake/FindOpenEXR.cmake	2019-12-06 13:11:33 -0700
++++ openvdb/cmake/FindOpenEXR.cmake	2020-01-16 09:06:39 -0700
+@@ -218,6 +218,12 @@
+   list(APPEND CMAKE_FIND_LIBRARY_SUFFIXES
+     "-${OpenEXR_VERSION_MAJOR}_${OpenEXR_VERSION_MINOR}.lib"
+   )
++  list(APPEND CMAKE_FIND_LIBRARY_SUFFIXES
++    "_s.lib"
++  )
++  list(APPEND CMAKE_FIND_LIBRARY_SUFFIXES
++    "_s_d.lib"
++  )
+ else()
+   if(OPENEXR_USE_STATIC_LIBS)
+     list(APPEND CMAKE_FIND_LIBRARY_SUFFIXES
+diff -Naur orig/openvdb/CMakeLists.txt openvdb/openvdb/CMakeLists.txt
+--- orig/openvdb/CMakeLists.txt	2019-12-06 13:11:33 -0700
++++ openvdb/openvdb/CMakeLists.txt	2020-01-16 08:56:25 -0700
+@@ -193,11 +193,12 @@
+   if(OPENVDB_DISABLE_BOOST_IMPLICIT_LINKING)
+     add_definitions(-DBOOST_ALL_NO_LIB)
+   endif()
++  add_definitions(-D__TBB_NO_IMPLICIT_LINKAGE -DOPENVDB_OPENEXR_STATICLIB)
+ endif()
+ 
+ # @todo Should be target definitions
+ if(WIN32)
+-  add_definitions(-D_WIN32 -DNOMINMAX -DOPENVDB_DLL)
++  add_definitions(-D_WIN32 -DNOMINMAX -DOPENVDB_STATICLIB)
+ endif()
+ 
+ ##### Core library configuration
+diff -Naur orig/openvdb/cmd/CMakeLists.txt openvdb/openvdb/cmd/CMakeLists.txt
+--- orig/openvdb/cmd/CMakeLists.txt	2019-12-06 13:11:33 -0700
++++ openvdb/openvdb/cmd/CMakeLists.txt	2020-01-16 08:56:25 -0700
+@@ -53,7 +53,7 @@
+ endif()
+ 
+ if(WIN32)
+-  add_definitions(-D_WIN32 -DNOMINMAX -DOPENVDB_DLL)
++  add_definitions(-D_WIN32 -DNOMINMAX -DOPENVDB_STATICLIB)
+ endif()
+ 
+ # rpath handling
+diff -Naur orig/openvdb/unittest/CMakeLists.txt openvdb/openvdb/unittest/CMakeLists.txt
+--- orig/openvdb/unittest/CMakeLists.txt	2019-12-06 13:11:33 -0700
++++ openvdb/openvdb/unittest/CMakeLists.txt	2020-01-16 08:56:25 -0700
+@@ -49,7 +49,7 @@
+ endif()
+ 
+ if(WIN32)
+-  add_definitions(-D_WIN32 -DNOMINMAX -DOPENVDB_DLL)
++  add_definitions(-D_WIN32 -DNOMINMAX -DOPENVDB_STATICLIB)
+ endif()
+ 
+ ##### VDB unit tests
