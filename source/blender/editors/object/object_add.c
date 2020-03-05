@@ -1011,48 +1011,14 @@ void OBJECT_OT_empty_add(wmOperatorType *ot)
 
 static int empty_drop_named_image_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
-  Scene *scene = CTX_data_scene(C);
-
-  Image *ima = NULL;
-
-  ima = (Image *)WM_operator_drop_load_path(C, op, ID_IM);
-  if (!ima) {
-    return OPERATOR_CANCELLED;
-  }
-  /* handled below */
-  id_us_min(&ima->id);
-
-  Object *ob = NULL;
-  Object *ob_cursor = ED_view3d_give_object_under_cursor(C, event->mval);
-
-  /* either change empty under cursor or create a new empty */
-  if (ob_cursor && ob_cursor->type == OB_EMPTY) {
-    WM_event_add_notifier(C, NC_SCENE | ND_OB_ACTIVE, scene);
-    DEG_id_tag_update((ID *)ob_cursor, ID_RECALC_TRANSFORM);
-    ob = ob_cursor;
-  }
-  else {
-    /* add new empty */
-    ushort local_view_bits;
-    float rot[3];
-
-    if (!ED_object_add_generic_get_opts(C, op, 'Z', NULL, rot, NULL, &local_view_bits, NULL)) {
-      return OPERATOR_CANCELLED;
-    }
-    ob = ED_object_add_type(C, OB_EMPTY, NULL, NULL, rot, false, local_view_bits);
-
-    ED_object_location_from_view(C, ob->loc);
-    ED_view3d_cursor3d_position(C, event->mval, false, ob->loc);
-    ED_object_rotation_from_view(C, ob->rot, 'Z');
-    ob->empty_drawsize = 5.0f;
-  }
-
-  BKE_object_empty_draw_type_set(ob, OB_EMPTY_IMAGE);
-
-  id_us_min(ob->data);
-  ob->data = ima;
-  id_us_plus(ob->data);
-
+  char path[FILE_MAX];
+  PointerRNA ptr;
+  RNA_string_get(op->ptr, "filepath", path);
+  WM_operator_properties_create(&ptr, "WM_OT_drag_and_drop");
+  RNA_string_set(&ptr, "filepath", path);
+  WM_operator_name_call(C, "WM_OT_drag_and_drop", WM_OP_INVOKE_REGION_WIN, &ptr);
+  WM_operator_properties_free(&ptr);
+ 
   return OPERATOR_FINISHED;
 }
 
@@ -1061,8 +1027,8 @@ void OBJECT_OT_drop_named_image(wmOperatorType *ot)
   PropertyRNA *prop;
 
   /* identifiers */
-  ot->name = "Add Empty Image/Drop Image to Empty";
-  ot->description = "Add an empty image type to scene with data";
+  ot->name = "Drag and Drop Asset";
+  ot->description = "This adds an asset from the library";
   ot->idname = "OBJECT_OT_drop_named_image";
 
   /* api callbacks */

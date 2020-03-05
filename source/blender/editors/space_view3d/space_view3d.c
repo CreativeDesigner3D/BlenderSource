@@ -507,21 +507,7 @@ static bool view3d_ima_empty_drop_poll(bContext *C,
                                        const wmEvent *event,
                                        const char **tooltip)
 {
-  if (!view3d_ima_drop_poll(C, drag, event, tooltip)) {
-    return false;
-  }
-
-  Object *ob = ED_view3d_give_object_under_cursor(C, event->mval);
-
-  if (ob == NULL) {
-    return true;
-  }
-
-  if (ob->type == OB_EMPTY && ob->empty_drawtype == OB_EMPTY_IMAGE) {
-    return true;
-  }
-
-  return false;
+  return true;
 }
 
 static void view3d_ob_drop_copy(wmDrag *drag, wmDropBox *drop)
