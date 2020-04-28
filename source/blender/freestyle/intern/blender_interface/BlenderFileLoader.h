@@ -21,8 +21,8 @@
  * \ingroup freestyle
  */
 
-#include <string.h>
 #include <float.h>
+#include <string.h>
 
 #include "../geometry/BBox.h"
 #include "../geometry/Geom.h"
@@ -30,8 +30,8 @@
 #include "../geometry/GeomUtils.h"
 #include "../scene_graph/IndexedFaceSet.h"
 #include "../scene_graph/NodeGroup.h"
-#include "../scene_graph/NodeTransform.h"
 #include "../scene_graph/NodeShape.h"
+#include "../scene_graph/NodeTransform.h"
 #include "../system/FreestyleConfig.h"
 #include "../system/RenderMonitor.h"
 

@@ -335,17 +335,17 @@ def writeArrayToCubes(arr, gridBU, orig, cBOOL=False, jBOOL=True):
             if a[3] > 0:
                 col = (0.0, 0.0, a[3], 1.0)
             ob.color = col
-        bpy.context.scene.objects.link(ob)
+        bpy.context.collection.objects.link(ob)
         bpy.context.scene.update()
 
     if jBOOL:
         # Selects all cubes w/ ?bpy.ops.object.join() b/c
         # Can't join all cubes to a single mesh right... argh...
         for q in bpy.context.scene.objects:
-            q.select = False
+            q.select_set(False)
             if q.name[0:5] == 'xCUBE':
-                q.select = True
-                bpy.context.scene.objects.active = q
+                q.select_set(True)
+                bpy.context.view_layer.objects.active = q
 
 
 def addVert(ob, pt, conni=-1):
@@ -371,7 +371,7 @@ def addEdge(ob, va, vb):
 def newMesh(mname):
     mmesh = bpy.data.meshes.new(mname)
     omesh = bpy.data.objects.new(mname, mmesh)
-    bpy.context.scene.objects.link(omesh)
+    bpy.context.collection.objects.link(omesh)
     return omesh
 
 
@@ -399,7 +399,7 @@ def writeArrayToCurves(cname, arr, gridBU, bd=.05, rpt=None):
 
     if rpt:
         addReportProp(cob, rpt)
-    bpy.context.scene.objects.link(cob)
+    bpy.context.collection.objects.link(cob)
     cur.splines.new('BEZIER')
     cspline = cur.splines[0]
     div = 1  # spacing for handles (2 - 1/2 way, 1 - next bezier)
@@ -514,7 +514,7 @@ def writeStokeToSingleMesh(arr, jarr, orig, gs, mct, rpt=None):
 def visualizeArray(cg, oob, gs, vm, vs, vc, vv, rst):
     winmgr = bpy.context.scene.advanced_objects1
     # IN: (cellgrid, origin, gridscale,
-    # mulimesh, single mesh, cubes, voxels, report sting)
+    # mulimesh, single mesh, cubes, voxels, report string)
     origin = oob.location
 
     # deal with vert multi-origins
@@ -613,7 +613,7 @@ def buildCPGraph_WORKINPROGRESS(arr, sti=2):
 def findChargePath(oc, fc, ngraph, restrict=[], partial=True):
     # oc -origin charge index, fc -final charge index
     # ngraph -node graph, restrict- index of sites cannot traverse
-    # partial -return partial path if restriction encounterd
+    # partial -return partial path if restriction encountered
     cList = splitList(ngraph, 0)
     pList = splitList(ngraph, 1)
     aRi = []
@@ -764,7 +764,7 @@ def classifyStroke(sarr, mct, hORDER=1):
     aTIPSi = findTips(sgarr)
 
     # find horder channel roots
-    # hcount = orders bewteen main and side/tips
+    # hcount = orders between main and side/tips
     # !!!still buggy!!!
     hRESTRICT = list(aMAINi)    # add to this after each time
     allHPATHSi = []             # all ho paths: [[h0], [h1]...]
@@ -794,7 +794,7 @@ def classifyStroke(sarr, mct, hORDER=1):
                     hRESTRICT += hri
         curPATHSi = aHPATHSi
 
-    # side branches, final order of heirarchy
+    # side branches, final order of hierarchy
     # from tips that are not in an existing path
     # back to any other point that is already on a path
     aDRAWNi = []
@@ -1084,17 +1084,17 @@ def setupObjects():
     winmgr = bpy.context.scene.advanced_objects1
     oOB = bpy.data.objects.new('ELorigin', None)
     oOB.location = ((0, 0, 10))
-    bpy.context.scene.objects.link(oOB)
+    bpy.context.collection.objects.link(oOB)
 
     gOB = bpy.data.objects.new('ELground', None)
-    gOB.empty_draw_type = 'ARROWS'
-    bpy.context.scene.objects.link(gOB)
+    gOB.empty_display_type = 'ARROWS'
+    bpy.context.collection.objects.link(gOB)
 
     cME = makeMeshCube(1)
     cOB = bpy.data.objects.new('ELcloud', cME)
     cOB.location = ((-2, 8, 12))
     cOB.hide_render = True
-    bpy.context.scene.objects.link(cOB)
+    bpy.context.collection.objects.link(cOB)
 
     iME = makeMeshCube(1)
     for v in iME.vertices:
@@ -1106,7 +1106,7 @@ def setupObjects():
     iOB = bpy.data.objects.new('ELinsulator', iME)
     iOB.location = ((0, 0, 5))
     iOB.hide_render = True
-    bpy.context.scene.objects.link(iOB)
+    bpy.context.collection.objects.link(iOB)
 
     try:
         winmgr.OOB = 'ELorigin'
@@ -1159,13 +1159,13 @@ def FSLG():
     winmgr.ORIGIN = obORIGIN.location
     winmgr.GROUNDZ = int((obGROUND.location[2] - winmgr.ORIGIN[2]) / winmgr.GSCALE)
 
-    # 1) insert intial charge(s) point (uses verts if mesh)
+    # 1) insert initial charge(s) point (uses verts if mesh)
     cgrid = [(0, 0, 0)]
 
     if obORIGIN.type == 'MESH':
         debug_prints(
                 func="FSLG",
-                text="Origin object is mesh, 'voxelizing' intial charges from verts"
+                text="Origin object is mesh, 'voxelizing' initial charges from verts"
                 )
         cgrid = voxelByVertex(obORIGIN, winmgr.GSCALE)
 
@@ -1354,7 +1354,7 @@ class OBJECT_PT_fslg(Panel):
 
         col = layout.column()
         col.operator("object.setup_objects_operator", text="Create Setup objects")
-        col.label("Origin object")
+        col.label(text="Origin object")
         col.prop_search(winmgr, "OOB", context.scene, "objects")
 
         box = layout.box()

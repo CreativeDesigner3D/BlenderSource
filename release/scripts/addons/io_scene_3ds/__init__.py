@@ -50,24 +50,22 @@ from bpy.props import (
 from bpy_extras.io_utils import (
         ImportHelper,
         ExportHelper,
-        orientation_helper_factory,
+        orientation_helper,
         axis_conversion,
         )
 
 
-IO3DSOrientationHelper = orientation_helper_factory("IO3DSOrientationHelper", axis_forward='Y', axis_up='Z')
-
-
-class Import3DS(bpy.types.Operator, ImportHelper, IO3DSOrientationHelper):
+@orientation_helper(axis_forward='Y', axis_up='Z')
+class Import3DS(bpy.types.Operator, ImportHelper):
     """Import from 3DS file format (.3ds)"""
     bl_idname = "import_scene.autodesk_3ds"
     bl_label = 'Import 3DS'
     bl_options = {'UNDO'}
 
     filename_ext = ".3ds"
-    filter_glob = StringProperty(default="*.3ds", options={'HIDDEN'})
+    filter_glob: StringProperty(default="*.3ds", options={'HIDDEN'})
 
-    constrain_size = FloatProperty(
+    constrain_size: FloatProperty(
             name="Size Constraint",
             description="Scale the model by 10 until it reaches the "
                         "size constraint (0 to disable)",
@@ -75,13 +73,13 @@ class Import3DS(bpy.types.Operator, ImportHelper, IO3DSOrientationHelper):
             soft_min=0.0, soft_max=1000.0,
             default=10.0,
             )
-    use_image_search = BoolProperty(
+    use_image_search: BoolProperty(
             name="Image Search",
             description="Search subdirectories for any associated images "
                         "(Warning, may be slow)",
             default=True,
             )
-    use_apply_transform = BoolProperty(
+    use_apply_transform: BoolProperty(
             name="Apply Transform",
             description="Workaround for object transformations "
                         "importing incorrectly",
@@ -104,18 +102,19 @@ class Import3DS(bpy.types.Operator, ImportHelper, IO3DSOrientationHelper):
         return import_3ds.load(self, context, **keywords)
 
 
-class Export3DS(bpy.types.Operator, ExportHelper, IO3DSOrientationHelper):
+@orientation_helper(axis_forward='Y', axis_up='Z')
+class Export3DS(bpy.types.Operator, ExportHelper):
     """Export to 3DS file format (.3ds)"""
     bl_idname = "export_scene.autodesk_3ds"
     bl_label = 'Export 3DS'
 
     filename_ext = ".3ds"
-    filter_glob = StringProperty(
+    filter_glob: StringProperty(
             default="*.3ds",
             options={'HIDDEN'},
             )
 
-    use_selection = BoolProperty(
+    use_selection: BoolProperty(
             name="Selection Only",
             description="Export selected objects only",
             default=False,
@@ -149,15 +148,15 @@ def menu_func_import(self, context):
 def register():
     bpy.utils.register_module(__name__)
 
-    bpy.types.INFO_MT_file_import.append(menu_func_import)
-    bpy.types.INFO_MT_file_export.append(menu_func_export)
+    bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
+    bpy.types.TOPBAR_MT_file_export.append(menu_func_export)
 
 
 def unregister():
     bpy.utils.unregister_module(__name__)
 
-    bpy.types.INFO_MT_file_import.remove(menu_func_import)
-    bpy.types.INFO_MT_file_export.remove(menu_func_export)
+    bpy.types.TOPBAR_MT_file_import.remove(menu_func_import)
+    bpy.types.TOPBAR_MT_file_export.remove(menu_func_export)
 
 # NOTES:
 # why add 1 extra vertex? and remove it when done? -

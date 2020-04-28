@@ -108,7 +108,7 @@ IMPORT_MIN_LEVEL = 0.0
 
 # Languages in /branches we do not want to import in /trunk currently...
 IMPORT_LANGUAGES_SKIP = {
-    'am_ET', 'bg_BG', 'fi_FI', 'el_GR', 'et_EE', 'ne_NP', 'ro_RO', 'uz_UZ', 'uz_UZ@cyrillic', 'kk_KZ',
+    'am_ET', 'bg_BG', 'fi_FI', 'el_GR', 'et_EE', 'ne_NP', 'ro_RO', 'uz_UZ', 'uz_UZ@cyrillic', 'kk_KZ', 'es_ES',
 }
 
 # Languages that need RTL pre-processing.
@@ -592,7 +592,7 @@ class I18nSettings:
                 # Assume it is already real JSon string...
                 self.from_json(fname)
                 return
-            with open(fname) as f:
+            with open(fname, encoding="utf8") as f:
                 self.from_json(f.read())
         # Else assume fname is already a file(like) object!
         else:
@@ -600,7 +600,7 @@ class I18nSettings:
 
     def save(self, fname):
         if isinstance(fname, str):
-            with open(fname, 'w') as f:
+            with open(fname, 'w', encoding="utf8") as f:
                 f.write(self.to_json())
         # Else assume fname is already a file(like) object!
         else:

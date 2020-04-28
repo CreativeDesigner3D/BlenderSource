@@ -9,7 +9,7 @@ from . import crack_it
 
 
 def check_object_cell_fracture():
-    if "object_fracture_cell" in bpy.context.user_preferences.addons.keys():
+    if "object_fracture_cell" in bpy.context.preferences.addons.keys():
         return True
     return False
 
@@ -123,7 +123,7 @@ class crackitPanel(Panel):
             col = box.column()
             col.label(text="Please enable Object: Cell Fracture addon", icon="INFO")
             col.separator()
-            col.operator("wm.addon_userpref_show",
+            col.operator("preferences.addon_show",
                          text="Go to Cell Fracture addon",
                          icon="PREFERENCES").module = "object_fracture_cell"
 
@@ -141,19 +141,19 @@ class crackitPanel(Panel):
         col.prop(crackit, "fracture_scalez")
 
         col = box.column(align=True)
-        col.label("Settings:")
+        col.label(text="Settings:")
         col.prop(crackit, "fracture_div")
         col.prop(crackit, "fracture_margin")
 
         col = box.column(align=True)
-        col.label("Extrude:")
+        col.label(text="Extrude:")
         col.prop(crackit, "extrude_offset")
         col.prop(crackit, "extrude_random")
 
         # material Preset:
         box = layout.box()
         row = box.row()
-        row.label("Material Preset:")
+        row.label(text="Material Preset:")
         row_sub = row.row()
         row_sub.prop(crackit, "material_lib_name", text="",
                      toggle=True, icon="LONGDISPLAY")

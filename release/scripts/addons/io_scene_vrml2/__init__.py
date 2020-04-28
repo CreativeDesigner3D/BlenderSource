@@ -47,52 +47,50 @@ from bpy.props import (
         )
 from bpy_extras.io_utils import (
         ExportHelper,
-        orientation_helper_factory,
+        orientation_helper,
         path_reference_mode,
         axis_conversion,
         )
 
 
-ExportVRMLOrientationHelper = orientation_helper_factory("ExportVRMLOrientationHelper", axis_forward='Z', axis_up='Y')
-
-
-class ExportVRML(bpy.types.Operator, ExportHelper, ExportVRMLOrientationHelper):
+@orientation_helper(axis_forward='Z', axis_up='Y')
+class ExportVRML(bpy.types.Operator, ExportHelper):
     """Export mesh objects as a VRML2, colors and texture coordinates"""
     bl_idname = "export_scene.vrml2"
     bl_label = "Export VRML2"
 
     filename_ext = ".wrl"
-    filter_glob = StringProperty(default="*.wrl", options={'HIDDEN'})
+    filter_glob: StringProperty(default="*.wrl", options={'HIDDEN'})
 
-    use_selection = BoolProperty(
+    use_selection: BoolProperty(
             name="Selection Only",
             description="Export selected objects only",
             default=False,
             )
 
-    use_mesh_modifiers = BoolProperty(
+    use_mesh_modifiers: BoolProperty(
             name="Apply Modifiers",
             description="Apply Modifiers to the exported mesh",
             default=True,
             )
-    use_color = BoolProperty(
+    use_color: BoolProperty(
             name="Vertex Colors",
             description="Export the active vertex color layer",
             default=True,
             )
-    color_type = EnumProperty(
+    color_type: EnumProperty(
             name='Color',
             items=(
             ('VERTEX', "Vertex Color", ""),
             ('MATERIAL', "Material Color", "")),
             )
-    use_uv = BoolProperty(
+    use_uv: BoolProperty(
             name="Texture/UVs",
             description="Export the active texture and UV coords",
             default=True,
             )
 
-    global_scale = FloatProperty(
+    global_scale: FloatProperty(
             name="Scale",
             min=0.01, max=1000.0,
             default=1.0,
@@ -151,13 +149,13 @@ def menu_func_export(self, context):
 def register():
     bpy.utils.register_module(__name__)
 
-    bpy.types.INFO_MT_file_export.append(menu_func_export)
+    bpy.types.TOPBAR_MT_file_export.append(menu_func_export)
 
 
 def unregister():
     bpy.utils.unregister_module(__name__)
 
-    bpy.types.INFO_MT_file_export.remove(menu_func_export)
+    bpy.types.TOPBAR_MT_file_export.remove(menu_func_export)
 
 if __name__ == "__main__":
     register()

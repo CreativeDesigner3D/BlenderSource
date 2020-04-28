@@ -20,7 +20,7 @@ bl_info = {
     "name": "Sketchfab Exporter",
     "author": "Bart Crouch",
     "version": (1, 2, 3),
-    "blender": (2, 7, 0),
+    "blender": (2, 70, 0),
     "location": "Tools > File I/O tab",
     "description": "Upload your model to Sketchfab",
     "warning": "",
@@ -247,7 +247,7 @@ class ExportSketchfab(Operator):
             with open(SKETCHFAB_EXPORT_DATA_FILE, 'w') as s:
                 json.dump({
                         "models": props.models,
-                        "lamps": props.lamps,
+                        "lights": props.lights,
                         }, s)
 
             subprocess.check_call([
@@ -269,7 +269,7 @@ class ExportSketchfab(Operator):
                 filename = r["filename"]
 
         except Exception as e:
-            self.report({'WARNING'}, "Error occured while preparing your file: %s" % str(e))
+            self.report({'WARNING'}, "Error occurred while preparing your file: %s" % str(e))
             return {'FINISHED'}
 
         sf_state.uploading = True
@@ -308,12 +308,12 @@ class VIEW3D_PT_sketchfab(Panel):
                 load_token()
         layout = self.layout
 
-        layout.label("Export:")
+        layout.label(text="Export:")
         col = layout.box().column(align=True)
         col.prop(props, "models")
-        col.prop(props, "lamps")
+        col.prop(props, "lights")
 
-        layout.label("Model info:")
+        layout.label(text="Model info:")
         col = layout.box().column(align=True)
         col.prop(props, "title")
         col.prop(props, "description")
@@ -322,7 +322,7 @@ class VIEW3D_PT_sketchfab(Panel):
         if props.private:
             col.prop(props, "password")
 
-        layout.label("Sketchfab account:")
+        layout.label(text="Sketchfab account:")
         col = layout.box().column(align=True)
         col.prop(props, "token")
         row = col.row()
@@ -340,16 +340,16 @@ class VIEW3D_PT_sketchfab(Panel):
 
 # property group containing all properties for the user interface
 class SketchfabProps(PropertyGroup):
-    description = StringProperty(
+    description: StringProperty(
             name="Description",
             description="Description of the model (optional)",
             default="")
-    filepath = StringProperty(
+    filepath: StringProperty(
             name="Filepath",
             description="internal use",
             default="",
             )
-    lamps = EnumProperty(
+    lamps: EnumProperty(
             name="Lamps",
             items=(('ALL', "All", "Export all lamps in the file"),
                    ('NONE', "None", "Don't export any lamps"),
@@ -357,35 +357,35 @@ class SketchfabProps(PropertyGroup):
             description="Determines which lamps are exported",
             default='ALL',
             )
-    models = EnumProperty(
+    models: EnumProperty(
             name="Models",
             items=(('ALL', "All", "Export all meshes in the file"),
                    ('SELECTION', "Selection", "Only export selected meshes")),
             description="Determines which meshes are exported",
             default='SELECTION',
             )
-    private = BoolProperty(
+    private: BoolProperty(
             name="Private",
             description="Upload as private (requires a pro account)",
             default=False,
             )
-    password = StringProperty(
+    password: StringProperty(
             name="Password",
             description="Password-protect your model (requires a pro account)",
             default="",
             subtype="PASSWORD"
             )
-    tags = StringProperty(
+    tags: StringProperty(
             name="Tags",
             description="List of tags, separated by spaces (optional)",
             default="",
             )
-    title = StringProperty(
+    title: StringProperty(
             name="Title",
             description="Title of the model (determined automatically if left empty)",
             default="",
             )
-    token = StringProperty(
+    token: StringProperty(
             name="Api Key",
             description="You can find this on your dashboard at the Sketchfab website",
             default="",
@@ -398,7 +398,7 @@ class SketchfabEmailToken(Operator):
     bl_idname = "wm.sketchfab_email_token"
     bl_label = "Enter your email to get a sketchfab token"
 
-    email = StringProperty(
+    email: StringProperty(
             name="Email",
             default="you@example.com",
             )
@@ -417,7 +417,7 @@ class SketchfabEmailToken(Operator):
             return {'FINISHED'}
 
         if r.status_code != requests.codes.ok:
-            self.report({'ERROR'}, "An error occured. Check the format of your email")
+            self.report({'ERROR'}, "An error occurred. Check the format of your email")
         else:
             self.report({'INFO'}, "Your email was sent at your email address")
 
@@ -450,7 +450,7 @@ def update_panel(self, context):
                 bpy.utils.unregister_class(panel)
 
         for panel in panels:
-            panel.bl_category = context.user_preferences.addons[__name__].preferences.category
+            panel.bl_category = context.preferences.addons[__name__].preferences.category
             bpy.utils.register_class(panel)
 
     except Exception as e:
@@ -463,7 +463,7 @@ class SfabAddonPreferences(AddonPreferences):
     # when defining this in a submodule of a python package.
     bl_idname = __name__
 
-    category = StringProperty(
+    category: StringProperty(
             name="Tab Category",
             description="Choose a name for the category of the panel",
             default="File I/O",

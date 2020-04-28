@@ -1,9 +1,9 @@
 
 msgid ""
 msgstr ""
-"Project-Id-Version: Blender 2.79 (sub 2) (b'6618852b7f1')\n"
+"Project-Id-Version: Blender 2.80 (sub 45) (b'7efc26709cef')\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2018-02-23 10:49:02\n"
+"POT-Creation-Date: 2019-02-25 20:41:30\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -21,16 +21,20 @@ msgid "Add"
 msgstr "Aldonia"
 
 
-msgid "File"
-msgstr "Dosiero"
-
-
 msgid "View"
 msgstr "Rigardi"
 
 
 msgid "Render"
 msgstr "Por Kapitulacigi"
+
+
+msgid "Window"
+msgstr "Fenestro"
+
+
+msgid "Edit Mode"
+msgstr "Prilaborado Modo"
 
 
 msgid "Links"
@@ -41,20 +45,20 @@ msgid "Object Mode"
 msgstr "Objekto Modo"
 
 
-msgid "Edit Mode"
-msgstr "Prilaborado Modo"
-
-
 msgid "Sculpt Mode"
 msgstr "Skulptaĵo Modo"
 
 
-msgid "Window"
-msgstr "Fenestro"
+msgid "File"
+msgstr "Dosiero"
 
 
 msgid "Help"
 msgstr "Helpo"
+
+
+msgid "New"
+msgstr "Nova"
 
 
 msgctxt "Operator"
@@ -92,10 +96,6 @@ msgid "Render"
 msgstr "Por Kapitulacigi"
 
 
-msgid "New"
-msgstr "Nova"
-
-
 msgid "Operation Mode"
 msgstr "Objekto Modo"
 
@@ -109,25 +109,9 @@ msgid "Recent"
 msgstr "Freŝaj"
 
 
-msgid "Auto Select"
-msgstr "Elektas"
-
-
-msgid "Keep Session"
-msgstr "Restaŭri lasta kunsido"
-
-
-msgid "Final Render:"
-msgstr "Por Kapitulacigi"
-
-
 msgctxt "Operator"
 msgid "Add"
 msgstr "Aldonia"
-
-
-msgid "Object Children:"
-msgstr "Objekto Modo"
 
 
 msgid "UV Axis:"
@@ -151,15 +135,6 @@ msgstr "Montri X Axis"
 
 msgctxt "Operator"
 msgid "Interpolation Mode"
-msgstr "Interago:"
-
-
-msgctxt "Operator"
-msgid "Link"
-msgstr "Ligiloj"
-
-
-msgid "Interaction:"
 msgstr "Interago:"
 
 
@@ -208,11 +183,6 @@ msgstr "Nova"
 
 
 msgctxt "Lattice"
-msgid "New"
-msgstr "Nova"
-
-
-msgctxt "Lamp"
 msgid "New"
 msgstr "Nova"
 
@@ -275,10 +245,6 @@ msgstr "Nova"
 msgctxt "GPencil"
 msgid "New"
 msgstr "Nova"
-
-
-msgid "Sel"
-msgstr "Elektas"
 
 
 msgid "view"

@@ -22,20 +22,18 @@
  *
  * A general (pointer -> pointer) chaining hash table
  * for 'Abstract Data Types' (known as an ADT Hash Table).
- *
- * \note edgehash.c is based on this, make sure they stay in sync.
  */
 
-#include <string.h>
-#include <stdlib.h>
-#include <stdarg.h>
 #include <limits.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "MEM_guardedalloc.h"
 
+#include "BLI_mempool.h"
 #include "BLI_sys_types.h" /* for intptr_t support */
 #include "BLI_utildefines.h"
-#include "BLI_mempool.h"
 
 #define GHASH_INTERNAL_API
 #include "BLI_ghash.h" /* own include */
@@ -1058,7 +1056,7 @@ void BLI_ghash_flag_clear(GHash *gh, uint flag)
  * #BLI_ghash_len(gh) times before becoming done.
  *
  * \param gh: The GHash to iterate over.
- * \return Pointer to a new DynStr.
+ * \return Pointer to a new iterator.
  */
 GHashIterator *BLI_ghashIterator_new(GHash *gh)
 {

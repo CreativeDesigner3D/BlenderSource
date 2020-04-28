@@ -17,13 +17,13 @@ class AddTeapot(bpy.types.Operator):
     bl_description = "Construct a teapot or teaspoon mesh"
     bl_options = {"REGISTER", "UNDO"}
 
-    resolution = IntProperty(
+    resolution: IntProperty(
             name="Resolution",
             description="Resolution of the Teapot",
             default=5,
             min=2, max=15,
             )
-    objecttype = EnumProperty(
+    objecttype: EnumProperty(
             name="Object Type",
             description="Type of Bezier Object",
             items=(('1', "Teapot", "Construct a teapot mesh"),
@@ -199,8 +199,8 @@ def transpose(rowsbycols):
 def make_teapot(enumname, resolution):
     filenames = [None, teapot, teaspoon]
     try:
-        indexs = int(enumname)
-        filename = filenames[indexs]
+        indexes = int(enumname)
+        filename = filenames[indexes]
     except:
         print("Add Teapot Error: EnumProperty could not be set")
         filename = filenames[1]

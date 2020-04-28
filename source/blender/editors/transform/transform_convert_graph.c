@@ -167,7 +167,7 @@ static void graph_bezt_get_transform_selection(const TransInfo *t,
                                                bool *r_key,
                                                bool *r_right_handle)
 {
-  SpaceGraph *sipo = (SpaceGraph *)t->sa->spacedata.first;
+  SpaceGraph *sipo = (SpaceGraph *)t->area->spacedata.first;
   bool key = (bezt->f2 & SELECT) != 0;
   bool left = use_handle ? ((bezt->f1 & SELECT) != 0) : key;
   bool right = use_handle ? ((bezt->f3 & SELECT) != 0) : key;
@@ -224,10 +224,10 @@ static void graph_key_shortest_dist(
  */
 void createTransGraphEditData(bContext *C, TransInfo *t)
 {
-  SpaceGraph *sipo = (SpaceGraph *)t->sa->spacedata.first;
+  SpaceGraph *sipo = (SpaceGraph *)t->area->spacedata.first;
   Scene *scene = t->scene;
-  ARegion *ar = t->ar;
-  View2D *v2d = &ar->v2d;
+  ARegion *region = t->region;
+  View2D *v2d = &region->v2d;
 
   TransData *td = NULL;
   TransData2D *td2d = NULL;
@@ -261,10 +261,7 @@ void createTransGraphEditData(bContext *C, TransInfo *t)
   /* which side of the current frame should be allowed */
   // XXX we still want this mode, but how to get this using standard transform too?
   if (t->mode == TFM_TIME_EXTEND) {
-    /* only side on which center is gets transformed */
-    float center[2];
-    transform_convert_center_global_v2(t, center);
-    t->frame_side = (center[0] > CFRA) ? 'R' : 'L';
+    t->frame_side = transform_convert_frame_side_dir_get(t, (float)CFRA);
   }
   else {
     /* normal transform - both sides of current frame are considered */
@@ -642,7 +639,7 @@ void createTransGraphEditData(bContext *C, TransInfo *t)
  */
 void flushTransGraphData(TransInfo *t)
 {
-  SpaceGraph *sipo = (SpaceGraph *)t->sa->spacedata.first;
+  SpaceGraph *sipo = (SpaceGraph *)t->area->spacedata.first;
   TransData *td;
   TransData2D *td2d;
   TransDataGraph *tdg;

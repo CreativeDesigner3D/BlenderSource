@@ -246,7 +246,7 @@ def createSolid(plato, vtrunc, etrunc, dual, snub):
                                          fvOutput[vData[x][2][j]][index - 1]])
                         feOutput.append([fvOutput[x][j - 1], fvOutput[vData[x][2][j]][index],
                                          fvOutput[vData[x][2][j]][index - 1]])
-        # special rules fro birectified mesh (v1 todo: done)
+        # special rules for birectified mesh (v1 todo: done)
         elif vtrunc == 0.5:
             for j in range(len(i) - 1):
                 if x < vData[x][2][j]:  # use current vert,  since other one has not passed yet
@@ -328,7 +328,7 @@ class Solids(bpy.types.Operator):
     bl_description = "Add one of the Platonic, Archimedean or Catalan solids"
     bl_options = {'REGISTER', 'UNDO', 'PRESET'}
 
-    source = EnumProperty(
+    source: EnumProperty(
                     items=(("4", "Tetrahedron", ""),
                             ("6", "Hexahedron", ""),
                             ("8", "Octahedron", ""),
@@ -337,7 +337,7 @@ class Solids(bpy.types.Operator):
                     name="Source",
                     description="Starting point of your solid"
                     )
-    size = FloatProperty(
+    size: FloatProperty(
                     name="Size",
                     description="Radius of the sphere through the vertices",
                     min=0.01,
@@ -346,9 +346,9 @@ class Solids(bpy.types.Operator):
                     soft_max=100,
                     default=1.0
                     )
-    vTrunc = FloatProperty(
+    vTrunc: FloatProperty(
                     name="Vertex Truncation",
-                    description="Ammount of vertex truncation",
+                    description="Amount of vertex truncation",
                     min=0.0,
                     soft_min=0.0,
                     max=2.0,
@@ -357,9 +357,9 @@ class Solids(bpy.types.Operator):
                     precision=3,
                     step=0.5
                     )
-    eTrunc = FloatProperty(
+    eTrunc: FloatProperty(
                     name="Edge Truncation",
-                    description="Ammount of edge truncation",
+                    description="Amount of edge truncation",
                     min=0.0,
                     soft_min=0.0,
                     max=1.0,
@@ -368,24 +368,24 @@ class Solids(bpy.types.Operator):
                     precision=3,
                     step=0.2
                     )
-    snub = EnumProperty(
+    snub: EnumProperty(
                     items=(("None", "No Snub", ""),
                            ("Left", "Left Snub", ""),
                            ("Right", "Right Snub", "")),
                     name="Snub",
                     description="Create the snub version"
                     )
-    dual = BoolProperty(
+    dual: BoolProperty(
                     name="Dual",
                     description="Create the dual of the current solid",
                     default=False
                     )
-    keepSize = BoolProperty(
+    keepSize: BoolProperty(
                     name="Keep Size",
                     description="Keep the whole solid at a constant size",
                     default=False
                     )
-    preset = EnumProperty(
+    preset: EnumProperty(
                     items=(("0", "Custom", ""),
                            ("t4", "Truncated Tetrahedron", ""),
                            ("r4", "Cuboctahedron", ""),
@@ -451,7 +451,7 @@ class Solids(bpy.types.Operator):
     def execute(self, context):
         # turn off undo for better performance (3-5x faster), also makes sure
         #  that mesh ops are undoable and entire script acts as one operator
-        bpy.context.user_preferences.edit.use_global_undo = False
+        bpy.context.preferences.edit.use_global_undo = False
 
         # piece of code to make presets remain until parameters are changed
         if self.preset != "0":
@@ -513,6 +513,6 @@ class Solids(bpy.types.Operator):
         # object generation done
 
         # turn undo back on
-        bpy.context.user_preferences.edit.use_global_undo = True
+        bpy.context.preferences.edit.use_global_undo = True
 
         return {'FINISHED'}

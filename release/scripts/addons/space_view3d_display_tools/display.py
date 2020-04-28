@@ -63,7 +63,7 @@ class DisplayDrawChange(Operator, BasePollCheck):
     bl_label = "Draw Type"
     bl_description = "Change Display objects' mode"
 
-    drawing = EnumProperty(
+    drawing: EnumProperty(
             items=[('TEXTURED', 'Texture', 'Texture display mode'),
                    ('SOLID', 'Solid', 'Solid display mode'),
                    ('WIRE', 'Wire', 'Wire display mode'),
@@ -82,10 +82,10 @@ class DisplayDrawChange(Operator, BasePollCheck):
 
             if not selection:
                 for obj in bpy.data.objects:
-                    obj.draw_type = self.drawing
+                    obj.display_type = self.drawing
             else:
                 for obj in selection:
-                    obj.draw_type = self.drawing
+                    obj.display_type = self.drawing
         except:
             self.report({'ERROR'}, "Setting Draw Type could not be applied")
             return {'CANCELLED'}
@@ -99,7 +99,7 @@ class DisplayBoundsSwitch(Operator, BasePollCheck):
     bl_label = "On/Off"
     bl_description = "Display/Hide Bounding box overlay"
 
-    bounds = BoolProperty(default=False)
+    bounds: BoolProperty(default=False)
 
     def execute(self, context):
         try:
@@ -110,12 +110,12 @@ class DisplayBoundsSwitch(Operator, BasePollCheck):
                 for obj in bpy.data.objects:
                     obj.show_bounds = self.bounds
                     if self.bounds:
-                        obj.draw_bounds_type = scene.BoundingMode
+                        obj.display_bounds_type = scene.BoundingMode
             else:
                 for obj in selection:
                     obj.show_bounds = self.bounds
                     if self.bounds:
-                        obj.draw_bounds_type = scene.BoundingMode
+                        obj.display_bounds_type = scene.BoundingMode
         except:
             self.report({'ERROR'}, "Display/Hide Bounding box overlay failed")
             return {'CANCELLED'}
@@ -129,7 +129,7 @@ class DisplayDoubleSidedSwitch(Operator, BasePollCheck):
     bl_label = "On/Off"
     bl_description = "Turn on/off face double shaded mode"
 
-    double_side = BoolProperty(default=False)
+    double_side: BoolProperty(default=False)
 
     def execute(self, context):
         try:
@@ -156,7 +156,7 @@ class DisplayXRayOn(Operator, BasePollCheck):
     bl_label = "On"
     bl_description = "X-Ray display on/off"
 
-    xrays = BoolProperty(default=False)
+    xrays: BoolProperty(default=False)
 
     def execute(self, context):
         try:
@@ -164,10 +164,10 @@ class DisplayXRayOn(Operator, BasePollCheck):
 
             if not selection:
                 for obj in bpy.data.objects:
-                    obj.show_x_ray = self.xrays
+                    obj.show_in_front = self.xrays
             else:
                 for obj in selection:
-                    obj.show_x_ray = self.xrays
+                    obj.show_in_front = self.xrays
         except:
             self.report({'ERROR'}, "Turn on/off X-ray mode failed")
             return {'CANCELLED'}

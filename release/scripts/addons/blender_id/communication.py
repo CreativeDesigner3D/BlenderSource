@@ -24,6 +24,9 @@ import typing
 
 log = logging.getLogger(__name__)
 
+# Can be overridden by setting the environment variable BLENDER_ID_ENDPOINT.
+BLENDER_ID_ENDPOINT = 'https://www.blender.org/id/'
+
 
 class BlenderIdCommError(RuntimeError):
     """Raised when there was an error communicating with Blender ID"""
@@ -55,7 +58,12 @@ def blender_id_endpoint(endpoint_path=None):
     import os
     import urllib.parse
 
-    base_url = os.environ.get('BLENDER_ID_ENDPOINT', 'https://www.blender.org/id/')
+    base_url = os.environ.get('BLENDER_ID_ENDPOINT')
+    if base_url:
+        log.warning('Using overridden Blender ID url %s', base_url)
+    else:
+        base_url = BLENDER_ID_ENDPOINT
+        log.info('Using standard Blender ID url %s', base_url)
 
     # urljoin() is None-safe for the 2nd parameter.
     return urllib.parse.urljoin(base_url, endpoint_path)

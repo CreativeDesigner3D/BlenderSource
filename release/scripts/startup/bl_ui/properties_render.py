@@ -294,7 +294,7 @@ class RENDER_PT_eevee_volumetric_shadows(RenderButtonsPanel, Panel):
         props = scene.eevee
 
         layout.active = props.use_volumetric_shadows
-        layout.prop(props, "volumetric_shadow_samples", text="Shadow Samples")
+        layout.prop(props, "volumetric_shadow_samples", text="Samples")
 
 
 class RENDER_PT_eevee_subsurface_scattering(RenderButtonsPanel, Panel):
@@ -561,7 +561,7 @@ class RENDER_PT_opengl_sampling(RenderButtonsPanel, Panel):
 
         col = layout.column()
         col.prop(props, "render_aa", text="Render")
-        col.prop(props, "viewport_aa", text="Viewport Render")
+        col.prop(props, "viewport_aa", text="Viewport")
 
 
 class RENDER_PT_opengl_film(RenderButtonsPanel, Panel):
@@ -647,9 +647,6 @@ class RENDER_PT_simplify_viewport(RenderButtonsPanel, Panel):
 
         col = flow.column()
         col.prop(rd, "simplify_child_particles", text="Max Child Particles")
-
-        col = flow.column()
-        col.prop(rd, "use_simplify_smoke_highres", text="High-resolution Smoke")
 
 
 class RENDER_PT_simplify_render(RenderButtonsPanel, Panel):

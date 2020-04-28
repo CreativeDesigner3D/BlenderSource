@@ -169,7 +169,7 @@ from struct import pack
 # U = x / sqrt(x^2 + y^2 + z^2)
 # V = y / sqrt(x^2 + y^2 + z^2)
 #
-# Triangles specifed counter clockwise for front face
+# Triangles specified counter clockwise for front face
 #
 # defines for sizeofs
 SIZE_FQUAT = 16
@@ -804,7 +804,7 @@ def is_1d_face(face, mesh):
 
 # ===========================================================================
 # Smoothing group
-# (renamed to seperate it from VVertex.SmoothGroup)
+# (renamed to separate it from VVertex.SmoothGroup)
 # ===========================================================================
 class SmoothingGroup:
 
@@ -978,18 +978,19 @@ def triangulate_mesh(object):
     verbose(header("triangulateNMesh"))
     # print(type(object))
     scene = bpy.context.scene
+    view_layer = bpy.context.view_layer
 
     me_ob = object.copy()
     me_ob.data = object.to_mesh(bpy.context.scene, True, 'PREVIEW')  # write data object
-    bpy.context.scene.objects.link(me_ob)
+    bpy.context.collection.objects.link(me_ob)
     bpy.context.scene.update()
     bpy.ops.object.mode_set(mode='OBJECT')
 
     for i in scene.objects:
-        i.select = False  # deselect all objects
+        i.select_set(False)  # deselect all objects
 
-    me_ob.select = True
-    scene.objects.active = me_ob
+    me_ob.select_set(True)
+    view_layer.objects.active = me_ob
 
     print("Copy and Convert mesh just incase any way...")
 
@@ -1026,19 +1027,19 @@ def meshmerge(selectedobjects):
                 me_ob = selectedobjects[count].copy()  # copy object
                 # note two copy two types else it will use the current data or mesh
                 me_ob.data = me_da  # assign the data
-                bpy.context.scene.objects.link(me_ob)  # link the object to the scene #current object location
+                bpy.context.collection.objects.link(me_ob)  # link the object to the collection (current obj location)
                 print("Index:", count, "clone object", me_ob.name)  # print clone object
                 cloneobjects.append(me_ob)  # add object to the array
 
         for i in bpy.data.objects:
-            i.select = False  # deselect all objects
+            i.select_set(False)  # deselect all objects
         count = 0  # reset count
         # begin merging the mesh together as one
         for count in range(len(cloneobjects)):
             if count == 0:
-                bpy.context.scene.objects.active = cloneobjects[count]
+                bpy.context.view_layer.objects.active = cloneobjects[count]
                 print("Set Active Object:", cloneobjects[count].name)
-            cloneobjects[count].select = True
+            cloneobjects[count].select_set(True)
         bpy.ops.object.join()  # join object together
         if len(cloneobjects) > 1:
             bpy.types.Scene.udk_copy_merge = True
@@ -1083,16 +1084,17 @@ def parse_mesh(mesh, psk):
     print(header("MESH", 'RIGHT'))
     print("Mesh object:", mesh.name)
     scene = bpy.context.scene
+    view_layer = bpy.context.view_layer
 
     for i in scene.objects:
-        i.select = False  # deselect all objects
+        i.select_set(False)  # deselect all objects
 
-    scene.objects.active = mesh
+    view_layer.objects.active = mesh
     setmesh = mesh
     mesh = triangulate_mesh(mesh)
 
     if bpy.types.Scene.udk_copy_merge is True:
-        bpy.context.scene.objects.unlink(setmesh)
+        bpy.context.collection.objects.unlink(setmesh)
 
     # print("FACES----:",len(mesh.data.tessfaces))
     verbose("Working mesh object: {}".format(mesh.name))
@@ -1201,8 +1203,8 @@ def parse_mesh(mesh, psk):
                 # does with the mesh Y coordinates. this is otherwise known as MAGIC-2
                 uv[1] = 1.0 - uv[1]
 
-                # clamp UV coords if udk_option_clamp_uv is True
-                if bpy.context.scene.udk_option_clamp_uv:
+                # clamp UV coords if udk_option_clight_uv is True
+                if bpy.context.scene.udk_option_clight_uv:
                     if (uv[0] > 1):
                         uv[0] = 1
                     if (uv[0] < 0):
@@ -1397,7 +1399,7 @@ def parse_mesh(mesh, psk):
         verbose("Removing temporary triangle mesh: {}".format(mesh.name))
         bpy.ops.object.mode_set(mode='OBJECT')    # OBJECT mode
         mesh.parent = None                        # unparent to avoid phantom links
-        bpy.context.scene.objects.unlink(mesh)    # unlink
+        bpy.context.collection.objects.unlink(mesh)    # unlink
 
 
 # ===========================================================================
@@ -1540,7 +1542,7 @@ def parse_animation(armature, udk_bones, actions_to_export, psa):
     restoreAction = armature.animation_data.action    # Q: is animation_data always valid?
     # we already do this in export_proxy, but we'll do it here too for now
     restoreFrame = context.scene.frame_current
-    raw_frame_index = 0  # used to set FirstRawFrame, seperating actions in the raw keyframe array
+    raw_frame_index = 0  # used to set FirstRawFrame, separating actions in the raw keyframe array
 
     # action loop...
     for action in actions_to_export:
@@ -1766,7 +1768,7 @@ def find_armature_and_mesh():
             elif len(all_armatures) > 1:  # if there more armature then find the select armature
                 barmselect = False
                 for _armobj in all_armatures:
-                    if _armobj.select:
+                    if _armobj.select_get():
                         armature = _armobj
                         barmselect = True
                         break
@@ -1785,7 +1787,7 @@ def find_armature_and_mesh():
 
         for obj in armature.children:
             # print(dir(obj))
-            if obj.type == 'MESH' and obj.select is True:
+            if obj.type == 'MESH' and obj.select_get() is True:
                 meshselected.append(obj)
         # try the active object
         if active_object and active_object.type == 'MESH' and len(meshselected) == 0:
@@ -1928,9 +1930,9 @@ def export(filepath):
     if bpy.context.scene.udk_option_rebuildobjects:
         print("Unlinking Objects")
         print("Armature Object Name:", udk_armature.name)  # display object name
-        bpy.context.scene.objects.unlink(udk_armature)     # remove armature from the scene
+        bpy.context.collection.objects.unlink(udk_armature)     # remove armature from the collection
         print("Mesh Object Name:", udk_mesh.name)          # display object name
-        bpy.context.scene.objects.unlink(udk_mesh)         # remove mesh from the scene
+        bpy.context.collection.objects.unlink(udk_mesh)         # remove mesh from the collection
 
     print("Export completed in {:.2f} seconds".format((time.clock() - t)))
 
@@ -2021,16 +2023,16 @@ class OBJECT_OT_UTSelectedFaceSmooth(Operator):
         print("Init Select Face(s):")
         bselected = False
         for obj in bpy.data.objects:
-            if obj.type == 'MESH' and obj.select is True:
+            if obj.type == 'MESH' and obj.select_get() is True:
                 smoothcount = 0
                 flatcount = 0
                 bpy.ops.object.mode_set(mode='OBJECT')  # it need to go into object mode to able to select the faces
 
                 for i in bpy.context.scene.objects:
-                    i.select = False  # deselect all objects
+                    i.select_set(False)  # deselect all objects
 
-                obj.select = True  # set current object select
-                bpy.context.scene.objects.active = obj  # set active object
+                obj.select_set(True)  # set current object select
+                bpy.context.view_layer.objects.active = obj  # set active object
                 mesh = bmesh.new()
                 mesh.from_mesh(obj.data)
 
@@ -2066,7 +2068,7 @@ class OBJECT_OT_MeshClearWeights(Operator):
 
     def invoke(self, context, event):
         for obj in bpy.data.objects:
-            if obj.type == 'MESH' and obj.select is True:
+            if obj.type == 'MESH' and obj.select_get() is True:
                 for vg in obj.vertex_groups:
                     obj.vertex_groups.remove(vg)
                 self.report({'INFO'}, "Mesh Vertex Groups Removed")
@@ -2087,9 +2089,9 @@ def rebuildmesh(obj):
     bpy.ops.object.mode_set(mode='OBJECT')
 
     for i in bpy.context.scene.objects:
-        i.select = False  # deselect all objects
-    obj.select = True
-    bpy.context.scene.objects.active = obj
+        i.select_set(False)  # deselect all objects
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
 
     me_ob = bpy.data.meshes.new(("Re_" + obj.name))
     mesh = obj.data
@@ -2170,10 +2172,10 @@ def rebuildmesh(obj):
 
     # vertices weight groups
     for vgroup in vertGroups:
-        group = obmesh.vertex_groups.new(vgroup)
+        group = obmesh.vertex_groups.new(name=vgroup)
         for v in vertGroups[vgroup]:
             group.add([v[0]], v[1], 'ADD')  # group.add(array[vertex id],weight,add)
-    bpy.context.scene.objects.link(obmesh)
+    bpy.context.collection.objects.link(obmesh)
     # print("Mesh Material Count:",len(me_ob.materials))
     matcount = 0
     # print("MATERIAL ID OREDER:")
@@ -2200,7 +2202,7 @@ class OBJECT_OT_UTRebuildMesh(Operator):
         bpy.ops.object.mode_set(mode='OBJECT')
 
         for obj in bpy.data.objects:
-            if obj.type == 'MESH' and obj.select is True:
+            if obj.type == 'MESH' and obj.select_get() is True:
                 rebuildmesh(obj)
 
         self.report({'INFO'}, "Rebuild Mesh Finished!")
@@ -2216,14 +2218,14 @@ def rebuildarmature(obj):
     meshname = "ArmatureObjectPSK"
     armdata = bpy.data.armatures.new(objectname)
     ob_new = bpy.data.objects.new(meshname, armdata)
-    bpy.context.scene.objects.link(ob_new)
+    bpy.context.collection.objects.link(ob_new)
     # bpy.ops.object.mode_set(mode='OBJECT')
 
     for i in bpy.context.scene.objects:
-        i.select = False  # deselect all objects
+        i.select_set(False)  # deselect all objects
 
-    ob_new.select = True
-    bpy.context.scene.objects.active = obj
+    ob_new.select_set(True)
+    bpy.context.view_layer.objects.active = obj
 
     bpy.ops.object.mode_set(mode='EDIT')
     for bone in obj.data.edit_bones:
@@ -2234,9 +2236,9 @@ def rebuildarmature(obj):
     bpy.ops.object.mode_set(mode='OBJECT')
 
     for i in bpy.context.scene.objects:
-        i.select = False  # deselect all objects
+        i.select_set(False)  # deselect all objects
 
-    bpy.context.scene.objects.active = ob_new
+    bpy.context.view_layer.objects.active = ob_new
     bpy.ops.object.mode_set(mode='EDIT')
 
     for bone in obj.data.bones:
@@ -2273,7 +2275,7 @@ class OBJECT_OT_UTRebuildArmature(Operator):
         print("Init Rebuild Armature...")
         bselected = False
         for obj in bpy.data.objects:
-            if obj.type == 'ARMATURE' and obj.select is True:
+            if obj.type == 'ARMATURE' and obj.select_get() is True:
                 rebuildarmature(obj)
         self.report({'INFO'}, "Rebuild Armature Finish!")
         print("End of Rebuild Armature.")
@@ -2282,17 +2284,17 @@ class OBJECT_OT_UTRebuildArmature(Operator):
 
 
 class UDKActionSetListPG(PropertyGroup):
-    bool = BoolProperty(default=False)
-    string = StringProperty()
-    actionname = StringProperty()
-    bmatch = BoolProperty(
+    bool: BoolProperty(default=False)
+    string: StringProperty()
+    actionname: StringProperty()
+    bmatch: BoolProperty(
             default=False,
             name="Match",
             options={"HIDDEN"},
             description="This check against bone names and action group "
                         "names matches and override boolean if true"
             )
-    bexport = BoolProperty(
+    bexport: BoolProperty(
             default=False,
             name="Export",
             description="Check this to export the animation"
@@ -2307,21 +2309,21 @@ class UL_UDKActionSetList(UIList):
 
 
 class UDKObjListPG(PropertyGroup):
-    bool = BoolProperty(default=False)
-    string = StringProperty()
-    bexport = BoolProperty(
+    bool: BoolProperty(default=False)
+    string: StringProperty()
+    bexport: BoolProperty(
             default=False,
             name="Export",
             options={"HIDDEN"},
             description="This will be ignore when exported"
             )
-    bselect = BoolProperty(
+    bselect: BoolProperty(
             default=False,
             name="Select",
             options={"HIDDEN"},
             description="This will be ignore when exported"
             )
-    otype = StringProperty(
+    otype: StringProperty(
             name="Type",
             description="This will be ignore when exported"
             )
@@ -2335,23 +2337,23 @@ class UL_UDKObjList(UIList):
 
 
 class UDKMeshListPG(PropertyGroup):
-    bool = BoolProperty(
+    bool: BoolProperty(
             default=False
             )
-    string = StringProperty()
-    bexport = BoolProperty(
+    string: StringProperty()
+    bexport: BoolProperty(
             default=False,
             name="Export",
             options={"HIDDEN"},
             description="This object will be export when true"
             )
-    bselect = BoolProperty(
+    bselect: BoolProperty(
             default=False,
             name="Select",
             options={"HIDDEN"},
             description="Make sure you have Mesh is parent to Armature"
             )
-    otype = StringProperty(
+    otype: StringProperty(
             name="Type",
             description="This will be ignore when exported"
             )
@@ -2365,21 +2367,21 @@ class UL_UDKMeshList(UIList):
 
 
 class UDKArmListPG(PropertyGroup):
-    bool = BoolProperty(default=False)
-    string = StringProperty()
-    bexport = BoolProperty(
+    bool: BoolProperty(default=False)
+    string: StringProperty()
+    bexport: BoolProperty(
             default=False,
             name="Export",
             options={"HIDDEN"},
             description="This will be ignore when exported"
             )
-    bselect = BoolProperty(
+    bselect: BoolProperty(
             default=False,
             name="Select",
             options={"HIDDEN"},
             description="This will be ignore when exported"
             )
-    otype = StringProperty(
+    otype: StringProperty(
             name="Type",
             description="This will be ignore when exported"
             )
@@ -2422,7 +2424,7 @@ class Panel_UDKExport(Panel):
             object_name = context.active_object.name
         row10 = layout.row()
         row10.prop(context.scene, "udk_option_smoothing_groups")
-        row10.prop(context.scene, "udk_option_clamp_uv")
+        row10.prop(context.scene, "udk_option_clight_uv")
         row10.prop(context.scene, "udk_option_verbose")
 
         row = layout.row()
@@ -2547,7 +2549,7 @@ class OBJECT_OT_UDKObjUpdate(Operator):
     bl_idname = "object.selobjectpdate"
     bl_label = "Update Object(s)"
 
-    actionname = bpy.props.StringProperty()
+    actionname: bpy.props.StringProperty()
 
     def execute(self, context):
         udkupdateobjects()
@@ -2557,17 +2559,17 @@ class OBJECT_OT_UDKObjUpdate(Operator):
 def udkcheckmeshline():
     objmesh = None
     for obj in bpy.context.scene.objects:
-        if obj.type == 'MESH' and obj.select is True:
+        if obj.type == 'MESH' and obj.select_get() is True:
             objmesh = obj
 
     objmesh = triangulate_mesh(objmesh)  # create a copy of the mesh
     bpy.ops.object.mode_set(mode='OBJECT')
 
     for i in bpy.context.scene.objects:
-        i.select = False  # deselect all objects
+        i.select_set(False)  # deselect all objects
 
-    objmesh.select = True
-    bpy.context.scene.objects.active = objmesh  # set active mesh
+    objmesh.select_set(True)
+    bpy.context.view_layer.objects.active = objmesh  # set active mesh
     wedges = ObjMap()
     points = ObjMap()
     bpy.ops.object.mode_set(mode='EDIT')  # set in edit mode
@@ -2646,7 +2648,7 @@ class OBJECT_OT_ActionSetAnimUpdate(Operator):
     bl_idname = "action.setanimupdate"
     bl_label = "Update Action Set(s)"
 
-    actionname = bpy.props.StringProperty()
+    actionname: bpy.props.StringProperty()
 
     def execute(self, context):
         my_sett = bpy.context.scene.udkas_list
@@ -2659,7 +2661,7 @@ class OBJECT_OT_ActionSetAnimUpdate(Operator):
             if objarm.type == 'ARMATURE':
                 # print("ADDED ARMATURE...")
                 armatures.append(objarm)
-                if objarm.select is True:
+                if objarm.select_get() is True:
                     armatureselected.append(objarm)
 
         if len(armatureselected) == len(armatures) == 1:
@@ -2716,7 +2718,7 @@ class OBJECT_OT_ActionSetAnimUpdate(Operator):
                 # print("remove :",actionlist.name)
                 removeactions.append(actionlist.name)
         # print("Not in the action data list:",len(removeactions))
-        # remove list or chnages in the name the template list
+        # remove list or changes in the name the template list
         for actname in removeactions:
             actioncount = 0
             for actionlist in my_sett:
@@ -2737,20 +2739,20 @@ class ExportUDKAnimData(Operator):
     # List of operator properties, the attributes will be assigned
     # to the class instance from the operator settings before calling.
 
-    filepath = StringProperty(
+    filepath: StringProperty(
             subtype='FILE_PATH',
             )
-    filter_glob = StringProperty(
+    filter_glob: StringProperty(
             default="*.psk;*.psa",
             options={'HIDDEN'},
             )
-    udk_option_scale = FloatProperty(
+    udk_option_scale: FloatProperty(
             name="UDK Scale",
             description="In case you don't want to scale objects manually - "
                         "This will just scale position when on export for the skeleton mesh and animation data",
             default=1
             )
-    udk_option_rebuildobjects = BoolProperty(
+    udk_option_rebuildobjects: BoolProperty(
             name="Rebuild Objects",
             description="In case of deform skeleton mesh and animations data - "
                         "This will rebuild objects from raw format on export when checked",
@@ -2792,7 +2794,7 @@ class ExportUDKAnimData(Operator):
         scene = context.scene
 
         layout.prop(scene, "udk_option_smoothing_groups")
-        layout.prop(scene, "udk_option_clamp_uv")
+        layout.prop(scene, "udk_option_clight_uv")
         layout.prop(scene, "udk_option_verbose")
         layout.prop(scene, "udk_option_filename_src")
         layout.prop(scene, "udk_option_export")
@@ -2830,7 +2832,7 @@ def update_panel(self, context):
                 bpy.utils.unregister_class(panel)
 
         for panel in panels:
-            panel.bl_category = context.user_preferences.addons[__name__].preferences.category
+            panel.bl_category = context.preferences.addons[__name__].preferences.category
             bpy.utils.register_class(panel)
 
     except Exception as e:
@@ -2843,7 +2845,7 @@ class PskAddonPreferences(AddonPreferences):
     # when defining this in a submodule of a python package.
     bl_idname = __name__
 
-    category = StringProperty(
+    category: StringProperty(
             name="Tab Category",
             description="Choose a name for the category of the panel",
             default="File I/O",
@@ -2865,7 +2867,7 @@ class PskAddonPreferences(AddonPreferences):
 def register():
 
     bpy.utils.register_module(__name__)
-    bpy.types.INFO_MT_file_export.append(menu_func)
+    bpy.types.TOPBAR_MT_file_export.append(menu_func)
     update_panel(None, bpy.context)
 
     # Added by [MGVS]
@@ -2888,7 +2890,7 @@ def register():
             description="Boolean for exporting psa format (Animation Data)",
             default=True
             )
-    bpy.types.Scene.udk_option_clamp_uv = BoolProperty(
+    bpy.types.Scene.udk_option_clight_uv = BoolProperty(
             name="Clamp UV",
             description="True is to limit Clamp UV co-ordinates to [0-1]. False is unrestricted (x,y)",
             default=False
@@ -2972,12 +2974,12 @@ def register():
 
 def unregister():
     bpy.utils.unregister_module(__name__)
-    bpy.types.INFO_MT_file_export.remove(menu_func)
+    bpy.types.TOPBAR_MT_file_export.remove(menu_func)
 
     del bpy.types.Scene.udk_option_filename_src
     del bpy.types.Scene.udk_option_export_psk
     del bpy.types.Scene.udk_option_export_psa
-    del bpy.types.Scene.udk_option_clamp_uv
+    del bpy.types.Scene.udk_option_clight_uv
     del bpy.types.Scene.udk_copy_merge
     del bpy.types.Scene.udk_option_export
     del bpy.types.Scene.udk_option_verbose

@@ -22,12 +22,12 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "BLI_utildefines.h"
-#include "BLI_string.h"
+#include "BLI_listbase.h"
 #include "BLI_math.h"
 #include "BLI_memarena.h"
 #include "BLI_mempool.h"
-#include "BLI_listbase.h"
+#include "BLI_string.h"
+#include "BLI_utildefines.h"
 
 #include "BLT_translation.h"
 
@@ -138,6 +138,8 @@ static void bmo_op_slots_init(const BMOSlotType *slot_types, BMOpSlot *slot_args
                  BMO_OP_SLOT_SUBTYPE_INT_ENUM,
                  BMO_OP_SLOT_SUBTYPE_INT_FLAG)) {
           slot->data.enum_data.flags = slot_types[i].enum_flags;
+          /* Set the first value of the enum as the default value. */
+          slot->data.i = slot->data.enum_data.flags[0].value;
         }
       default:
         break;
@@ -740,11 +742,7 @@ void *bmo_slot_buffer_grow(BMesh *bm, BMOperator *op, int slot_code, int totadd)
 
       allocsize = BMO_OPSLOT_TYPEINFO[bmo_opdefines[op->type]->slot_types[slot_code].type] *
                   slot->size;
-
-      tmp = slot->data.buf;
-      slot->data.buf = MEM_callocN(allocsize, "opslot dynamic array");
-      memcpy(slot->data.buf, tmp, allocsize);
-      MEM_freeN(tmp);
+      slot->data.buf = MEM_recallocN_id(slot->data.buf, allocsize, "opslot dynamic array");
     }
 
     slot->len += totadd;

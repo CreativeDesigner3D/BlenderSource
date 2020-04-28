@@ -26,6 +26,7 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "BLI_listbase.h"
 #include "BLI_math.h"
 
 #include "BKE_action.h"
@@ -56,6 +57,37 @@ typedef struct BoneInitData {
   float xwidth;
   float zwidth;
 } BoneInitData;
+
+static bConstraint *add_temporary_ik_constraint(bPoseChannel *pchan,
+                                                bKinematicConstraint *targetless_con)
+{
+  bConstraint *con = BKE_constraint_add_for_pose(
+      NULL, pchan, "TempConstraint", CONSTRAINT_TYPE_KINEMATIC);
+
+  /* for draw, but also for detecting while pose solving */
+  pchan->constflag |= (PCHAN_HAS_IK | PCHAN_HAS_TARGET);
+
+  bKinematicConstraint *temp_con_data = con->data;
+
+  if (targetless_con) {
+    /* if exists, use values from last targetless (but disabled) IK-constraint as base */
+    *temp_con_data = *targetless_con;
+  }
+  else {
+    temp_con_data->flag = CONSTRAINT_IK_TIP;
+  }
+
+  temp_con_data->flag |= CONSTRAINT_IK_TEMP | CONSTRAINT_IK_AUTO | CONSTRAINT_IK_POS;
+
+  return con;
+}
+
+static void update_deg_with_temporary_ik(Main *bmain, Object *ob)
+{
+  BIK_clear_data(ob->pose);
+  /* TODO(sergey): Consider doing partial update only. */
+  DEG_relations_tag_update(bmain);
+}
 
 static void add_pose_transdata(
     TransInfo *t, bPoseChannel *pchan, Object *ob, TransDataContainer *tc, TransData *td)
@@ -199,7 +231,15 @@ static void add_pose_transdata(
       }
       td->loc = data->grabtarget;
       copy_v3_v3(td->iloc, td->loc);
+
       data->flag |= CONSTRAINT_IK_AUTO;
+
+      /* Add a temporary auto IK constraint here, as we will only temporarily active this
+       * targetless bone during transform. (Targetless IK constraints are treated as if they are
+       * disabled unless they are transformed). */
+      add_temporary_ik_constraint(pchan, data);
+      Main *bmain = CTX_data_main(t->context);
+      update_deg_with_temporary_ik(bmain, ob);
 
       /* only object matrix correction */
       copy_m3_m3(td->mtx, omat);
@@ -220,7 +260,8 @@ bKinematicConstraint *has_targetless_ik(bPoseChannel *pchan)
   bConstraint *con = pchan->constraints.first;
 
   for (; con; con = con->next) {
-    if (con->type == CONSTRAINT_TYPE_KINEMATIC && (con->enforce != 0.0f)) {
+    if (con->type == CONSTRAINT_TYPE_KINEMATIC && (con->flag & CONSTRAINT_OFF) == 0 &&
+        (con->enforce != 0.0f)) {
       bKinematicConstraint *data = con->data;
 
       if (data->tar == NULL) {
@@ -248,7 +289,7 @@ static short pose_grab_with_ik_add(bPoseChannel *pchan)
 
   /* Rule: not if there's already an IK on this channel */
   for (con = pchan->constraints.first; con; con = con->next) {
-    if (con->type == CONSTRAINT_TYPE_KINEMATIC) {
+    if (con->type == CONSTRAINT_TYPE_KINEMATIC && (con->flag & CONSTRAINT_OFF) == 0) {
       data = con->data;
 
       if (data->tar == NULL || (data->tar->type == OB_ARMATURE && data->subtarget[0] == '\0')) {
@@ -263,22 +304,20 @@ static short pose_grab_with_ik_add(bPoseChannel *pchan)
           /* if no chain length has been specified,
            * just make things obey standard rotation locks too */
           if (data->rootbone == 0) {
-            for (; pchan; pchan = pchan->parent) {
+            for (bPoseChannel *pchan_iter = pchan; pchan_iter; pchan_iter = pchan_iter->parent) {
               /* here, we set ik-settings for bone from pchan->protectflag */
               // XXX: careful with quats/axis-angle rotations where we're locking 4d components
-              if (pchan->protectflag & OB_LOCK_ROTX) {
-                pchan->ikflag |= BONE_IK_NO_XDOF_TEMP;
+              if (pchan_iter->protectflag & OB_LOCK_ROTX) {
+                pchan_iter->ikflag |= BONE_IK_NO_XDOF_TEMP;
               }
-              if (pchan->protectflag & OB_LOCK_ROTY) {
-                pchan->ikflag |= BONE_IK_NO_YDOF_TEMP;
+              if (pchan_iter->protectflag & OB_LOCK_ROTY) {
+                pchan_iter->ikflag |= BONE_IK_NO_YDOF_TEMP;
               }
-              if (pchan->protectflag & OB_LOCK_ROTZ) {
-                pchan->ikflag |= BONE_IK_NO_ZDOF_TEMP;
+              if (pchan_iter->protectflag & OB_LOCK_ROTZ) {
+                pchan_iter->ikflag |= BONE_IK_NO_ZDOF_TEMP;
               }
             }
           }
-
-          return 0;
         }
       }
 
@@ -288,20 +327,8 @@ static short pose_grab_with_ik_add(bPoseChannel *pchan)
     }
   }
 
-  con = BKE_constraint_add_for_pose(NULL, pchan, "TempConstraint", CONSTRAINT_TYPE_KINEMATIC);
+  data = add_temporary_ik_constraint(pchan, targetless)->data;
 
-  /* for draw, but also for detecting while pose solving */
-  pchan->constflag |= (PCHAN_HAS_IK | PCHAN_HAS_TARGET);
-
-  data = con->data;
-  if (targetless) {
-    /* if exists, use values from last targetless (but disabled) IK-constraint as base */
-    *data = *targetless;
-  }
-  else {
-    data->flag = CONSTRAINT_IK_TIP;
-  }
-  data->flag |= CONSTRAINT_IK_TEMP | CONSTRAINT_IK_AUTO | CONSTRAINT_IK_POS;
   copy_v3_v3(data->grabtarget, pchan->pose_tail);
 
   /* watch-it! has to be 0 here, since we're still on the
@@ -414,9 +441,7 @@ static short pose_grab_with_ik(Main *bmain, Object *ob)
 
   /* iTaSC needs clear for new IK constraints */
   if (tot_ik) {
-    BIK_clear_data(ob->pose);
-    /* TODO(sergey): Consider doing partial update only. */
-    DEG_relations_tag_update(bmain);
+    update_deg_with_temporary_ik(bmain, ob);
   }
 
   return (tot_ik) ? 1 : 0;
@@ -530,6 +555,11 @@ void pose_transform_mirror_update(TransInfo *t, TransDataContainer *tc, Object *
   unit_m4(flip_mtx);
   flip_mtx[0][0] = -1;
 
+  LISTBASE_FOREACH (bPoseChannel *, pchan_orig, &ob->pose->chanbase) {
+    /* Clear the MIRROR flag from previous runs. */
+    pchan_orig->bone->flag &= ~BONE_TRANSFORM_MIRROR;
+  }
+
   bPose *pose = ob->pose;
   PoseInitData_Mirror *pid = NULL;
   if ((t->mode != TFM_BONESIZE) && (pose->flag & POSE_MIRROR_RELATIVE)) {
@@ -565,6 +595,9 @@ void pose_transform_mirror_update(TransInfo *t, TransDataContainer *tc, Object *
     }
     BKE_pchan_apply_mat4(pchan, pchan_mtx_final, false);
 
+    /* Set flag to let autokeyframe know to keyframe the mirrred bone. */
+    pchan->bone->flag |= BONE_TRANSFORM_MIRROR;
+
     /* In this case we can do target-less IK grabbing. */
     if (t->mode == TFM_TRANSLATION) {
       bKinematicConstraint *data = has_targetless_ik(pchan);
@@ -576,6 +609,12 @@ void pose_transform_mirror_update(TransInfo *t, TransDataContainer *tc, Object *
         /* TODO(germano): Realitve Mirror support */
       }
       data->flag |= CONSTRAINT_IK_AUTO;
+      /* Add a temporary auto IK constraint here, as we will only temporarly active this targetless
+       * bone during transform. (Targetless IK constraints are treated as if they are disabled
+       * unless they are transformed) */
+      add_temporary_ik_constraint(pchan, data);
+      Main *bmain = CTX_data_main(t->context);
+      update_deg_with_temporary_ik(bmain, ob);
     }
 
     if (pid) {
@@ -645,7 +684,7 @@ void createTransPose(TransInfo *t)
 
     if (mirror) {
       int total_mirrored = 0;
-      for (bPoseChannel *pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
+      LISTBASE_FOREACH (bPoseChannel *, pchan, &ob->pose->chanbase) {
         if ((pchan->bone->flag & BONE_TRANSFORM) &&
             BKE_pose_channel_get_mirrored(ob->pose, pchan->name)) {
           total_mirrored++;
@@ -695,7 +734,7 @@ void createTransPose(TransInfo *t)
     }
 
     if (mirror) {
-      for (bPoseChannel *pchan = pose->chanbase.first; pchan; pchan = pchan->next) {
+      LISTBASE_FOREACH (bPoseChannel *, pchan, &pose->chanbase) {
         if (pchan->bone->flag & BONE_TRANSFORM) {
           bPoseChannel *pchan_mirror = BKE_pose_channel_get_mirrored(ob->pose, pchan->name);
           if (pchan_mirror) {
@@ -717,7 +756,7 @@ void createTransPose(TransInfo *t)
 
     /* use pose channels to fill trans data */
     td = tc->data;
-    for (bPoseChannel *pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
+    LISTBASE_FOREACH (bPoseChannel *, pchan, &ob->pose->chanbase) {
       if (pchan->bone->flag & BONE_TRANSFORM) {
         add_pose_transdata(t, pchan, ob, tc, td);
         td++;

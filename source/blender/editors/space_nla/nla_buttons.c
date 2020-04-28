@@ -21,10 +21,10 @@
  * \ingroup spnla
  */
 
-#include <string.h>
-#include <stdio.h>
-#include <math.h>
 #include <float.h>
+#include <math.h>
+#include <stdio.h>
+#include <string.h>
 
 #include "DNA_anim_types.h"
 
@@ -36,8 +36,8 @@
 
 #include "BLT_translation.h"
 
-#include "BKE_nla.h"
 #include "BKE_context.h"
+#include "BKE_nla.h"
 #include "BKE_screen.h"
 
 #include "WM_api.h"
@@ -140,7 +140,10 @@ bool nla_panel_context(const bContext *C,
       case ANIMTYPE_DSLINESTYLE:
       case ANIMTYPE_DSSPK:
       case ANIMTYPE_DSGPENCIL:
-      case ANIMTYPE_PALETTE: {
+      case ANIMTYPE_PALETTE:
+      case ANIMTYPE_DSHAIR:
+      case ANIMTYPE_DSPOINTCLOUD:
+      case ANIMTYPE_DSVOLUME: {
         /* for these channels, we only do AnimData */
         if (ale->adt && adt_ptr) {
           ID *id;
@@ -239,11 +242,11 @@ static bool nla_strip_eval_panel_poll(const bContext *C, PanelType *UNUSED(pt))
 /* -------------- */
 
 /* active AnimData */
-static void nla_panel_animdata(const bContext *C, Panel *pa)
+static void nla_panel_animdata(const bContext *C, Panel *panel)
 {
   PointerRNA adt_ptr;
   /* AnimData *adt; */
-  uiLayout *layout = pa->layout;
+  uiLayout *layout = panel->layout;
   uiLayout *row;
   uiBlock *block;
 
@@ -309,10 +312,10 @@ static void nla_panel_animdata(const bContext *C, Panel *pa)
 }
 
 /* generic settings for active NLA-Strip */
-static void nla_panel_stripname(const bContext *C, Panel *pa)
+static void nla_panel_stripname(const bContext *C, Panel *panel)
 {
   PointerRNA strip_ptr;
-  uiLayout *layout = pa->layout;
+  uiLayout *layout = panel->layout;
   uiLayout *row;
   uiBlock *block;
 
@@ -347,10 +350,10 @@ static void nla_panel_stripname(const bContext *C, Panel *pa)
 }
 
 /* generic settings for active NLA-Strip */
-static void nla_panel_properties(const bContext *C, Panel *pa)
+static void nla_panel_properties(const bContext *C, Panel *panel)
 {
   PointerRNA strip_ptr;
-  uiLayout *layout = pa->layout;
+  uiLayout *layout = panel->layout;
   uiLayout *column;
   uiBlock *block;
   short showEvalProps = 1;
@@ -416,10 +419,10 @@ static void nla_panel_properties(const bContext *C, Panel *pa)
 }
 
 /* action-clip only settings for active NLA-Strip */
-static void nla_panel_actclip(const bContext *C, Panel *pa)
+static void nla_panel_actclip(const bContext *C, Panel *panel)
 {
   PointerRNA strip_ptr;
-  uiLayout *layout = pa->layout;
+  uiLayout *layout = panel->layout;
   uiLayout *column, *row;
   uiBlock *block;
 
@@ -458,10 +461,10 @@ static void nla_panel_actclip(const bContext *C, Panel *pa)
 }
 
 /* evaluation settings for active NLA-Strip */
-static void nla_panel_animated_influence_header(const bContext *C, Panel *pa)
+static void nla_panel_animated_influence_header(const bContext *C, Panel *panel)
 {
   PointerRNA strip_ptr;
-  uiLayout *layout = pa->layout;
+  uiLayout *layout = panel->layout;
   uiLayout *col;
   uiBlock *block;
 
@@ -478,10 +481,10 @@ static void nla_panel_animated_influence_header(const bContext *C, Panel *pa)
 }
 
 /* evaluation settings for active NLA-Strip */
-static void nla_panel_evaluation(const bContext *C, Panel *pa)
+static void nla_panel_evaluation(const bContext *C, Panel *panel)
 {
   PointerRNA strip_ptr;
-  uiLayout *layout = pa->layout;
+  uiLayout *layout = panel->layout;
   uiBlock *block;
 
   /* check context and also validity of pointer */
@@ -497,10 +500,10 @@ static void nla_panel_evaluation(const bContext *C, Panel *pa)
   uiItemR(layout, &strip_ptr, "influence", 0, NULL, ICON_NONE);
 }
 
-static void nla_panel_animated_strip_time_header(const bContext *C, Panel *pa)
+static void nla_panel_animated_strip_time_header(const bContext *C, Panel *panel)
 {
   PointerRNA strip_ptr;
-  uiLayout *layout = pa->layout;
+  uiLayout *layout = panel->layout;
   uiLayout *col;
   uiBlock *block;
 
@@ -516,10 +519,10 @@ static void nla_panel_animated_strip_time_header(const bContext *C, Panel *pa)
   uiItemR(col, &strip_ptr, "use_animated_time", 0, "", ICON_NONE);
 }
 
-static void nla_panel_animated_strip_time(const bContext *C, Panel *pa)
+static void nla_panel_animated_strip_time(const bContext *C, Panel *panel)
 {
   PointerRNA strip_ptr;
-  uiLayout *layout = pa->layout;
+  uiLayout *layout = panel->layout;
   uiBlock *block;
 
   /* check context and also validity of pointer */
@@ -536,7 +539,7 @@ static void nla_panel_animated_strip_time(const bContext *C, Panel *pa)
 }
 
 /* F-Modifiers for active NLA-Strip */
-static void nla_panel_modifiers(const bContext *C, Panel *pa)
+static void nla_panel_modifiers(const bContext *C, Panel *panel)
 {
   PointerRNA strip_ptr;
   NlaStrip *strip;
@@ -550,12 +553,12 @@ static void nla_panel_modifiers(const bContext *C, Panel *pa)
   }
   strip = strip_ptr.data;
 
-  block = uiLayoutGetBlock(pa->layout);
+  block = uiLayoutGetBlock(panel->layout);
   UI_block_func_handle_set(block, do_nla_region_buttons, NULL);
 
   /* 'add modifier' button at top of panel */
   {
-    row = uiLayoutRow(pa->layout, false);
+    row = uiLayoutRow(panel->layout, false);
     block = uiLayoutGetBlock(row);
 
     // FIXME: we need to set the only-active property so that this
@@ -571,7 +574,7 @@ static void nla_panel_modifiers(const bContext *C, Panel *pa)
 
   /* draw each modifier */
   for (fcm = strip->modifiers.first; fcm; fcm = fcm->next) {
-    col = uiLayoutColumn(pa->layout, true);
+    col = uiLayoutColumn(panel->layout, true);
 
     ANIM_uiTemplate_fmodifier_draw(col, strip_ptr.owner_id, &strip->modifiers, fcm);
   }

@@ -25,11 +25,11 @@
 #include "util/util_logging.h"
 #include "util/util_math.h"
 #include "util/util_opengl.h"
-#include "util/util_time.h"
+#include "util/util_string.h"
 #include "util/util_system.h"
+#include "util/util_time.h"
 #include "util/util_types.h"
 #include "util/util_vector.h"
-#include "util/util_string.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -597,6 +597,7 @@ DeviceInfo Device::get_multi_device(const vector<DeviceInfo> &subdevices,
 
   info.has_half_images = true;
   info.has_volume_decoupled = true;
+  info.has_adaptive_stop_per_sample = true;
   info.has_osl = true;
   info.has_profiling = true;
 
@@ -639,6 +640,7 @@ DeviceInfo Device::get_multi_device(const vector<DeviceInfo> &subdevices,
     /* Accumulate device info. */
     info.has_half_images &= device.has_half_images;
     info.has_volume_decoupled &= device.has_volume_decoupled;
+    info.has_adaptive_stop_per_sample &= device.has_adaptive_stop_per_sample;
     info.has_osl &= device.has_osl;
     info.has_profiling &= device.has_profiling;
   }

@@ -22,8 +22,8 @@
 #include <float.h>
 
 #include "ViewMap.h"
-#include "ViewMapIterators.h"
 #include "ViewMapAdvancedIterators.h"
+#include "ViewMapIterators.h"
 
 #include "../geometry/GeomUtils.h"
 

@@ -297,7 +297,7 @@ class OBJECT_OT_Metacopy(Operator):  # Operator copy source in/out
                 functions.triminout(strip2, sin, sout)
                 bpy.ops.sequencer.copy()
                 bpy.ops.sequencer.meta_separate()
-                self.report({'INFO'}, "META2 has been trimed and copied")
+                self.report({'INFO'}, "META2 has been trimmed and copied")
             else:
                 bpy.ops.sequencer.meta_make()
                 bpy.ops.sequencer.copy()
@@ -520,7 +520,7 @@ class OBJECT_OT_Extrasnap(Operator):  # Operator paste source in/out
     bl_options = {'REGISTER', 'UNDO'}
 
     # align: 0 = left snap, 1 = center snap, 2= right snap
-    align = IntProperty(
+    align: IntProperty(
             name="Align",
             min=0, max=2,
             default=1
@@ -556,7 +556,7 @@ class OBJECT_OT_Extrahandles(Operator):  # Operator paste source in/out
     bl_options = {'REGISTER', 'UNDO'}
 
     # side: 0 = left , 1 = both, 2= right
-    side = IntProperty(
+    side: IntProperty(
             name="Side",
             min=0, max=2,
             default=1

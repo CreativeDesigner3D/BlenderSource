@@ -86,7 +86,7 @@ class NPPLGetContext(bpy.types.Operator):
         NP020PL.snap_target = copy.deepcopy(bpy.context.tool_settings.snap_target)
         NP020PL.pivot_point = copy.deepcopy(bpy.context.space_data.pivot_point)
         NP020PL.trans_orient = copy.deepcopy(bpy.context.space_data.transform_orientation)
-        NP020PL.curloc = copy.deepcopy(bpy.context.scene.cursor_location)
+        NP020PL.curloc = copy.deepcopy(bpy.context.scene.cursor.location)
         NP020PL.acob = bpy.context.active_object
         if bpy.context.mode == 'OBJECT':
             NP020PL.edit_mode = 'OBJECT'
@@ -178,8 +178,8 @@ class NPPLPrepareContext(bpy.types.Operator):
         np_print('prepare, NP020PL.flag = ', flag)
 
         bpy.ops.object.select_all(action = 'DESELECT')
-        helper.select = True
-        bpy.context.scene.objects.active = helper
+        helper.select_set(True)
+        bpy.context.view_layer.objects.active = helper
         bpy.context.tool_settings.use_snap = False
         bpy.context.tool_settings.snap_element = 'VERTEX'
         bpy.context.tool_settings.snap_target = 'ACTIVE'
@@ -527,7 +527,7 @@ class NPPLAlignSelected(bpy.types.Operator):
         copy = False
 
         bpy.ops.object.select_all(action = 'DESELECT')
-        helper.select = True
+        helper.select_set(True)
         bpy.ops.object.delete('EXEC_DEFAULT')
 
 
@@ -564,12 +564,12 @@ class NPPLAlignSelected(bpy.types.Operator):
         scn.update()
 
         bpy.ops.object.select_all(action = 'DESELECT')
-        fromob.select = True
+        fromob.select_set(True)
         bpy.ops.object.origin_set(type = 'ORIGIN_GEOMETRY')
 
 
         for ob in selob:
-            ob.select = True
+            ob.select_set(True)
 
         if flag == 'ALIGN':
             value = (tome.vertices[0].co) - (fromme.vertices[0].co + fromob.location)
@@ -580,15 +580,15 @@ class NPPLAlignSelected(bpy.types.Operator):
                 rot_axis = geometry.normal(tome.vertices[0].co, tome.vertices[1].co, (fromme.vertices[1].co + fromob.location))
                 rot_ang = (((fromme.vertices[1].co + fromob.location) - tome.vertices[0].co)).angle((tome.vertices[1].co - tome.vertices[0].co))
                 np_print('rot_axis, rot_ang =', rot_axis, rot_ang)
-                bpy.context.scene.cursor_location = tome.vertices[0].co
+                bpy.context.scene.cursor.location = tome.vertices[0].co
                 bpy.context.space_data.pivot_point = 'CURSOR'
                 bpy.ops.transform.rotate(value = -rot_ang, axis = rot_axis)
                 np_print('fromme.vertices = ', fromme.vertices)
                 bpy.ops.object.select_all(action = 'DESELECT')
-                fromob.select = True
-                bpy.ops.object.transform_apply(rotation=True,scale=True)
+                fromob.select_set(True)
+                bpy.ops.object.transform_apply(location=False,rotation=True,scale=True)
                 for ob in selob:
-                    ob.select = True
+                    ob.select_set(True)
                 scn.update()
                 #if scale:
                     #bpy.ops.transform_resize(value=(1.0, 1.0, 1.0))
@@ -600,18 +600,18 @@ class NPPLAlignSelected(bpy.types.Operator):
                     rot_axis = tome.vertices[1].co - tome.vertices[0].co
                     rot_ang = ((tome.vertices[2].co - proj_t)).angle(((fromme.vertices[2].co + fromob.location) - proj_f))
                     np_print('rot_axis, rot_ang =', rot_axis, rot_ang)
-                    bpy.context.scene.cursor_location = tome.vertices[1].co
+                    bpy.context.scene.cursor.location = tome.vertices[1].co
                     bpy.ops.transform.rotate(value = -rot_ang, axis = rot_axis)
                     bpy.ops.object.select_all(action = 'DESELECT')
-                    fromob.select = True
-                    bpy.ops.object.transform_apply(rotation=True,scale=True)
+                    fromob.select_set(True)
+                    bpy.ops.object.transform_apply(location=False,rotation=True,scale=True)
                     for ob in selob:
-                        ob.select = True
+                        ob.select_set(True)
                     if ((tome.vertices[2].co - proj_t)).angle(((fromme.vertices[2].co + fromob.location) - proj_f)) != 0: bpy.ops.transform.rotate(value = 2*rot_ang, axis = rot_axis)
 
         bpy.ops.object.select_all(action = 'DESELECT')
-        fromob.select = True
-        toob.select = True
+        fromob.select_set(True)
+        toob.select_set(True)
         bpy.ops.object.delete('EXEC_DEFAULT')
 
         return{'FINISHED'}
@@ -627,16 +627,16 @@ class NPPLRestoreContext(bpy.types.Operator):
         bpy.ops.object.select_all(action = 'DESELECT')
         selob = NP020PL.selob
         for ob in selob:
-            ob.select = True
+            ob.select_set(True)
         if NP020PL.acob is not None:
-            bpy.context.scene.objects.active = NP020PL.acob
+            bpy.context.view_layer.objects.active = NP020PL.acob
             bpy.ops.object.mode_set(mode = NP020PL.edit_mode)
         bpy.context.tool_settings.use_snap = NP020PL.use_snap
         bpy.context.tool_settings.snap_element = NP020PL.snap_element
         bpy.context.tool_settings.snap_target = NP020PL.snap_target
         bpy.context.space_data.pivot_point = NP020PL.pivot_point
         bpy.context.space_data.transform_orientation = NP020PL.trans_orient
-        bpy.context.scene.cursor_location = NP020PL.curloc
+        bpy.context.scene.cursor.location = NP020PL.curloc
 
         NP020PL.flag = 'RUNTRANSF0'
         return {'FINISHED'}

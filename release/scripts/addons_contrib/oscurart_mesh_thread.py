@@ -37,7 +37,7 @@ def func_osc_screw(self, STRETCH,TURNS,DIAMETER,RESOLUTION):
     # DATA PARA EL MESH
     me = bpy.data.meshes.new("threadData")
     obj = bpy.data.objects.new("Thread", me)
-    bpy.context.scene.objects.link(obj)
+    bpy.context.collection.objects.link(obj)
 
     # VARIABLES
     vertexlist=[]
@@ -66,10 +66,10 @@ class oscMakeScrew (bpy.types.Operator):
     bl_description = "Create a Thread"
     bl_options = {'REGISTER', 'UNDO'}
 
-    resolution = bpy.props.IntProperty (name="Resolution",default=10,min=3,max=1000)
-    stretch = bpy.props.FloatProperty (name="Stretch",default=1,min=0.000001,max=1000)
-    turns = bpy.props.IntProperty (name="Turns Steps",default=19,min=0)
-    diameter = bpy.props.FloatProperty (name="Diameter",default=1,min=0,max=1000)
+    resolution: bpy.props.IntProperty (name="Resolution",default=10,min=3,max=1000)
+    stretch: bpy.props.FloatProperty (name="Stretch",default=1,min=0.000001,max=1000)
+    turns: bpy.props.IntProperty (name="Turns Steps",default=19,min=0)
+    diameter: bpy.props.FloatProperty (name="Diameter",default=1,min=0,max=1000)
 
 
 
@@ -87,15 +87,14 @@ def add_screw_list(self, context):
         icon="PLUGIN")
 
 def register():
-    bpy.types.INFO_MT_mesh_add.append(add_screw_list)
+    bpy.types.VIEW3D_MT_mesh_add.append(add_screw_list)
     bpy.utils.register_class(oscMakeScrew)
 
 
 def unregister():
-    bpy.types.INFO_MT_mesh_add.remove(add_screw_list)
+    bpy.types.VIEW3D_MT_mesh_add.remove(add_screw_list)
     bpy.utils.unregister_class(oscMakeScrew)
 
 
 if __name__ == '__main__':
     register()
-

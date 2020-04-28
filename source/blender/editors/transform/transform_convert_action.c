@@ -30,8 +30,8 @@
 #include "BLI_math.h"
 #include "BLI_rect.h"
 
-#include "BKE_nla.h"
 #include "BKE_context.h"
+#include "BKE_nla.h"
 #include "BKE_report.h"
 
 #include "ED_anim_api.h"
@@ -297,8 +297,8 @@ void createTransActionData(bContext *C, TransInfo *t)
   TransData2D *td2d = NULL;
   tGPFtransdata *tfd = NULL;
 
-  rcti *mask = &t->ar->v2d.mask;
-  rctf *datamask = &t->ar->v2d.cur;
+  rcti *mask = &t->region->v2d.mask;
+  rctf *datamask = &t->region->v2d.cur;
 
   float xsize = BLI_rctf_size_x(datamask);
   float ysize = BLI_rctf_size_y(datamask);
@@ -313,7 +313,7 @@ void createTransActionData(bContext *C, TransInfo *t)
 
   int count = 0;
   float cfra;
-  float ypos = 1.0f / ((ysize / xsize) * (xmask / ymask)) * BLI_rctf_cent_y(&t->ar->v2d.cur);
+  float ypos = 1.0f / ((ysize / xsize) * (xmask / ymask)) * BLI_rctf_cent_y(&t->region->v2d.cur);
 
   /* determine what type of data we are operating on */
   if (ANIM_animdata_get_context(C, &ac) == 0) {
@@ -331,10 +331,7 @@ void createTransActionData(bContext *C, TransInfo *t)
 
   /* which side of the current frame should be allowed */
   if (t->mode == TFM_TIME_EXTEND) {
-    /* only side on which center is gets transformed */
-    float center[2];
-    transform_convert_center_global_v2(t, center);
-    t->frame_side = (center[0] > CFRA) ? 'R' : 'L';
+    t->frame_side = transform_convert_frame_side_dir_get(t, (float)CFRA);
   }
   else {
     /* normal transform - both sides of current frame are considered */

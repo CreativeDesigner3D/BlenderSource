@@ -644,16 +644,16 @@ class ExportMD3(bpy.types.Operator):
   bl_idname = "export.md3"
   bl_label = 'Export MD3'
 
-  filepath = StringProperty(subtype = 'FILE_PATH',name="File Path", description="Filepath for exporting", maxlen= 1024, default= "")
-  md3name = StringProperty(name="MD3 Name", description="MD3 header name / skin path (64 bytes)",maxlen=64,default="")
-  md3log = StringProperty(name="MD3 Log", description="MD3 log file path",maxlen=1024,default="export_md3.log")
-  md3overwritelog = BoolProperty(name="Overwrite log", description="Overwrite log (off == append)", default=True)
-  md3dumpall = BoolProperty(name="Dump all", description="Dump all data for md3 to log",default=False)
-  md3ignoreuvs = BoolProperty(name="Ignore UVs", description="Ignores uv influence on mesh generation. Use if uv map not made.",default=False)
-  md3scale = FloatProperty(name="Scale", description="Scale all objects from world origin (0,0,0)",default=1.0,precision=5)
-  md3offsetx = FloatProperty(name="Offset X", description="Transition scene along x axis",default=0.0,precision=5)
-  md3offsety = FloatProperty(name="Offset Y", description="Transition scene along y axis",default=0.0,precision=5)
-  md3offsetz = FloatProperty(name="Offset Z", description="Transition scene along z axis",default=0.0,precision=5)
+  filepath: StringProperty(subtype = 'FILE_PATH',name="File Path", description="Filepath for exporting", maxlen= 1024, default= "")
+  md3name: StringProperty(name="MD3 Name", description="MD3 header name / skin path (64 bytes)",maxlen=64,default="")
+  md3log: StringProperty(name="MD3 Log", description="MD3 log file path",maxlen=1024,default="export_md3.log")
+  md3overwritelog: BoolProperty(name="Overwrite log", description="Overwrite log (off == append)", default=True)
+  md3dumpall: BoolProperty(name="Dump all", description="Dump all data for md3 to log",default=False)
+  md3ignoreuvs: BoolProperty(name="Ignore UVs", description="Ignores uv influence on mesh generation. Use if uv map not made.",default=False)
+  md3scale: FloatProperty(name="Scale", description="Scale all objects from world origin (0,0,0)",default=1.0,precision=5)
+  md3offsetx: FloatProperty(name="Offset X", description="Transition scene along x axis",default=0.0,precision=5)
+  md3offsety: FloatProperty(name="Offset Y", description="Transition scene along y axis",default=0.0,precision=5)
+  md3offsetz: FloatProperty(name="Offset Z", description="Transition scene along z axis",default=0.0,precision=5)
 
   def execute(self, context):
    settings = md3Settings(savepath = self.properties.filepath,
@@ -683,10 +683,10 @@ def menu_func(self, context):
   self.layout.operator(ExportMD3.bl_idname, text="Quake Model 3 (.md3)").filepath = newpath
 
 def register():
-  bpy.types.INFO_MT_file_export.append(menu_func)
+  bpy.types.TOPBAR_MT_file_export.append(menu_func)
 
 def unregister():
-  bpy.types.INFO_MT_file_export.remove(menu_func)
+  bpy.types.TOPBAR_MT_file_export.remove(menu_func)
 
 if __name__ == "__main__":
   register()

@@ -28,8 +28,10 @@ extern "C" {
 #include "DNA_freestyle_types.h"
 #include "DNA_listBase.h"
 
-/* Renderpasses for EEVEE.
- * ViewLayerEEVEE.render_passes */
+/**
+ * Render-passes for EEVEE.
+ * #ViewLayerEEVEE.render_passes
+ */
 typedef enum eViewLayerEEVEEPassType {
   EEVEE_RENDER_PASS_COMBINED = (1 << 0),
   EEVEE_RENDER_PASS_Z = (1 << 1),
@@ -171,6 +173,7 @@ enum {
   LAYER_COLLECTION_HOLDOUT = (1 << 5),
   LAYER_COLLECTION_INDIRECT_ONLY = (1 << 6),
   LAYER_COLLECTION_HIDE = (1 << 7),
+  LAYER_COLLECTION_PREVIOUSLY_EXCLUDED = (1 << 8),
 };
 
 /* Layer Collection->runtime_flag

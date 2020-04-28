@@ -38,11 +38,9 @@ def create_and_link_mesh(name, points):
     mesh.validate()
     mesh.update()
 
-    scene = bpy.context.scene
-
     obj = bpy.data.objects.new(name, mesh)
-    scene.objects.link(obj)
-    obj.select = True
+    bpy.context.collection.objects.link(obj)
+    obj.select_set(True)
 
 
 def import_pcd(filepath, name="new_pointcloud"):
@@ -73,7 +71,7 @@ def import_pcd(filepath, name="new_pointcloud"):
         blender_points.append((point.x, point.y, point.z))
 
     create_and_link_mesh(name, blender_points)
-  
+
 
 def export_pcd(filepath):
     obj = bpy.context.active_object
@@ -81,7 +79,7 @@ def export_pcd(filepath):
     # apply object transformation and modifiers
     mesh = obj.to_mesh(bpy.context.scene, True, "PREVIEW")
     objmat = obj.matrix_world
-    
+
     points = []
     for vert in mesh.vertices:
         co = objmat * vert.co
@@ -93,5 +91,3 @@ def export_pcd(filepath):
 
     writer = pcdparser.PCDWriter(points)
     writer.write(filepath)
-
-

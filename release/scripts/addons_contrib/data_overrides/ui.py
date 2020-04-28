@@ -29,8 +29,8 @@ from data_overrides.override import *
 '''
 def id_data_children(id_data):
     if isinstance(id_data, bpy.types.Object):
-        if id_data.dupli_type == 'GROUP' and id_data.dupli_group:
-            yield id_data.dupli_group
+        if id_data.instance_type == 'COLLECTION' and id_data.instance_collection:
+            yield id_data.instance_collection
     elif isinstance(id_data, bpy.types.Group):
         for ob in id_data.objects:
             yield ob
@@ -88,7 +88,7 @@ class SCENE_OT_Override_Add(Operator):
     def id_block_items(self, context):
         return [id_data_enum_item(id_data) for id_data in bpy.data.objects]
 
-    id_block = EnumProperty(name="ID", description="ID datablock for which to add overrides", items=id_block_items)
+    id_block: EnumProperty(name="ID", description="ID datablock for which to add overrides", items=id_block_items)
 
     def invoke(self, context, evemt):
         context.window_manager.invoke_search_popup(self)
@@ -99,7 +99,7 @@ class SCENE_OT_Override_Add(Operator):
 
         id_data = id_data_from_enum(self.id_block)
         add_override(scene, id_data)
-        
+
         return {'FINISHED'}
 
 
@@ -109,7 +109,7 @@ class SCENE_OT_Override_AddCustomProperty(Operator):
     bl_label = "Add Custom Property Override"
     bl_options = {'REGISTER', 'UNDO'}
 
-    propname = StringProperty(name="Property", description="Path to the custom property to override")
+    propname: StringProperty(name="Property", description="Path to the custom property to override")
 
     @classmethod
     def poll(cls, context):

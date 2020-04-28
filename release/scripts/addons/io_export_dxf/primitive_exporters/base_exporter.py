@@ -16,7 +16,7 @@ class BasePrimitiveDXFExporter(object):
         returns a list of [x,y,z]
         """
         #print 'deb:projected_co()  verts=', verts #---------
-        temp_verts = [matrix*mathutils.Vector(v) for v in verts]
+        temp_verts = [matrix @ mathutils.Vector(v) for v in verts]
         #print 'deb:projected_co()  temp_verts=', temp_verts #---------
 
     #    if GUI_A['Z_force_on'].val: locZ = GUI_A['Z_elev'].val
@@ -57,8 +57,8 @@ class BasePrimitiveDXFExporter(object):
             # get its normal-vector in localCS
             vec_normal = f.no.copy()
             #print 'deb: vec_normal=', vec_normal #------------------
-            # must be transfered to camera/view-CS
-            vec_normal *= mx_n
+            # must be transferred to camera/view-CS
+            vec_normal @= mx_n
             #vec_normal *= mb.rotationPart()
             #print 'deb:2vec_normal=', vec_normal #------------------
             #vec_normal *= mw0.rotationPart()
@@ -72,7 +72,7 @@ class BasePrimitiveDXFExporter(object):
                     frontFace = True
             else:
                 v = f.verts[0]
-                vert = mathutils.Vector(v.co) * mx
+                vert = mathutils.Vector(v.co) @ mx
                 if mathutils.DotVecs(vert, vec_normal) < 0.00001:
                     frontFace = True
 
@@ -191,5 +191,5 @@ class BasePrimitiveDXFExporter(object):
 #        # ECS_origin is Global_Origin in EntityCoordSystem
 #        ECS_origin = OCS_origin * Zrotmatrix
 #        #print 'deb: ECS_origin=', ECS_origin #---------
-#        #TODO: it doesnt work yet for negative scaled curve-objects!
+#        #TODO: it doesn't work yet for negative scaled curve-objects!
 #        return ZRotation,Zrotmatrix,OCS_origin,ECS_origin

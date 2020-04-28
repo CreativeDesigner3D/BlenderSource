@@ -27,12 +27,12 @@
 #include "DNA_meshdata_types.h"
 #include "DNA_object_types.h"
 
+#include "BKE_deform.h"
 #include "BKE_lib_id.h"
 #include "BKE_lib_query.h"
 #include "BKE_mesh.h"
 #include "BKE_mesh_mirror.h"
 #include "BKE_modifier.h"
-#include "BKE_deform.h"
 
 #include "bmesh.h"
 #include "bmesh_tools.h"
@@ -77,7 +77,7 @@ Mesh *BKE_mesh_mirror_bisect_on_mirror_plane(MirrorModifierData *mmd,
   }
   plane_from_point_normal_v3(plane, plane_co, plane_no);
 
-  BM_mesh_bisect_plane(bm, plane, false, false, 0, 0, bisect_distance);
+  BM_mesh_bisect_plane(bm, plane, true, false, 0, 0, bisect_distance);
 
   /* Plane definitions for vert killing. */
   float plane_offset[4];
@@ -384,16 +384,16 @@ Mesh *BKE_mesh_mirror_apply_mirror_on_axis(MirrorModifierData *mmd,
                          maxVerts;
     int *flip_map = NULL, flip_map_len = 0;
 
-    flip_map = defgroup_flip_map(ob, &flip_map_len, false);
+    flip_map = BKE_object_defgroup_flip_map(ob, &flip_map_len, false);
 
     if (flip_map) {
       for (i = 0; i < maxVerts; dvert++, i++) {
         /* merged vertices get both groups, others get flipped */
         if (do_vtargetmap && (vtargetmap[i] != -1)) {
-          defvert_flip_merged(dvert, flip_map, flip_map_len);
+          BKE_defvert_flip_merged(dvert, flip_map, flip_map_len);
         }
         else {
-          defvert_flip(dvert, flip_map, flip_map_len);
+          BKE_defvert_flip(dvert, flip_map, flip_map_len);
         }
       }
 

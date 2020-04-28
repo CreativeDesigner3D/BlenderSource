@@ -23,7 +23,9 @@
  * GPU immediate mode work-alike
  */
 
-#include "UI_resources.h"
+#ifndef GPU_STANDALONE
+#  include "UI_resources.h"
+#endif
 
 #include "GPU_attr_binding.h"
 #include "GPU_immediate.h"
@@ -34,12 +36,20 @@
 #include "gpu_shader_private.h"
 #include "gpu_vertex_format_private.h"
 
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 
 /* necessary functions from matrix API */
 extern void GPU_matrix_bind(const GPUShaderInterface *);
 extern bool GPU_matrix_dirty_get(void);
+
+typedef struct ImmediateDrawBuffer {
+  GLuint vbo_id;
+  GLubyte *buffer_data;
+  uint buffer_offset;
+  uint buffer_size;
+  uint default_size;
+} ImmediateDrawBuffer;
 
 typedef struct {
   /* TODO: organize this struct by frequency of change (run-time) */
@@ -48,14 +58,14 @@ typedef struct {
   GPUContext *context;
 
   /* current draw call */
-  GLubyte *buffer_data;
-  uint buffer_offset;
-  uint buffer_bytes_mapped;
-  uint vertex_len;
   bool strict_vertex_len;
+  uint vertex_len;
+  uint buffer_bytes_mapped;
+  ImmediateDrawBuffer *active_buffer;
   GPUPrimType prim_type;
-
   GPUVertFormat vertex_format;
+  ImmediateDrawBuffer draw_buffer;
+  ImmediateDrawBuffer draw_buffer_strict;
 
   /* current vertex */
   uint vertex_idx;
@@ -63,7 +73,6 @@ typedef struct {
   uint16_t
       unassigned_attr_bits; /* which attributes of current vertex have not been given values? */
 
-  GLuint vbo_id;
   GLuint vao_id;
 
   GLuint bound_program;
@@ -74,7 +83,6 @@ typedef struct {
 
 /* size of internal buffer */
 #define DEFAULT_INTERNAL_BUFFER_SIZE (4 * 1024 * 1024)
-static uint imm_buffer_size = DEFAULT_INTERNAL_BUFFER_SIZE;
 
 static bool initialized = false;
 static Immediate imm;
@@ -86,9 +94,16 @@ void immInit(void)
 #endif
   memset(&imm, 0, sizeof(Immediate));
 
-  imm.vbo_id = GPU_buf_alloc();
-  glBindBuffer(GL_ARRAY_BUFFER, imm.vbo_id);
-  glBufferData(GL_ARRAY_BUFFER, imm_buffer_size, NULL, GL_DYNAMIC_DRAW);
+  imm.draw_buffer.vbo_id = GPU_buf_alloc();
+  imm.draw_buffer.buffer_size = DEFAULT_INTERNAL_BUFFER_SIZE;
+  imm.draw_buffer.default_size = DEFAULT_INTERNAL_BUFFER_SIZE;
+  glBindBuffer(GL_ARRAY_BUFFER, imm.draw_buffer.vbo_id);
+  glBufferData(GL_ARRAY_BUFFER, imm.draw_buffer.buffer_size, NULL, GL_DYNAMIC_DRAW);
+  imm.draw_buffer_strict.vbo_id = GPU_buf_alloc();
+  imm.draw_buffer_strict.buffer_size = 0;
+  imm.draw_buffer_strict.default_size = 0;
+  glBindBuffer(GL_ARRAY_BUFFER, imm.draw_buffer_strict.vbo_id);
+  glBufferData(GL_ARRAY_BUFFER, imm.draw_buffer_strict.buffer_size, NULL, GL_DYNAMIC_DRAW);
 
   imm.prim_type = GPU_PRIM_NONE;
   imm.strict_vertex_len = true;
@@ -122,7 +137,8 @@ void immDeactivate(void)
 
 void immDestroy(void)
 {
-  GPU_buf_free(imm.vbo_id);
+  GPU_buf_free(imm.draw_buffer.vbo_id);
+  GPU_buf_free(imm.draw_buffer_strict.vbo_id);
   initialized = false;
 }
 
@@ -149,6 +165,7 @@ void immBindProgram(GLuint program, const GPUShaderInterface *shaderface)
   glUseProgram(program);
   get_attr_locations(&imm.vertex_format, &imm.attr_binding, shaderface);
   GPU_matrix_bind(shaderface);
+  GPU_shader_set_srgb_uniform(shaderface);
 }
 
 void immBindBuiltinProgram(eGPUBuiltinShader shader_id)
@@ -210,6 +227,7 @@ void immBegin(GPUPrimType prim_type, uint vertex_len)
   assert(initialized);
   assert(imm.prim_type == GPU_PRIM_NONE); /* make sure we haven't already begun */
   assert(vertex_count_makes_sense_for_primitive(vertex_len, prim_type));
+  assert(imm.active_buffer == NULL);
 #endif
   imm.prim_type = prim_type;
   imm.vertex_len = vertex_len;
@@ -218,54 +236,58 @@ void immBegin(GPUPrimType prim_type, uint vertex_len)
 
   /* how many bytes do we need for this draw call? */
   const uint bytes_needed = vertex_buffer_size(&imm.vertex_format, vertex_len);
+  ImmediateDrawBuffer *active_buffer = imm.strict_vertex_len ? &imm.draw_buffer_strict :
+                                                               &imm.draw_buffer;
+  imm.active_buffer = active_buffer;
 
-  glBindBuffer(GL_ARRAY_BUFFER, imm.vbo_id);
+  glBindBuffer(GL_ARRAY_BUFFER, active_buffer->vbo_id);
 
   /* does the current buffer have enough room? */
-  const uint available_bytes = imm_buffer_size - imm.buffer_offset;
+  const uint available_bytes = active_buffer->buffer_size - active_buffer->buffer_offset;
 
   bool recreate_buffer = false;
-  if (bytes_needed > imm_buffer_size) {
+  if (bytes_needed > active_buffer->buffer_size) {
     /* expand the internal buffer */
-    imm_buffer_size = bytes_needed;
+    active_buffer->buffer_size = bytes_needed;
     recreate_buffer = true;
   }
-  else if (bytes_needed < DEFAULT_INTERNAL_BUFFER_SIZE &&
-           imm_buffer_size > DEFAULT_INTERNAL_BUFFER_SIZE) {
+  else if (bytes_needed < active_buffer->default_size &&
+           active_buffer->buffer_size > active_buffer->default_size) {
     /* shrink the internal buffer */
-    imm_buffer_size = DEFAULT_INTERNAL_BUFFER_SIZE;
+    active_buffer->buffer_size = active_buffer->default_size;
     recreate_buffer = true;
   }
 
   /* ensure vertex data is aligned */
   /* Might waste a little space, but it's safe. */
-  const uint pre_padding = padding(imm.buffer_offset, imm.vertex_format.stride);
+  const uint pre_padding = padding(active_buffer->buffer_offset, imm.vertex_format.stride);
 
   if (!recreate_buffer && ((bytes_needed + pre_padding) <= available_bytes)) {
-    imm.buffer_offset += pre_padding;
+    active_buffer->buffer_offset += pre_padding;
   }
   else {
     /* orphan this buffer & start with a fresh one */
     /* this method works on all platforms, old & new */
-    glBufferData(GL_ARRAY_BUFFER, imm_buffer_size, NULL, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, active_buffer->buffer_size, NULL, GL_DYNAMIC_DRAW);
 
-    imm.buffer_offset = 0;
+    active_buffer->buffer_offset = 0;
   }
 
   /*  printf("mapping %u to %u\n", imm.buffer_offset, imm.buffer_offset + bytes_needed - 1); */
 
-  imm.buffer_data = glMapBufferRange(GL_ARRAY_BUFFER,
-                                     imm.buffer_offset,
-                                     bytes_needed,
-                                     GL_MAP_WRITE_BIT | GL_MAP_UNSYNCHRONIZED_BIT |
-                                         (imm.strict_vertex_len ? 0 : GL_MAP_FLUSH_EXPLICIT_BIT));
+  active_buffer->buffer_data = glMapBufferRange(
+      GL_ARRAY_BUFFER,
+      active_buffer->buffer_offset,
+      bytes_needed,
+      GL_MAP_WRITE_BIT | GL_MAP_UNSYNCHRONIZED_BIT |
+          (imm.strict_vertex_len ? 0 : GL_MAP_FLUSH_EXPLICIT_BIT));
 
 #if TRUST_NO_ONE
-  assert(imm.buffer_data != NULL);
+  assert(active_buffer->buffer_data != NULL);
 #endif
 
   imm.buffer_bytes_mapped = bytes_needed;
-  imm.vertex_data = imm.buffer_data;
+  imm.vertex_data = active_buffer->buffer_data;
 }
 
 void immBeginAtMost(GPUPrimType prim_type, uint vertex_len)
@@ -335,7 +357,7 @@ static void immDrawSetup(void)
   for (uint a_idx = 0; a_idx < imm.vertex_format.attr_len; a_idx++) {
     const GPUVertAttr *a = &imm.vertex_format.attrs[a_idx];
 
-    const uint offset = imm.buffer_offset + a->offset;
+    const uint offset = imm.active_buffer->buffer_offset + a->offset;
     const GLvoid *pointer = (const GLubyte *)0 + offset;
 
     const uint loc = read_attr_location(&imm.attr_binding, a_idx);
@@ -362,6 +384,7 @@ void immEnd(void)
 {
 #if TRUST_NO_ONE
   assert(imm.prim_type != GPU_PRIM_NONE); /* make sure we're between a Begin/End pair */
+  assert(imm.active_buffer || imm.batch);
 #endif
 
   uint buffer_bytes_used;
@@ -418,12 +441,13 @@ void immEnd(void)
     // glBindBuffer(GL_ARRAY_BUFFER, 0);
     // glBindVertexArray(0);
     /* prep for next immBegin */
-    imm.buffer_offset += buffer_bytes_used;
+    imm.active_buffer->buffer_offset += buffer_bytes_used;
   }
 
   /* prep for next immBegin */
   imm.prim_type = GPU_PRIM_NONE;
   imm.strict_vertex_len = true;
+  imm.active_buffer = NULL;
 }
 
 static void setAttrValueBit(uint attr_id)
@@ -910,6 +934,8 @@ void immUniformColor4ubv(const uchar rgba[4])
   immUniformColor4ub(rgba[0], rgba[1], rgba[2], rgba[3]);
 }
 
+#ifndef GPU_STANDALONE
+
 void immUniformThemeColor(int color_id)
 {
   float color[4];
@@ -958,3 +984,5 @@ void immThemeColorShadeAlpha(int colorid, int coloffset, int alphaoffset)
   UI_GetThemeColorShadeAlpha4ubv(colorid, coloffset, alphaoffset, col);
   immUniformColor4ub(col[0], col[1], col[2], col[3]);
 }
+
+#endif /* GPU_STANDALONE */

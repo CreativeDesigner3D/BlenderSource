@@ -26,6 +26,9 @@ import bpy
 from mathutils import Vector, Matrix
 
 from . import svg_colors
+from .svg_util import (srgb_to_linearrgb,
+                       check_points_equal,
+                       parse_array_of_floats)
 
 #### Common utilities ####
 
@@ -44,13 +47,6 @@ SVGUnits = {"": 1.0,
 
 SVGEmptyStyles = {'useFill': None,
                   'fill': None}
-
-def srgb_to_linearrgb(c):
-    if c < 0.04045:
-        return 0.0 if c < 0.0 else c * (1.0 / 12.92);
-    else:
-        return pow((c + 0.055) * (1.0 / 1.055), 2.4);
-
 
 def SVGParseFloat(s, i=0):
     """
@@ -118,14 +114,15 @@ def SVGParseFloat(s, i=0):
     return token, i
 
 
-def SVGCreateCurve():
+def SVGCreateCurve(context):
     """
     Create new curve object to hold splines in
     """
 
     cu = bpy.data.curves.new("Curve", 'CURVE')
     obj = bpy.data.objects.new("Curve", cu)
-    bpy.context.scene.objects.link(obj)
+
+    context['collection'].objects.link(obj)
 
     return obj
 
@@ -213,8 +210,8 @@ def SVGMatrixFromNode(node, context):
     m = Matrix.Translation(Vector((x, y, 0.0)))
     if has_user_coordinate:
         if rect[0] != 0 and rect[1] != 0:
-            m = m * Matrix.Scale(w / rect[0], 4, Vector((1.0, 0.0, 0.0)))
-            m = m * Matrix.Scale(h / rect[1], 4, Vector((0.0, 1.0, 0.0)))
+            m = m @ Matrix.Scale(w / rect[0], 4, Vector((1.0, 0.0, 0.0)))
+            m = m @ Matrix.Scale(h / rect[1], 4, Vector((0.0, 1.0, 0.0)))
 
     if node.getAttribute('viewBox'):
         viewBox = node.getAttribute('viewBox').replace(',', ' ').split()
@@ -237,11 +234,11 @@ def SVGMatrixFromNode(node, context):
 
         tx = (w - vw * scale) / 2
         ty = (h - vh * scale) / 2
-        m = m * Matrix.Translation(Vector((tx, ty, 0.0)))
+        m = m @ Matrix.Translation(Vector((tx, ty, 0.0)))
 
-        m = m * Matrix.Translation(Vector((-vx, -vy, 0.0)))
-        m = m * Matrix.Scale(scale, 4, Vector((1.0, 0.0, 0.0)))
-        m = m * Matrix.Scale(scale, 4, Vector((0.0, 1.0, 0.0)))
+        m = m @ Matrix.Translation(Vector((-vx, -vy, 0.0)))
+        m = m @ Matrix.Scale(scale, 4, Vector((1.0, 0.0, 0.0)))
+        m = m @ Matrix.Scale(scale, 4, Vector((0.0, 1.0, 0.0)))
 
     return m
 
@@ -263,7 +260,7 @@ def SVGParseTransform(transform):
         if proc is None:
             raise Exception('Unknown trasnform function: ' + func)
 
-        m = m * proc(params)
+        m = m @ proc(params)
 
     return m
 
@@ -303,8 +300,7 @@ def SVGGetMaterial(color, context):
         diffuse_color[2] = srgb_to_linearrgb(diffuse_color[2])
 
     mat = bpy.data.materials.new(name='SVGMat')
-    mat.diffuse_color = diffuse_color
-    mat.diffuse_intensity = 1.0
+    mat.diffuse_color = (*diffuse_color, 1.0)
 
     materials[color] = mat
 
@@ -350,8 +346,8 @@ def SVGTransformScale(params):
 
     m = Matrix()
 
-    m = m * Matrix.Scale(sx, 4, Vector((1.0, 0.0, 0.0)))
-    m = m * Matrix.Scale(sy, 4, Vector((0.0, 1.0, 0.0)))
+    m = m @ Matrix.Scale(sx, 4, Vector((1.0, 0.0, 0.0)))
+    m = m @ Matrix.Scale(sy, 4, Vector((0.0, 1.0, 0.0)))
 
     return m
 
@@ -395,7 +391,7 @@ def SVGTransformRotate(params):
     tm = Matrix.Translation(Vector((cx, cy, 0.0)))
     rm = Matrix.Rotation(ang, 4, Vector((0.0, 0.0, 1.0)))
 
-    return tm * rm * tm.inverted()
+    return tm @ rm @ tm.inverted()
 
 SVGTransforms = {'translate': SVGTransformTranslate,
                  'scale': SVGTransformScale,
@@ -408,7 +404,7 @@ SVGTransforms = {'translate': SVGTransformTranslate,
 def SVGParseStyles(node, context):
     """
     Parse node to get different styles for displaying geometries
-    (materilas, filling flags, etc..)
+    (materials, filling flags, etc..)
     """
 
     styles = SVGEmptyStyles.copy()
@@ -457,6 +453,12 @@ def SVGParseStyles(node, context):
         styles['fill'] = SVGGetMaterial('#000', context)
 
     return styles
+
+def id_names_from_node(node, ob):
+    if node.getAttribute('id'):
+        name = node.getAttribute('id')
+        ob.name = name
+        ob.data.name = name
 
 #### SVG path helpers ####
 
@@ -645,7 +647,7 @@ class SVGPathParser:
             # filled.
 
             first = self._spline['points'][0]
-            if abs(first['x'] - x) < 1e-6 and abs(first['y'] - y) < 1e-6:
+            if check_points_equal((first['x'], first['y']), (x, y)):
                 if handle_left is not None:
                     first['handle_left'] = handle_left
                     first['handle_left_type'] = 'FREE'
@@ -662,6 +664,9 @@ class SVGPathParser:
             if last['handle_right_type'] == 'VECTOR' and handle_left_type == 'FREE':
                 last['handle_right'] = (last['x'], last['y'])
                 last['handle_right_type'] = 'FREE'
+            if last['handle_right_type'] == 'FREE' and handle_left_type == 'VECTOR':
+                handle_left = (x, y)
+                handle_left_type = 'FREE'
 
         point = {'x': x,
                  'y': y,
@@ -747,7 +752,7 @@ class SVGPathParser:
 
     def _pathCurveToCS(self, code):
         """
-        Cubic BEZIER CurveTo  path command
+        Cubic BEZIER CurveTo path command
         """
 
         c = code.lower()
@@ -784,7 +789,7 @@ class SVGPathParser:
 
     def _pathCurveToQT(self, code):
         """
-        Qyadracic BEZIER CurveTo  path command
+        Quadratic BEZIER CurveTo path command
         """
 
         c = code.lower()
@@ -796,20 +801,21 @@ class SVGPathParser:
             else:
                 if self._handle is not None:
                     x1, y1 = SVGFlipHandle(self._point[0], self._point[1],
-                                        self._handle[0], self._handle[1])
+                                           self._handle[0], self._handle[1])
                 else:
                     x1, y1 = self._point
 
             x, y = self._getCoordPair(code.islower(), self._point)
 
-            if self._spline is None:
-                self._appendPoint(self._point[0], self._point[1],
-                    handle_left_type='FREE', handle_left=self._point,
-                    handle_right_type='FREE', handle_right=self._point)
+            if not check_points_equal((x, y), self._point):
+                if self._spline is None:
+                    self._appendPoint(self._point[0], self._point[1],
+                        handle_left_type='FREE', handle_left=self._point,
+                        handle_right_type='FREE', handle_right=self._point)
 
-            self._appendPoint(x, y,
-                handle_left_type='FREE', handle_left=(x1, y1),
-                handle_right_type='FREE', handle_right=(x, y))
+                self._appendPoint(x, y,
+                    handle_left_type='FREE', handle_left=(x1, y1),
+                    handle_right_type='FREE', handle_right=(x, y))
 
             self._point = (x, y)
             self._handle = (x1, y1)
@@ -961,7 +967,7 @@ class SVGPathParser:
                 raise Exception('Unknown path command: {0}' . format(code))
 
             if cmd in {'Z', 'z'}:
-                closed =True
+                closed = True
             else:
                 closed = False
 
@@ -1030,7 +1036,7 @@ class SVGGeometry:
         """
 
         self._context['transform'].append(matrix)
-        self._context['matrix'] = self._context['matrix'] * matrix
+        self._context['matrix'] = self._context['matrix'] @ matrix
 
     def _popMatrix(self):
         """
@@ -1038,7 +1044,7 @@ class SVGGeometry:
         """
 
         matrix = self._context['transform'].pop()
-        self._context['matrix'] = self._context['matrix'] * matrix.inverted()
+        self._context['matrix'] = self._context['matrix'] @ matrix.inverted()
 
     def _pushStyle(self, style):
         """
@@ -1063,7 +1069,7 @@ class SVGGeometry:
 
         v = Vector((point[0], point[1], 0.0))
 
-        return self._context['matrix'] * v
+        return self._context['matrix'] @ v
 
     def getNodeMatrix(self):
         """
@@ -1211,11 +1217,10 @@ class SVGGeometryPATH(SVGGeometry):
         Create real geometries
         """
 
-        ob = SVGCreateCurve()
+        ob = SVGCreateCurve(self._context)
         cu = ob.data
 
-        if self._node.getAttribute('id'):
-            cu.name = self._node.getAttribute('id')
+        id_names_from_node(self._node, ob)
 
         if self._styles['useFill']:
             cu.dimensions = '2D'
@@ -1225,6 +1230,19 @@ class SVGGeometryPATH(SVGGeometry):
 
         for spline in self._splines:
             act_spline = None
+
+            if spline['closed'] and len(spline['points']) >= 2:
+                first = spline['points'][0]
+                last = spline['points'][-1]
+                if (    first['handle_left_type'] == 'FREE' and
+                        last['handle_right_type'] == 'VECTOR'):
+                    last['handle_right_type'] = 'FREE'
+                    last['handle_right'] = (last['x'], last['y'])
+                if (    last['handle_right_type'] == 'FREE' and
+                        first['handle_left_type'] == 'VECTOR'):
+                    first['handle_left_type'] = 'FREE'
+                    first['handle_left'] = (first['x'], first['y'])
+
             for point in spline['points']:
                 co = self._transformCoord((point['x'], point['y']))
 
@@ -1234,7 +1252,7 @@ class SVGGeometryPATH(SVGGeometry):
                     act_spline = cu.splines[-1]
                     act_spline.use_cyclic_u = spline['closed']
                 else:
-                    act_spline.bezier_points.add()
+                    act_spline.bezier_points.add(1)
 
                 bezt = act_spline.bezier_points[-1]
                 bezt.co = co
@@ -1331,7 +1349,7 @@ class SVGGeometryRECT(SVGGeometry):
     SVG rectangle
     """
 
-    __slots__ = ('_rect',  # coordinate and domensions of rectangle
+    __slots__ = ('_rect',  # coordinate and dimensions of rectangle
                  '_radius',  # Rounded corner radiuses
                  '_styles')  # Styles, used for displaying
 
@@ -1378,7 +1396,7 @@ class SVGGeometryRECT(SVGGeometry):
         co = self._transformCoord(coord)
 
         if not firstTime:
-            spline.bezier_points.add()
+            spline.bezier_points.add(1)
 
         bezt = spline.bezier_points[-1]
         bezt.co = co
@@ -1429,7 +1447,7 @@ class SVGGeometryRECT(SVGGeometry):
         radius = (rx, ry)
 
         # Geometry creation
-        ob = SVGCreateCurve()
+        ob = SVGCreateCurve(self._context)
         cu = ob.data
 
         if self._styles['useFill']:
@@ -1539,11 +1557,10 @@ class SVGGeometryELLIPSE(SVGGeometry):
             return
 
         # Create circle
-        ob = SVGCreateCurve()
+        ob = SVGCreateCurve(self._context)
         cu = ob.data
 
-        if self._node.getAttribute('id'):
-            cu.name = self._node.getAttribute('id')
+        id_names_from_node(self._node, ob)
 
         if self._styles['useFill']:
             cu.dimensions = '2D'
@@ -1578,7 +1595,7 @@ class SVGGeometryELLIPSE(SVGGeometry):
                 spline = cu.splines[-1]
                 spline.use_cyclic_u = True
             else:
-                spline.bezier_points.add()
+                spline.bezier_points.add(1)
 
             bezt = spline.bezier_points[-1]
             bezt.co = co
@@ -1656,8 +1673,10 @@ class SVGGeometryLINE(SVGGeometry):
         y2 = SVGParseCoord(self._y2, crect[1])
 
         # Create cline
-        ob = SVGCreateCurve()
+        ob = SVGCreateCurve(self._context)
         cu = ob.data
+
+        id_names_from_node(self._node, ob)
 
         coords = [(x1, y1), (x2, y2)]
         spline = None
@@ -1670,7 +1689,7 @@ class SVGGeometryLINE(SVGGeometry):
                 spline = cu.splines[-1]
                 spline.use_cyclic_u = True
             else:
-                spline.bezier_points.add()
+                spline.bezier_points.add(1)
 
             bezt = spline.bezier_points[-1]
             bezt.co = co
@@ -1708,9 +1727,7 @@ class SVGGeometryPOLY(SVGGeometry):
 
         self._styles = SVGParseStyles(self._node, self._context)
 
-        points = self._node.getAttribute('points')
-        points = points.replace(',', ' ').replace('-', ' -')
-        points = points.split()
+        points = parse_array_of_floats(self._node.getAttribute('points'))
 
         prev = None
         self._points = []
@@ -1719,7 +1736,7 @@ class SVGGeometryPOLY(SVGGeometry):
             if prev is None:
                 prev = p
             else:
-                self._points.append((float(prev), float(p)))
+                self._points.append((prev, p))
                 prev = None
 
     def _doCreateGeom(self, instancing):
@@ -1727,8 +1744,10 @@ class SVGGeometryPOLY(SVGGeometry):
         Create real geometries
         """
 
-        ob = SVGCreateCurve()
+        ob = SVGCreateCurve(self._context)
         cu = ob.data
+
+        id_names_from_node(self._node, ob)
 
         if self._closed and self._styles['useFill']:
             cu.dimensions = '2D'
@@ -1746,7 +1765,7 @@ class SVGGeometryPOLY(SVGGeometry):
                 spline = cu.splines[-1]
                 spline.use_cyclic_u = self._closed
             else:
-                spline.bezier_points.add()
+                spline.bezier_points.add(1)
 
             bezt = spline.bezier_points[-1]
             bezt.co = co
@@ -1798,7 +1817,7 @@ class SVGGeometrySVG(SVGGeometryContainer):
         if self._node.getAttribute('inkscape:version'):
             raw_height = self._node.getAttribute('height')
             document_height = SVGParseCoord(raw_height, 1.0)
-            matrix = matrix * Matrix.Translation([0.0, -document_height , 0.0])
+            matrix = matrix @ matrix.Translation([0.0, -document_height , 0.0])
 
         self._pushMatrix(matrix)
         self._pushRect(rect)
@@ -1824,16 +1843,22 @@ class SVGLoader(SVGGeometryContainer):
 
         return None
 
-    def __init__(self, filepath, do_colormanage):
+    def __init__(self, context, filepath, do_colormanage):
         """
         Initialize SVG loader
         """
+        import os
+
+        svg_name = os.path.basename(filepath)
+        scene = context.scene
+        collection = bpy.data.collections.new(name=svg_name)
+        scene.collection.children.link(collection)
 
         node = xml.dom.minidom.parse(filepath)
 
         m = Matrix()
-        m = m * Matrix.Scale(1.0 / 90.0 * 0.3048 / 12.0, 4, Vector((1.0, 0.0, 0.0)))
-        m = m * Matrix.Scale(-1.0 / 90.0 * 0.3048 / 12.0, 4, Vector((0.0, 1.0, 0.0)))
+        m = m @ Matrix.Scale(1.0 / 90.0 * 0.3048 / 12.0, 4, Vector((1.0, 0.0, 0.0)))
+        m = m @ Matrix.Scale(-1.0 / 90.0 * 0.3048 / 12.0, 4, Vector((0.0, 1.0, 0.0)))
 
         rect = (0, 0)
 
@@ -1845,7 +1870,8 @@ class SVGLoader(SVGGeometryContainer):
                          'materials': {},
                          'styles': [None],
                          'style': None,
-                         'do_colormanage': do_colormanage}
+                         'do_colormanage': do_colormanage,
+                         'collection': collection}
 
         super().__init__(node, self._context)
 
@@ -1882,7 +1908,7 @@ def parseAbstractNode(node, context):
     return None
 
 
-def load_svg(filepath, do_colormanage):
+def load_svg(context, filepath, do_colormanage):
     """
     Load specified SVG file
     """
@@ -1890,7 +1916,7 @@ def load_svg(filepath, do_colormanage):
     if bpy.ops.object.mode_set.poll():
         bpy.ops.object.mode_set(mode='OBJECT')
 
-    loader = SVGLoader(filepath, do_colormanage)
+    loader = SVGLoader(context, filepath, do_colormanage)
     loader.parse()
     loader.createGeom(False)
 
@@ -1901,7 +1927,7 @@ def load(operator, context, filepath=""):
     # non SVG files can give useful messages.
     do_colormanage = context.scene.display_settings.display_device != 'NONE'
     try:
-        load_svg(filepath, do_colormanage)
+        load_svg(context, filepath, do_colormanage)
     except (xml.parsers.expat.ExpatError, UnicodeEncodeError) as e:
         import traceback
         traceback.print_exc()

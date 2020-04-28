@@ -1,6 +1,6 @@
 # ########################################################### #
 #   An simple add-on to auto cut in two and mirror an object  #
-#   Actualy partialy uncommented (see further version)        #
+#   Actually partially uncommented (see further version)        #
 #   Author: Lapineige                                         #
 #   License: GPL v3                                           #
 # ########################################################### #
@@ -10,7 +10,7 @@ bl_info = {
     "description": "Super fast cutting and mirroring for Mesh objects",
     "author": "Lapineige",
     "version": (2, 4, 2),
-    "blender": (2, 7, 1),
+    "blender": (2, 71, 0),
     "location": "View 3D > Toolbar > Tools tab > AutoMirror (panel)",
     "warning": "",
     "wiki_url": "https://wiki.blender.org/index.php/Extensions:2.6/"
@@ -49,14 +49,14 @@ class AlignVertices(Operator):
         auto_m = context.scene.auto_mirror
         bpy.ops.object.mode_set(mode='OBJECT')
 
-        x1, y1, z1 = bpy.context.scene.cursor_location
+        x1, y1, z1 = bpy.context.scene.cursor.location
         bpy.ops.view3d.snap_cursor_to_selected()
 
-        x2, y2, z2 = bpy.context.scene.cursor_location
+        x2, y2, z2 = bpy.context.scene.cursor.location
 
-        bpy.context.scene.cursor_location[0], \
-        bpy.context.scene.cursor_location[1], \
-        bpy.context.scene.cursor_location[2] = 0, 0, 0
+        bpy.context.scene.cursor.location[0], \
+        bpy.context.scene.cursor.location[1], \
+        bpy.context.scene.cursor.location[2] = 0, 0, 0
 
         # Vertices coordinate to 0 (local coordinate, so on the origin)
         for vert in bpy.context.object.data.vertices:
@@ -69,10 +69,10 @@ class AlignVertices(Operator):
                     axis = 2
                 vert.co[axis] = 0
 
-        bpy.context.scene.cursor_location = x2, y2, z2
+        bpy.context.scene.cursor.location = x2, y2, z2
         bpy.ops.object.origin_set(type='ORIGIN_CURSOR')
 
-        bpy.context.scene.cursor_location = x1, y1, z1
+        bpy.context.scene.cursor.location = x1, y1, z1
         bpy.ops.object.mode_set(mode='EDIT')
 
         return {'FINISHED'}
@@ -98,13 +98,13 @@ class AutoMirror(Operator):
         bpy.ops.transform.translate(
                 value=(X * orientation, Y * orientation, Z * orientation),
                 constraint_axis=((X == 1), (Y == 1), (Z == 1)),
-                constraint_orientation='LOCAL'
+                orient_type='LOCAL'
                 )
         v2 = Vector((loc[0], loc[1], loc[2]))
         bpy.ops.transform.translate(
                 value=(-X * orientation, -Y * orientation, -Z * orientation),
                 constraint_axis=((X == 1), (Y == 1), (Z == 1)),
-                constraint_orientation='LOCAL'
+                orient_type='LOCAL'
                 )
 
         bpy.ops.object.mode_set(mode="EDIT")
@@ -190,7 +190,7 @@ class BisectMirror(Panel):
 
         if obj and obj.type == 'MESH':
             layout.operator("object.automirror", icon="MOD_MIRROR")
-            layout.label("Options:")
+            layout.label(text="Options:")
             layout.prop(auto_m, "axis", text="Mirror Axis", expand=True)
             layout.prop(auto_m, "orientation", text="Orientation")
             layout.prop(auto_m, "threshold", text="Threshold")
@@ -208,7 +208,7 @@ class BisectMirror(Panel):
 
 
 class AutoMirrorProperties(PropertyGroup):
-    axis = EnumProperty(
+    axis: EnumProperty(
             name="Axis",
             items=[
                 ("x", "X", "", 1),
@@ -217,7 +217,7 @@ class AutoMirrorProperties(PropertyGroup):
                 ],
             description="Axis used by the mirror modifier"
             )
-    orientation = EnumProperty(
+    orientation: EnumProperty(
             name="Orientation",
             items=[
                 ("positive", "Positive", "", 1),
@@ -225,34 +225,34 @@ class AutoMirrorProperties(PropertyGroup):
                 ],
             description="Choose the side along the axis of the editable part (+/- coordinates)"
             )
-    threshold = FloatProperty(
+    threshold: FloatProperty(
             default=0.001,
             min=0.001,
             description="Vertices closer than this distance are merged on the loopcut"
             )
-    toggle_edit = BoolProperty(
+    toggle_edit: BoolProperty(
             name="Toggle Edit Mode",
             default=True,
             description="If not in Edit mode, change mode to it"
             )
-    cut = BoolProperty(
+    cut: BoolProperty(
             name="Cut",
             default=True,
             description="If enabled, cut the mesh in two parts and mirror it\n"
                         "If not, just make a loopcut"
             )
-    clipping = BoolProperty(
+    clipping: BoolProperty(
             default=True
             )
-    use_clip = BoolProperty(
+    use_clip: BoolProperty(
             default=True,
             description="Use clipping for the mirror modifier"
             )
-    show_on_cage = BoolProperty(
+    show_on_cage: BoolProperty(
             default=True,
             description="Enable editing the cage (it's the classical modifier's option)"
             )
-    apply_mirror = BoolProperty(
+    apply_mirror: BoolProperty(
             description="Apply the mirror modifier (useful to symmetrise the mesh)"
             )
 

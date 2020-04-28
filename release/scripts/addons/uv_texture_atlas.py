@@ -51,7 +51,7 @@ def check_all_objects_visible(self, context):
     group = scene.ms_lightmap_groups[scene.ms_lightmap_groups_index]
     isAllObjectsVisible = True
     bpy.ops.object.select_all(action='DESELECT')
-    for thisObject in bpy.data.groups[group.name].objects:
+    for thisObject in bpy.data.collections[group.name].objects:
         isThisObjectVisible = False
         # scene.objects.active = thisObject
         for thisLayerNumb in range(20):
@@ -68,7 +68,7 @@ def check_group_exist(self, context, use_report=True):
     scene = context.scene
     group = scene.ms_lightmap_groups[scene.ms_lightmap_groups_index]
 
-    if group.name in bpy.data.groups:
+    if group.name in bpy.data.collections:
         return True
     else:
         if use_report:
@@ -95,8 +95,8 @@ class TexAtl_Main(Panel):
         row.template_list("UI_UL_list", "template_list_controls", scene,
                           "ms_lightmap_groups", scene, "ms_lightmap_groups_index", rows=2, maxrows=5)
         col = row.column(align=True)
-        col.operator("scene.ms_add_lightmap_group", icon='ZOOMIN', text="")
-        col.operator("scene.ms_del_lightmap_group", icon='ZOOMOUT', text="")
+        col.operator("scene.ms_add_lightmap_group", icon='ADD', text="")
+        col.operator("scene.ms_del_lightmap_group", icon='REMOVE', text="")
 
         row = self.layout.row(align=True)
 
@@ -127,15 +127,15 @@ class TexAtl_Main(Panel):
             self.layout.prop(group, 'unwrap_type', text='Lightmap', expand=True)
             row = self.layout.row()
             row.operator(
-                "object.ms_auto", text="Auto Unwrap", icon="LAMP_SPOT")
+                "object.ms_auto", text="Auto Unwrap", icon="LIGHT_SPOT")
             row.prop(group, 'autoUnwrapPrecision', text='')
 
             self.layout.label(text="Manual Unwrap:")
             row = self.layout.row()
             row.operator(
-                "object.ms_run", text="StartManualUnwrap", icon="LAMP_SPOT")
+                "object.ms_run", text="StartManualUnwrap", icon="LIGHT_SPOT")
             row.operator(
-                "object.ms_run_remove", text="FinishManualUnwrap", icon="LAMP_SPOT")
+                "object.ms_run_remove", text="FinishManualUnwrap", icon="LIGHT_SPOT")
 
 
 class TexAtl_RunAuto(Operator):
@@ -162,7 +162,7 @@ class TexAtl_RunAuto(Operator):
         if bpy.ops.object.mode_set.poll():
             bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
 
-        if group.bake is True and bpy.data.groups[group.name].objects:
+        if group.bake is True and bpy.data.collections[group.name].objects:
 
             # Check if objects are all on the visible Layers.
             isAllObjVisible = check_all_objects_visible(self, context)
@@ -209,7 +209,7 @@ class TexAtl_RunStart(Operator):
         if bpy.ops.object.mode_set.poll():
             bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
 
-        if group.bake is True and bpy.data.groups[group.name].objects:
+        if group.bake is True and bpy.data.collections[group.name].objects:
 
             # Check if objects are all on the visible Layers.
             isAllObjVisible = check_all_objects_visible(self, context)
@@ -257,7 +257,7 @@ class TexAtl_RunFinish(Operator):
         if bpy.ops.object.mode_set.poll():
             bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
 
-        if group.bake is True and bpy.data.groups[group.name].objects:
+        if group.bake is True and bpy.data.collections[group.name].objects:
 
             # Check if objects are all on the visible Layers.
             isAllObjVisible = check_all_objects_visible(self, context)
@@ -275,30 +275,30 @@ class TexAtl_RunFinish(Operator):
 
 
 class TexAtl_UVLayers(PropertyGroup):
-    name = StringProperty(default="")
+    name: StringProperty(default="")
 
 
 class TexAtl_VertexGroups(PropertyGroup):
-    name = StringProperty(default="")
+    name: StringProperty(default="")
 
 
 class TexAtl_Groups(PropertyGroup):
-    name = StringProperty(default="")
+    name: StringProperty(default="")
 
 
 class TexAtl_MSLightmapGroups(PropertyGroup):
 
-    name = StringProperty(default="")
-    bake = BoolProperty(default=True)
+    name: StringProperty(default="")
+    bake: BoolProperty(default=True)
 
-    unwrap_type = EnumProperty(
+    unwrap_type: EnumProperty(
         name="unwrap_type",
         items=(('0', 'Smart_Unwrap', 'Smart_Unwrap'),
                ('1', 'Lightmap', 'Lightmap'),
                ('2', 'No_Unwrap', 'No_Unwrap'),
                ),
     )
-    resolutionX = EnumProperty(
+    resolutionX: EnumProperty(
         name="resolutionX",
         items=(('256', '256', ''),
                ('512', '512', ''),
@@ -310,7 +310,7 @@ class TexAtl_MSLightmapGroups(PropertyGroup):
                ),
         default='1024'
     )
-    resolutionY = EnumProperty(
+    resolutionY: EnumProperty(
         name="resolutionY",
         items=(('256', '256', ''),
                ('512', '512', ''),
@@ -322,25 +322,25 @@ class TexAtl_MSLightmapGroups(PropertyGroup):
                ),
         default='1024'
     )
-    autoUnwrapPrecision = FloatProperty(
+    autoUnwrapPrecision: FloatProperty(
         name="autoUnwrapPrecision",
         default=0.01,
         min=0.001,
         max=10
     )
-    template_list_controls = StringProperty(
+    template_list_controls: StringProperty(
         default="bake",
         options={"HIDDEN"},
     )
 
 
 class TexAtl_MergedObjects(PropertyGroup):
-    name = StringProperty()
-    vertex_groups = CollectionProperty(
+    name: StringProperty()
+    vertex_groups: CollectionProperty(
         type=TexAtl_VertexGroups,
     )
-    groups = CollectionProperty(type=TexAtl_Groups)
-    uv_layers = CollectionProperty(type=TexAtl_UVLayers)
+    groups: CollectionProperty(type=TexAtl_Groups)
+    uv_layers: CollectionProperty(type=TexAtl_UVLayers)
 
 
 class TexAtl_AddSelectedToGroup(Operator):
@@ -354,9 +354,9 @@ class TexAtl_AddSelectedToGroup(Operator):
             scene.ms_lightmap_groups_index].name
 
         # Create a New Group if it was deleted.
-        obj_group = bpy.data.groups.get(group_name)
+        obj_group = bpy.data.collections.get(group_name)
         if obj_group is None:
-            obj_group = bpy.data.groups.new(group_name)
+            obj_group = bpy.data.collections.new(group_name)
 
         # Add objects to  a group
         if bpy.ops.object.mode_set.poll():
@@ -387,9 +387,9 @@ class TexAtl_SelectGroup(Operator):
             bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
 
         bpy.ops.object.select_all(action='DESELECT')
-        obj_group = bpy.data.groups[group_name]
+        obj_group = bpy.data.collections[group_name]
         for object in obj_group.objects:
-            object.select = True
+            object.select_set(True)
         return {'FINISHED'}
 
 
@@ -404,6 +404,7 @@ class TexAtl_RemoveFromGroup(Operator):
 
     def execute(self, context):
         scene = context.scene
+        view_layer = context.view_layer
 
         # Check if group exists
         if check_group_exist(self, context) is False:
@@ -415,9 +416,9 @@ class TexAtl_RemoveFromGroup(Operator):
         for group in scene.ms_lightmap_groups:
             group_name = group.name
 
-            obj_group = bpy.data.groups[group_name]
+            obj_group = bpy.data.collections[group_name]
             for object in context.selected_objects:
-                scene.objects.active = object
+                view_layer.objects.active = object
 
                 if object.type == 'MESH' and object.name in obj_group.objects:
 
@@ -440,6 +441,7 @@ class TexAtl_RemoveOtherUVs(Operator):
 
     def execute(self, context):
         scene = context.scene
+        view_layer = context.view_layer
         group_name = scene.ms_lightmap_groups[
             scene.ms_lightmap_groups_index].name
 
@@ -451,11 +453,11 @@ class TexAtl_RemoveOtherUVs(Operator):
             bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
         # bpy.ops.object.select_all(action='DESELECT')
 
-        obj_group = bpy.data.groups[group_name]
+        obj_group = bpy.data.collections[group_name]
 
         # Remove other UVs of selected objects
         for object in context.selected_objects:
-            scene.objects.active = object
+            view_layer.objects.active = object
             if object.type == 'MESH' and object.name in obj_group.objects:
 
                 # remove UVs
@@ -478,11 +480,11 @@ class TexAtl_AddLightmapGroup(Operator):
     bl_label = "add Lightmap"
     bl_description = "Adds a new Lightmap Group"
 
-    name = StringProperty(name="Group Name", default='TextureAtlas')
+    name: StringProperty(name="Group Name", default='TextureAtlas')
 
     def execute(self, context):
         scene = context.scene
-        obj_group = bpy.data.groups.new(self.name)
+        obj_group = bpy.data.collections.new(self.name)
 
         item = scene.ms_lightmap_groups.add()
         item.name = obj_group.name
@@ -513,7 +515,7 @@ class TexAtl_DelLightmapGroup(Operator):
             group_name = scene.ms_lightmap_groups[idx].name
 
             # Remove Group
-            group = bpy.data.groups.get(group_name)
+            group = bpy.data.collections.get(group_name)
             if group is not None:
 
                 # Unhide Objects if they are hidden
@@ -521,7 +523,7 @@ class TexAtl_DelLightmapGroup(Operator):
                     obj.hide_render = False
                     obj.hide = False
 
-                bpy.data.groups.remove(group, do_unlink=True)
+                bpy.data.collections.remove(group, do_unlink=True)
 
             # Remove Lightmap Group
             scene.ms_lightmap_groups.remove(scene.ms_lightmap_groups_index)
@@ -537,9 +539,9 @@ class TexAtl_CreateLightmap(Operator):
     bl_label = "TextureAtlas - Generate Lightmap"
     bl_description = "Generates a Lightmap"
 
-    group_name = StringProperty(default='')
-    resolutionX = IntProperty(default=1024)
-    resolutionY = IntProperty(default=1024)
+    group_name: StringProperty(default='')
+    resolutionX: IntProperty(default=1024)
+    resolutionY: IntProperty(default=1024)
 
     def execute(self, context):
         scene = context.scene
@@ -553,7 +555,7 @@ class TexAtl_CreateLightmap(Operator):
         image.generated_type = 'COLOR_GRID'
         image.generated_width = self.resolutionX
         image.generated_height = self.resolutionY
-        obj_group = bpy.data.groups[self.group_name]
+        obj_group = bpy.data.collections[self.group_name]
 
         # non MESH objects for removal list
         NON_MESH_LIST = []
@@ -598,32 +600,34 @@ class TexAtl_MergeObjects(Operator):
     bl_label = "TextureAtlas - TexAtl_MergeObjects"
     bl_description = "Merges Objects and stores Origins"
 
-    group_name = StringProperty(default='')
-    unwrap = BoolProperty(default=False)
+    group_name: StringProperty(default='')
+    unwrap: BoolProperty(default=False)
 
     def execute(self, context):
+        collection = context.collection
         scene = context.scene
+        view_layer = context.view_layer
 
         # objToDelete = None
         bpy.ops.object.select_all(action='DESELECT')
         ob_merged_old = bpy.data.objects.get(self.group_name + "_mergedObject")
         if ob_merged_old is not None:
-            ob_merged_old.select = True
-            scene.objects.active = ob_merged_old
+            ob_merged_old.select_set(True)
+            view_layer.objects.active = ob_merged_old
             bpy.ops.object.delete(use_global=True)
 
         me = bpy.data.meshes.new(self.group_name + '_mergedObject')
         ob_merge = bpy.data.objects.new(self.group_name + '_mergedObject', me)
-        ob_merge.location = scene.cursor_location   # position object at 3d-cursor
-        scene.objects.link(ob_merge)                # Link object to scene
+        ob_merge.location = scene.cursor.location   # position object at 3d-cursor
+        collection.objects.link(ob_merge)           # Link object to collection
         me.update()
-        ob_merge.select = False
+        ob_merge.select_set(False)
 
         bpy.ops.object.select_all(action='DESELECT')
 
-        # We do the MergeList beacuse we will duplicate grouped objects
+        # We do the MergeList because we will duplicate grouped objects
         mergeList = []
-        for object in bpy.data.groups[self.group_name].objects:
+        for object in bpy.data.collections[self.group_name].objects:
             mergeList.append(object)
 
         for object in mergeList:
@@ -633,26 +637,26 @@ class TexAtl_MergeObjects(Operator):
             object.hide_select = False
 
             bpy.ops.object.select_all(action='DESELECT')
-            object.select = True
+            object.select_set(True)
 
-            # activate lightmap uv if existant
+            # activate lightmap uv if existent
             for uv in object.data.uv_textures:
                 if uv.name == self.group_name:
                     uv.active = True
-                    scene.objects.active = object
+                    view_layer.objects.active = object
 
             # Duplicate Temp Object
             bpy.ops.object.select_all(action='DESELECT')
-            object.select = True
-            scene.objects.active = object
+            object.select_set(True)
+            view_layer.objects.active = object
             bpy.ops.object.duplicate(linked=False, mode='TRANSLATION')
-            activeNowObject = scene.objects.active
-            activeNowObject.select = True
+            activeNowObject = view_layer.objects.active
+            activeNowObject.select_set(True)
 
             # hide render of original mesh
             object.hide_render = True
             object.hide = True
-            object.select = False
+            object.select_set(False)
             object.hide_select = isObjHideSelect
 
             # remove unused UV
@@ -669,7 +673,7 @@ class TexAtl_MergeObjects(Operator):
             UVLIST.clear()  # clear array
 
             # create vertex groups for each selected object
-            scene.objects.active = activeNowObject
+            view_layer.objects.active = activeNowObject
             vgroup = activeNowObject.vertex_groups.new(name=object.name)
             vgroup.add(
                 list(range(len(activeNowObject.data.vertices))), weight=1.0, type='ADD')
@@ -690,17 +694,17 @@ class TexAtl_MergeObjects(Operator):
 
             # merge objects together
             bpy.ops.object.select_all(action='DESELECT')
-            activeNowObject.select = True
-            ob_merge.select = True
-            scene.objects.active = ob_merge
+            activeNowObject.select_set(True)
+            ob_merge.select_set(True)
+            view_layer.objects.active = ob_merge
             bpy.ops.object.join()
 
         mergeList.clear() # Clear Merge List
 
         # make Unwrap
         bpy.ops.object.select_all(action='DESELECT')
-        ob_merge.select = True
-        scene.objects.active = ob_merge
+        ob_merge.select_set(True)
+        view_layer.objects.active = ob_merge
 
         # Unfide all faces
         bpy.ops.object.mode_set(mode='EDIT')
@@ -733,30 +737,31 @@ class TexAtl_SeparateObjects(Operator):
     bl_label = "TextureAtlas - Separate Objects"
     bl_description = "Separates Objects and restores Origin"
 
-    group_name = StringProperty(default='')
+    group_name: StringProperty(default='')
 
     def execute(self, context):
         scene = context.scene
+        view_layer = context.view_layer
 
         ob_merged = bpy.data.objects.get(self.group_name + "_mergedObject")
         if ob_merged is not None:
 
-            # if scene.objects.active is not None:
+            # if view_layer.objects.active is not None:
                 # bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
             bpy.ops.object.select_all(action='DESELECT')
             ob_merged.hide = False
-            ob_merged.select = True
-            groupSeparate = bpy.data.groups.new(ob_merged.name)
+            ob_merged.select_set(True)
+            groupSeparate = bpy.data.collections.new(ob_merged.name)
             groupSeparate.objects.link(ob_merged)
-            ob_merged.select = False
+            ob_merged.select_set(False)
 
             doUnhidePolygons = False
             for ms_obj in ob_merged.ms_merged_objects:
                 # select vertex groups and separate group from merged
                 # object
                 bpy.ops.object.select_all(action='DESELECT')
-                ob_merged.select = True
-                scene.objects.active = ob_merged
+                ob_merged.select_set(True)
+                view_layer.objects.active = ob_merged
 
                 bpy.ops.object.mode_set(mode='EDIT')
                 if doUnhidePolygons is False:
@@ -770,9 +775,9 @@ class TexAtl_SeparateObjects(Operator):
                 bpy.ops.object.vertex_group_select()
                 bpy.ops.mesh.separate(type='SELECTED')
                 bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
-                # scene.objects.active.select = False
+                # view_layer.objects.active.select_set(False)
 
-                # find separeted object
+                # find separated object
                 ob_separeted = None
                 for obj in groupSeparate.objects:
                     if obj != ob_merged:
@@ -781,27 +786,27 @@ class TexAtl_SeparateObjects(Operator):
 
                 # Copy UV Coordinates to the original mesh
                 if ms_obj.name in scene.objects:
-                    ob_merged.select = False
+                    ob_merged.select_set(False)
                     ob_original = scene.objects[ms_obj.name]
                     isOriginalToSelect = ob_original.hide_select
                     ob_original.hide_select = False
                     ob_original.hide = False
-                    ob_original.select = True
-                    scene.objects.active = ob_separeted
+                    ob_original.select_set(True)
+                    view_layer.objects.active = ob_separeted
                     bpy.ops.object.join_uvs()
                     ob_original.hide_render = False
-                    ob_original.select = False
+                    ob_original.select_set(False)
                     ob_original.hide_select = isOriginalToSelect
                     ob_original.data.update()
 
-                # delete separeted object
+                # delete separated object
                 bpy.ops.object.select_all(action='DESELECT')
-                ob_separeted.select = True
+                ob_separeted.select_set(True)
                 bpy.ops.object.delete(use_global=False)
 
             # delete duplicated object
             bpy.ops.object.select_all(action='DESELECT')
-            ob_merged.select = True
+            ob_merged.select_set(True)
             bpy.ops.object.delete(use_global=False)
 
         return{'FINISHED'}

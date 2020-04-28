@@ -54,7 +54,7 @@ def imageConvertCompat(path):
 
 # notes
 # transform are relative
-# order dosnt matter for loc/size/rot
+# order doesn't matter for loc/size/rot
 # right handed rotation
 # angles are in radians
 # rotation first defines axis then amount in radians
@@ -105,7 +105,7 @@ def vrmlFormat(data):
     """
     Keep this as a valid vrml file, but format in a way we can predict.
     """
-    # Strip all commends - # not in strings - warning multiline strings are ignored.
+    # Strip all comments - # not in strings - warning multiline strings are ignored.
     def strip_comment(l):
         #l = ' '.join(l.split())
         l = l.strip()
@@ -138,7 +138,7 @@ def vrmlFormat(data):
 
     data = '\n'.join([strip_comment(l) for l in data.split('\n')])  # remove all whitespace
 
-    EXTRACT_STRINGS = True  # only needed when strings or filesnames containe ,[]{} chars :/
+    EXTRACT_STRINGS = True  # only needed when strings or filename contains ,[]{} chars :/
 
     if EXTRACT_STRINGS:
 
@@ -573,7 +573,7 @@ class vrmlNode(object):
                 # Only add this in a very special case
                 # where the parent of this object is not the real parent
                 # - In this case we have added the proto as a child to a node instancing it.
-                # This is a bit arbitary, but its how Proto's are done with this importer.
+                # This is a bit arbitrary, but its how Proto's are done with this importer.
                 if child.getProtoName() is None and child.getExternprotoName() is None:
                     child.getSerialized(results, ancestry)
                 else:
@@ -621,7 +621,7 @@ class vrmlNode(object):
 
                         # proto settings are stored in "self.proto_node"
                         if node.proto_node:
-                            # Get the default value from the proto, this can be overwridden by the proto instace
+                            # Get the default value from the proto, this can be overwritten by the proto instance
                             # 'field SFColor legColor .8 .4 .7'
                             if AS_CHILD:
                                 for child in node.proto_node.children:
@@ -808,12 +808,12 @@ class vrmlNode(object):
 
         child_array = self_real.getFieldName(field, ancestry, True, SPLIT_COMMAS=True)
 
-        #if type(child_array)==list: # happens occasionaly
+        #if type(child_array)==list: # happens occasionally
         #   array_data = child_array
 
         if child_array is None:
             # For x3d, should work ok with vrml too
-            # for x3d arrays are fields, vrml they are nodes, annoying but not tooo bad.
+            # for x3d arrays are fields, vrml they are nodes, annoying but not too bad.
             data_split = self.getFieldName(field, ancestry, SPLIT_COMMAS=True)
             if not data_split:
                 return []
@@ -1413,6 +1413,7 @@ def x3d_parse(path):
     """
     import xml.dom.minidom
     import xml.sax
+    from xml.sax import handler
 
     '''
     try:    doc = xml.dom.minidom.parse(path)
@@ -1438,6 +1439,8 @@ def x3d_parse(path):
 
     parser = xml.sax.make_parser()
     orig_set_content_handler = parser.setContentHandler
+    parser.setFeature(handler.feature_external_ges, False)
+    parser.setFeature(handler.feature_external_pes, False)
     parser.setContentHandler = set_content_handler
 
     doc = xml.dom.minidom.parseString(data, parser)
@@ -1668,7 +1671,7 @@ def importMesh_ReadVertices(bpymesh, geom, ancestry):
 # of vertices matches the source file.
 # Relies upon texture coordinates in the X3D node; if a coordinate generation
 # algorithm for a geometry is in the spec (e. g. for ElevationGrid), it needs
-# to be implemeted by the geometry handler.
+# to be implemented by the geometry handler.
 #
 # Texture transform is applied in ProcessObject.
 def importMesh_ApplyTextureToTessfaces(bpymesh, geom, ancestry, bpyima):
@@ -2258,7 +2261,7 @@ def importMesh_Extrusion(geom, ancestry, bpyima):
         (s + 1) * nc + c), ccw) for s in range(ns - 1) for c in range(ncf)]
 
     if spine_closed:
-        # The faces between the last and the first spine poins
+        # The faces between the last and the first spine points
         b = (ns - 1) * nc
         faces += [flip((
             b + c,
@@ -2388,7 +2391,7 @@ def importMesh_IndexedLineSet(geom, ancestry, _):
     lines.append(line)
 
     # vcolor = geom.getChildByName('color')
-    # blender dosnt have per vertex color
+    # blender doesn't have per vertex color
 
     bpycurve = bpy.data.curves.new('IndexedCurve', 'CURVE')
     bpycurve.dimensions = '3D'
@@ -2414,7 +2417,7 @@ def importMesh_PointSet(geom, ancestry, _):
         points = []
 
     # vcolor = geom.getChildByName('color')
-    # blender dosnt have per vertex color
+    # blender doesn't have per vertex color
 
     bpymesh = bpy.data.meshes.new("PointSet")
     bpymesh.vertices.add(len(points))
@@ -2679,7 +2682,7 @@ def appearance_CreateMaterial(vrmlname, mat, ancestry, is_vcol):
                                           ancestry)
     bpymat.diffuse_color = diff_color
 
-    # NOTE - blender dosnt support emmisive color
+    # NOTE - blender doesn't support emmisive color
     # Store in mirror color and approximate with emit.
     emit = mat.getFieldAsFloatTuple('emissiveColor', [0.0, 0.0, 0.0], ancestry)
     bpymat.mirror_color = emit
@@ -2790,9 +2793,9 @@ def appearance_LoadTexture(tex_node, ancestry, node):
 
     if bpyima:  # Loading can still fail
         repeat_s = tex_node.getFieldAsBool('repeatS', True, ancestry)
-        bpyima.use_clamp_x = not repeat_s
+        bpyima.use_clight_x = not repeat_s
         repeat_t = tex_node.getFieldAsBool('repeatT', True, ancestry)
-        bpyima.use_clamp_y = not repeat_t
+        bpyima.use_clight_y = not repeat_t
 
         # Update the desc-based cache
         if desc:
@@ -2893,7 +2896,7 @@ def importShape_LoadAppearance(vrmlname, appr, ancestry, node, is_vcol):
     It's probably an abuse of Blender of some level.
 
     So here's the caching structure:
-    For USE on apprearance, we store the material object
+    For USE on appearance, we store the material object
     in the appearance node.
 
     For USE on texture, we store the image object in the tex node.
@@ -2981,7 +2984,7 @@ def appearance_LoadPixelTexture(pixelTexture, ancestry):
 # Called from importShape to insert a data object (typically a mesh)
 # into the scene
 def importShape_ProcessObject(
-        bpyscene, vrmlname, bpydata, geom, geom_spec, node,
+        bpycollection, vrmlname, bpydata, geom, geom_spec, node,
         bpymat, has_alpha, texmtx, ancestry,
         global_matrix):
 
@@ -3028,7 +3031,7 @@ def importShape_ProcessObject(
     # bpymesh.transform(getFinalMatrix(node))
     bpyob = node.blendObject = bpy.data.objects.new(vrmlname, bpydata)
     bpyob.matrix_world = getFinalMatrix(node, None, ancestry, global_matrix)
-    bpyscene.objects.link(bpyob).select = True
+    bpycollection.objects.link(bpyob).select_set(True)
 
     if DEBUG:
         bpyob["source_line_no"] = geom.lineno
@@ -3071,7 +3074,7 @@ geometry_importers = {
     }
 
 
-def importShape(bpyscene, node, ancestry, global_matrix):
+def importShape(bpycollection, node, ancestry, global_matrix):
     # Under Shape, we can only have Appearance, MetadataXXX and a geometry node
     def isGeometry(spec):
         return spec != "Appearance" and not spec.startswith("Metadata")
@@ -3082,7 +3085,7 @@ def importShape(bpyscene, node, ancestry, global_matrix):
         bpyob = node.blendData = node.blendObject = bpyob.copy()
         # Could transform data, but better the object so we can instance the data
         bpyob.matrix_world = getFinalMatrix(node, None, ancestry, global_matrix)
-        bpyscene.objects.link(bpyob).select = True
+        bpycollection.objects.link(bpyob).select_set(True)
         return
 
     vrmlname = node.getDefName()
@@ -3124,7 +3127,7 @@ def importShape(bpyscene, node, ancestry, global_matrix):
         # There are no geometry importers that can legally return
         # no object.  It's either a bpy object, or an exception
         importShape_ProcessObject(
-                bpyscene, vrmlname, bpydata, geom, geom_spec,
+                bpycollection, vrmlname, bpydata, geom, geom_spec,
                 node, bpymat, tex_has_alpha, texmtx,
                 ancestry, global_matrix)
     else:
@@ -3148,7 +3151,7 @@ def importLamp_PointLight(node, ancestry):
     # is_on = node.getFieldAsBool('on', True, ancestry) # TODO
     radius = node.getFieldAsFloat('radius', 100.0, ancestry)
 
-    bpylamp = bpy.data.lamps.new(vrmlname, 'POINT')
+    bpylamp = bpy.data.lights.new(vrmlname, 'POINT')
     bpylamp.energy = intensity
     bpylamp.distance = radius
     bpylamp.color = color
@@ -3169,7 +3172,7 @@ def importLamp_DirectionalLight(node, ancestry):
     intensity = node.getFieldAsFloat('intensity', 1.0, ancestry)  # max is documented to be 1.0 but some files have higher.
     # is_on = node.getFieldAsBool('on', True, ancestry) # TODO
 
-    bpylamp = bpy.data.lamps.new(vrmlname, 'SUN')
+    bpylamp = bpy.data.lights.new(vrmlname, 'SUN')
     bpylamp.energy = intensity
     bpylamp.color = color
 
@@ -3197,7 +3200,7 @@ def importLamp_SpotLight(node, ancestry):
     # is_on = node.getFieldAsBool('on', True, ancestry) # TODO
     radius = node.getFieldAsFloat('radius', 100.0, ancestry)
 
-    bpylamp = bpy.data.lamps.new(vrmlname, 'SPOT')
+    bpylamp = bpy.data.lights.new(vrmlname, 'SPOT')
     bpylamp.energy = intensity
     bpylamp.distance = radius
     bpylamp.color = color
@@ -3218,7 +3221,7 @@ def importLamp_SpotLight(node, ancestry):
     return bpylamp, mtx
 
 
-def importLamp(bpyscene, node, spec, ancestry, global_matrix):
+def importLamp(bpycollection, node, spec, ancestry, global_matrix):
     if spec == 'PointLight':
         bpylamp, mtx = importLamp_PointLight(node, ancestry)
     elif spec == 'DirectionalLight':
@@ -3230,7 +3233,7 @@ def importLamp(bpyscene, node, spec, ancestry, global_matrix):
         raise ValueError
 
     bpyob = node.blendData = node.blendObject = bpy.data.objects.new(bpylamp.name, bpylamp)
-    bpyscene.objects.link(bpyob).select = True
+    bpycollection.objects.link(bpyob).select_set(True)
 
     bpyob.matrix_world = getFinalMatrix(node, mtx, ancestry, global_matrix)
 
@@ -3238,7 +3241,7 @@ def importLamp(bpyscene, node, spec, ancestry, global_matrix):
 # -----------------------------------------------------------------------------------
 
 
-def importViewpoint(bpyscene, node, ancestry, global_matrix):
+def importViewpoint(bpycollection, node, ancestry, global_matrix):
     name = node.getDefName()
     if not name:
         name = 'Viewpoint'
@@ -3256,23 +3259,23 @@ def importViewpoint(bpyscene, node, ancestry, global_matrix):
     mtx = Matrix.Translation(Vector(position)) * translateRotation(orientation)
 
     bpyob = node.blendData = node.blendObject = bpy.data.objects.new(name, bpycam)
-    bpyscene.objects.link(bpyob).select = True
+    bpycollection.objects.link(bpyob).select_set(True)
     bpyob.matrix_world = getFinalMatrix(node, mtx, ancestry, global_matrix)
 
 
-def importTransform(bpyscene, node, ancestry, global_matrix):
+def importTransform(bpycollection, node, ancestry, global_matrix):
     name = node.getDefName()
     if not name:
         name = 'Transform'
 
     bpyob = node.blendData = node.blendObject = bpy.data.objects.new(name, None)
-    bpyscene.objects.link(bpyob).select = True
+    bpycollection.objects.link(bpyob).select_set(True)
 
     bpyob.matrix_world = getFinalMatrix(node, None, ancestry, global_matrix)
 
     # so they are not too annoying
-    bpyob.empty_draw_type = 'PLAIN_AXES'
-    bpyob.empty_draw_size = 0.2
+    bpyob.empty_display_type = 'PLAIN_AXES'
+    bpyob.empty_display_size = 0.2
 
 
 #def importTimeSensor(node):
@@ -3376,7 +3379,7 @@ def translateTimeSensor(node, action, ancestry):
     loop = node.getFieldAsBool('loop', False, ancestry)
 
     time_cu.append((1 + startTime, 0.0))
-    time_cu.append((1 + stopTime, 1.0 / 10.0))  # anoying, the UI uses /10
+    time_cu.append((1 + stopTime, 1.0 / 10.0))  # annoying, the UI uses /10
 
     if loop:
         time_cu.extend = Blender.IpoCurve.ExtendTypes.CYCLIC  # or - EXTRAP, CYCLIC_EXTRAP, CONST,
@@ -3451,7 +3454,7 @@ ROUTE champFly001.bindTime TO vpTs.set_startTime
 
 
 def load_web3d(
-        bpyscene,
+        bpycontext,
         filepath,
         *,
         PREF_FLAT=False,
@@ -3463,6 +3466,8 @@ def load_web3d(
     # Used when adding blender primitives
     GLOBALS['CIRCLE_DETAIL'] = PREF_CIRCLE_DIV
 
+    bpyscene = bpycontext.scene
+    bpycollection = bpycontext.collection
     #root_node = vrml_parse('/_Cylinder.wrl')
     if filepath.lower().endswith('.x3d'):
         root_node, msg = x3d_parse(filepath)
@@ -3495,15 +3500,15 @@ def load_web3d(
             # by an external script. - gets first pick
             pass
         if spec == 'Shape':
-            importShape(bpyscene, node, ancestry, global_matrix)
+            importShape(bpycollection, node, ancestry, global_matrix)
         elif spec in {'PointLight', 'DirectionalLight', 'SpotLight'}:
-            importLamp(bpyscene, node, spec, ancestry, global_matrix)
+            importLamp(bpycollection, node, spec, ancestry, global_matrix)
         elif spec == 'Viewpoint':
-            importViewpoint(bpyscene, node, ancestry, global_matrix)
+            importViewpoint(bpycollection, node, ancestry, global_matrix)
         elif spec == 'Transform':
             # Only use transform nodes when we are not importing a flat object hierarchy
             if PREF_FLAT == False:
-                importTransform(bpyscene, node, ancestry, global_matrix)
+                importTransform(bpycollection, node, ancestry, global_matrix)
             '''
         # These are delt with later within importRoute
         elif spec=='PositionInterpolator':
@@ -3528,7 +3533,7 @@ def load_web3d(
                 node = defDict[key]
                 if node.blendData is None:  # Add an object if we need one for animation
                     node.blendData = node.blendObject = bpy.data.objects.new('AnimOb', None)  # , name)
-                    bpyscene.objects.link(node.blendObject).select = True
+                    bpycollection.objects.link(node.blendObject).select_set(True)
 
                 if node.blendData.animation_data is None:
                     node.blendData.animation_data_create()
@@ -3579,7 +3584,7 @@ def load_with_profiler(
     import cProfile
     import pstats
     pro = cProfile.Profile()
-    pro.runctx("load_web3d(context.scene, filepath, PREF_FLAT=True, "
+    pro.runctx("load_web3d(context, filepath, PREF_FLAT=True, "
                "PREF_CIRCLE_DIV=16, global_matrix=global_matrix)",
                globals(), locals())
     st = pstats.Stats(pro)
@@ -3595,7 +3600,7 @@ def load(context,
          ):
 
     # loadWithProfiler(operator, context, filepath, global_matrix)
-    load_web3d(context.scene, filepath,
+    load_web3d(context, filepath,
                PREF_FLAT=True,
                PREF_CIRCLE_DIV=16,
                global_matrix=global_matrix,

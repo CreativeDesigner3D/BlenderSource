@@ -98,17 +98,28 @@ static void foreachTexLink(ModifierData *md, Object *ob, TexWalkFunc walk, void 
 static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphContext *ctx)
 {
   WaveModifierData *wmd = (WaveModifierData *)md;
+  bool need_transform_relation = false;
+
   if (wmd->objectcenter != NULL) {
     DEG_add_object_relation(ctx->node, wmd->objectcenter, DEG_OB_COMP_TRANSFORM, "Wave Modifier");
+    need_transform_relation = true;
   }
-  if (wmd->map_object != NULL) {
-    DEG_add_object_relation(ctx->node, wmd->map_object, DEG_OB_COMP_TRANSFORM, "Wave Modifier");
-  }
-  if (wmd->objectcenter != NULL || wmd->map_object != NULL) {
-    DEG_add_modifier_to_transform_relation(ctx->node, "Wave Modifier");
-  }
+
   if (wmd->texture != NULL) {
     DEG_add_generic_id_relation(ctx->node, &wmd->texture->id, "Wave Modifier");
+
+    if ((wmd->texmapping == MOD_DISP_MAP_OBJECT) && wmd->map_object != NULL) {
+      MOD_depsgraph_update_object_bone_relation(
+          ctx->node, wmd->map_object, wmd->map_bone, "Wave Modifier");
+      need_transform_relation = true;
+    }
+    else if (wmd->texmapping == MOD_DISP_MAP_GLOBAL) {
+      need_transform_relation = true;
+    }
+  }
+
+  if (need_transform_relation) {
+    DEG_add_modifier_to_transform_relation(ctx->node, "Wave Modifier");
   }
 }
 
@@ -214,8 +225,8 @@ static void waveModifier_do(WaveModifierData *md,
 
       /* get weights */
       if (dvert) {
-        def_weight = invert_group ? 1.0f - defvert_find_weight(&dvert[i], defgrp_index) :
-                                    defvert_find_weight(&dvert[i], defgrp_index);
+        def_weight = invert_group ? 1.0f - BKE_defvert_find_weight(&dvert[i], defgrp_index) :
+                                    BKE_defvert_find_weight(&dvert[i], defgrp_index);
 
         /* if this vert isn't in the vgroup, don't deform it */
         if (def_weight == 0.0f) {

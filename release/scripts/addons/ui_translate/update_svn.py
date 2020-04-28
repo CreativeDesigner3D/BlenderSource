@@ -25,16 +25,11 @@ if "bpy" in locals():
     importlib.reload(utils_languages_menu)
 else:
     import bpy
+    from bpy.types import Operator
     from bpy.props import (
-            BoolProperty,
-            CollectionProperty,
-            EnumProperty,
-            FloatProperty,
-            FloatVectorProperty,
-            IntProperty,
-            PointerProperty,
-            StringProperty,
-            )
+        BoolProperty,
+        EnumProperty,
+    )
     from . import settings
     from bl_i18n_utils import utils as utils_i18n
     from bl_i18n_utils import utils_languages_menu
@@ -46,13 +41,18 @@ import subprocess
 import tempfile
 
 
-##### Operators #####
-class UI_OT_i18n_updatetranslation_svn_branches(bpy.types.Operator):
+# Operators ###################################################################
+
+class UI_OT_i18n_updatetranslation_svn_branches(Operator):
     """Update i18n svn's branches (po files)"""
     bl_idname = "ui.i18n_updatetranslation_svn_branches"
     bl_label = "Update I18n Branches"
 
-    use_skip_pot_gen = BoolProperty(name="Skip POT", default=False, description="Skip POT file generation")
+    use_skip_pot_gen: BoolProperty(
+        name="Skip POT",
+        description="Skip POT file generation",
+        default=False,
+    )
 
     def execute(self, context):
         if not hasattr(self, "settings"):
@@ -108,7 +108,41 @@ class UI_OT_i18n_updatetranslation_svn_branches(bpy.types.Operator):
         return wm.invoke_props_dialog(self)
 
 
-class UI_OT_i18n_updatetranslation_svn_trunk(bpy.types.Operator):
+class UI_OT_i18n_cleanuptranslation_svn_branches(Operator):
+    """Clean up i18n svn's branches (po files)"""
+    bl_idname = "ui.i18n_cleanuptranslation_svn_branches"
+    bl_label = "Clean up I18n Branches"
+
+    def execute(self, context):
+        if not hasattr(self, "settings"):
+            self.settings = settings.settings
+        i18n_sett = context.window_manager.i18n_update_svn_settings
+        # 'DEFAULT' and en_US are always valid, fully-translated "languages"!
+        stats = {"DEFAULT": 1.0, "en_US": 1.0}
+
+        context.window_manager.progress_begin(0, len(i18n_sett.langs) + 1)
+        context.window_manager.progress_update(0)
+        for progress, lng in enumerate(i18n_sett.langs):
+            context.window_manager.progress_update(progress + 1)
+            if not lng.use:
+                print("Skipping {} language ({}).".format(lng.name, lng.uid))
+                continue
+            print("Processing {} language ({}).".format(lng.name, lng.uid))
+            po = utils_i18n.I18nMessages(uid=lng.uid, kind='PO', src=lng.po_path, settings=self.settings)
+            print("Cleaned up {} commented messages.".format(po.clean_commented()))
+            errs = po.check(fix=True)
+            if errs:
+                print("Errors in this po, solved as best as possible!")
+                print("\t" + "\n\t".join(errs))
+            po.write(kind="PO", dest=lng.po_path)
+            print("\n")
+
+        context.window_manager.progress_end()
+
+        return {'FINISHED'}
+
+
+class UI_OT_i18n_updatetranslation_svn_trunk(Operator):
     """Update i18n svn's branches (po files)"""
     bl_idname = "ui.i18n_updatetranslation_svn_trunk"
     bl_label = "Update I18n Trunk"
@@ -166,14 +200,23 @@ class UI_OT_i18n_updatetranslation_svn_trunk(bpy.types.Operator):
         return {'FINISHED'}
 
 
-class UI_OT_i18n_updatetranslation_svn_statistics(bpy.types.Operator):
-    """Create or extend a 'i18n_info.txt' Text datablock containing statistics and checks about """
-    """current branches and/or trunk"""
+class UI_OT_i18n_updatetranslation_svn_statistics(Operator):
+    """Create or extend a 'i18n_info.txt' Text datablock"""
+    """(it will contain statistics and checks about current branches and/or trunk)"""
     bl_idname = "ui.i18n_updatetranslation_svn_statistics"
     bl_label = "Update I18n Statistics"
 
-    use_branches = BoolProperty(name="Check Branches", default=True, description="Check po files in branches")
-    use_trunk = BoolProperty(name="Check Trunk", default=False, description="Check po files in trunk")
+    use_branches: BoolProperty(
+        name="Check Branches",
+        description="Check po files in branches",
+        default=True,
+    )
+
+    use_trunk: BoolProperty(
+        name="Check Trunk",
+        description="Check po files in trunk",
+        default=False,
+    )
 
     report_name = "i18n_info.txt"
 
@@ -220,7 +263,6 @@ class UI_OT_i18n_updatetranslation_svn_statistics(bpy.types.Operator):
 
         return {'FINISHED'}
 
-
     def invoke(self, context, event):
         wm = context.window_manager
         return wm.invoke_props_dialog(self)
@@ -228,6 +270,7 @@ class UI_OT_i18n_updatetranslation_svn_statistics(bpy.types.Operator):
 
 classes = (
     UI_OT_i18n_updatetranslation_svn_branches,
+    UI_OT_i18n_cleanuptranslation_svn_branches,
     UI_OT_i18n_updatetranslation_svn_trunk,
     UI_OT_i18n_updatetranslation_svn_statistics,
 )

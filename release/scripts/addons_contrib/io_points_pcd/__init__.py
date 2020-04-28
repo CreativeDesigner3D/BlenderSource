@@ -52,15 +52,15 @@ class ImportPCD(bpy.types.Operator, ImportHelper):
 
     filename_ext = ".pcd"
 
-    filter_glob = StringProperty(default="*.pcd", options={'HIDDEN'})
-    object_name = StringProperty(default="", options={'HIDDEN'})
+    filter_glob: StringProperty(default="*.pcd", options={'HIDDEN'})
+    object_name: StringProperty(default="", options={'HIDDEN'})
 
-    files = CollectionProperty(name="File Path",
+    files: CollectionProperty(name="File Path",
                           description="File path used for importing "
                                       "the PCD file",
                           type=bpy.types.OperatorFileListElement)
 
-    directory = StringProperty(subtype='DIR_PATH')
+    directory: StringProperty(subtype='DIR_PATH')
 
     def execute(self, context):
         paths = [os.path.join(self.directory, name.name) for name in self.files]
@@ -92,7 +92,7 @@ class ExportPCD(bpy.types.Operator, ExportHelper):
 
     filename_ext = ".pcd"
 
-    filter_glob = StringProperty(default="*.pcd", options={'HIDDEN'})
+    filter_glob: StringProperty(default="*.pcd", options={'HIDDEN'})
 
 
     def execute(self, context):
@@ -114,17 +114,16 @@ def menu_func_export(self, context):
 def register():
     bpy.utils.register_module(__name__)
 
-    bpy.types.INFO_MT_file_import.append(menu_func_import)
-    bpy.types.INFO_MT_file_export.append(menu_func_export)
+    bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
+    bpy.types.TOPBAR_MT_file_export.append(menu_func_export)
 
 
 def unregister():
     bpy.utils.unregister_module(__name__)
 
-    bpy.types.INFO_MT_file_import.remove(menu_func_import)
-    bpy.types.INFO_MT_file_export.remove(menu_func_export)
+    bpy.types.TOPBAR_MT_file_import.remove(menu_func_import)
+    bpy.types.TOPBAR_MT_file_export.remove(menu_func_export)
 
 
 if __name__ == "__main__":
     register()
-

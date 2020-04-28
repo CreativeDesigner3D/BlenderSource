@@ -43,14 +43,14 @@ def display_particles(mode, dis_particles):
 
     for particles in bpy.data.particles:
         if scene.ShowParticles is False:
-            particles.draw_method = 'NONE'
+            particles.display_method = 'NONE'
         else:
             if particles.type == 'EMITTER':
-                particles.draw_method = 'DOT'
-                particles.draw_percentage = 100
+                particles.display_method = 'DOT'
+                particles.display_percentage = 100
             else:
-                particles.draw_method = 'RENDER'
-                particles.draw_percentage = dis_particles
+                particles.display_method = 'RENDER'
+                particles.display_percentage = dis_particles
 
     return dis_particles
 
@@ -62,8 +62,8 @@ class FastNavigate(Operator):
     bl_description = ("Limit the objects drawing in the 3D view for faster navigation\n"
                       "Runs in modal mode until Stop is pressed or Esc, Return, Space")
 
-    trigger = BoolProperty(default=False)
-    mode = BoolProperty(default=False)
+    trigger: BoolProperty(default=False)
+    mode: BoolProperty(default=False)
     screen_width = [0, 0]
     store_fail = False
     store_init_particles = {}
@@ -149,15 +149,15 @@ class FastNavigate(Operator):
                     self.store_viewport_shade = shade
                 for particle in bpy.data.particles:
                     self.store_init_particles[particle.name] = \
-                        [particle.draw_method, particle.draw_percentage]
+                        [particle.display_method, particle.display_percentage]
             else:
                 if not shade:
                     self.store_fail = True
                 else:
                     shade = self.store_viewport_shade or 'SOLID'
                 for particle in bpy.data.particles:
-                    particle.draw_method = self.store_init_particles[particle.name][0]
-                    particle.draw_percentage = self.store_init_particles[particle.name][1]
+                    particle.display_method = self.store_init_particles[particle.name][0]
+                    particle.display_percentage = self.store_init_particles[particle.name][1]
         except:
             self.store_fail = True
 

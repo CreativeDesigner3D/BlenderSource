@@ -28,13 +28,14 @@
 #include "PIL_time.h"
 
 #include "BLI_compiler_attrs.h"
-#include "BLI_utildefines.h"
-#include "BLI_task.h"
 #include "BLI_ghash.h"
 #include "BLI_gsqueue.h"
+#include "BLI_task.h"
+#include "BLI_utildefines.h"
 
 #include "BKE_global.h"
 
+#include "DNA_node_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 
@@ -43,6 +44,8 @@
 
 #include "atomic_ops.h"
 
+#include "intern/depsgraph.h"
+#include "intern/depsgraph_relation.h"
 #include "intern/eval/deg_eval_copy_on_write.h"
 #include "intern/eval/deg_eval_flush.h"
 #include "intern/eval/deg_eval_stats.h"
@@ -51,8 +54,6 @@
 #include "intern/node/deg_node_id.h"
 #include "intern/node/deg_node_operation.h"
 #include "intern/node/deg_node_time.h"
-#include "intern/depsgraph.h"
-#include "intern/depsgraph_relation.h"
 
 namespace DEG {
 
@@ -71,8 +72,7 @@ void schedule_children(DepsgraphEvalState *state,
 
 void schedule_node_to_pool(OperationNode *node, const int thread_id, TaskPool *pool)
 {
-  BLI_task_pool_push_from_thread(
-      pool, deg_task_run_func, node, false, TASK_PRIORITY_HIGH, thread_id);
+  BLI_task_pool_push_from_thread(pool, deg_task_run_func, node, false, NULL, thread_id);
 }
 
 /* Denotes which part of dependency graph is being evaluated. */
@@ -343,11 +343,13 @@ void depsgraph_ensure_view_layer(Depsgraph *graph)
    * - It was tagged for update of CoW component.
    * This allows us to have proper view layer pointer. */
   Scene *scene_cow = graph->scene_cow;
-  if (!deg_copy_on_write_is_expanded(&scene_cow->id) ||
-      scene_cow->id.recalc & ID_RECALC_COPY_ON_WRITE) {
-    const IDNode *id_node = graph->find_id_node(&graph->scene->id);
-    deg_update_copy_on_write_datablock(graph, id_node);
+  if (deg_copy_on_write_is_expanded(&scene_cow->id) &&
+      (scene_cow->id.recalc & ID_RECALC_COPY_ON_WRITE) == 0) {
+    return;
   }
+
+  const IDNode *scene_id_node = graph->find_id_node(&graph->scene->id);
+  deg_update_copy_on_write_datablock(graph, scene_id_node);
 }
 
 }  // namespace
@@ -386,7 +388,7 @@ void deg_evaluate_on_refresh(Depsgraph *graph)
     task_scheduler = BLI_task_scheduler_get();
     need_free_scheduler = false;
   }
-  TaskPool *task_pool = BLI_task_pool_create_suspended(task_scheduler, &state);
+  TaskPool *task_pool = BLI_task_pool_create_suspended(task_scheduler, &state, TASK_PRIORITY_HIGH);
   /* Prepare all nodes for evaluation. */
   initialize_execution(&state, graph);
 

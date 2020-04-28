@@ -48,23 +48,21 @@ from bpy.props import (
 from bpy_extras.io_utils import (
         ImportHelper,
         ExportHelper,
-        orientation_helper_factory,
+        orientation_helper,
         axis_conversion,
         path_reference_mode,
         )
 
 
-IOX3DOrientationHelper = orientation_helper_factory("IOX3DOrientationHelper", axis_forward='Z', axis_up='Y')
-
-
-class ImportX3D(bpy.types.Operator, ImportHelper, IOX3DOrientationHelper):
+@orientation_helper(axis_forward='Z', axis_up='Y')
+class ImportX3D(bpy.types.Operator, ImportHelper):
     """Import an X3D or VRML2 file"""
     bl_idname = "import_scene.x3d"
     bl_label = "Import X3D/VRML2"
     bl_options = {'PRESET', 'UNDO'}
 
     filename_ext = ".x3d"
-    filter_glob = StringProperty(default="*.x3d;*.wrl", options={'HIDDEN'})
+    filter_glob: StringProperty(default="*.x3d;*.wrl", options={'HIDDEN'})
 
     def execute(self, context):
         from . import import_x3d
@@ -81,58 +79,59 @@ class ImportX3D(bpy.types.Operator, ImportHelper, IOX3DOrientationHelper):
         return import_x3d.load(context, **keywords)
 
 
-class ExportX3D(bpy.types.Operator, ExportHelper, IOX3DOrientationHelper):
+@orientation_helper(axis_forward='Z', axis_up='Y')
+class ExportX3D(bpy.types.Operator, ExportHelper):
     """Export selection to Extensible 3D file (.x3d)"""
     bl_idname = "export_scene.x3d"
     bl_label = 'Export X3D'
     bl_options = {'PRESET'}
 
     filename_ext = ".x3d"
-    filter_glob = StringProperty(default="*.x3d", options={'HIDDEN'})
+    filter_glob: StringProperty(default="*.x3d", options={'HIDDEN'})
 
-    use_selection = BoolProperty(
+    use_selection: BoolProperty(
             name="Selection Only",
             description="Export selected objects only",
             default=False,
             )
-    use_mesh_modifiers = BoolProperty(
+    use_mesh_modifiers: BoolProperty(
             name="Apply Modifiers",
             description="Use transformed mesh data from each object",
             default=True,
             )
-    use_triangulate = BoolProperty(
+    use_triangulate: BoolProperty(
             name="Triangulate",
             description="Write quads into 'IndexedTriangleSet'",
             default=False,
             )
-    use_normals = BoolProperty(
+    use_normals: BoolProperty(
             name="Normals",
             description="Write normals with geometry",
             default=False,
             )
-    use_compress = BoolProperty(
+    use_compress: BoolProperty(
             name="Compress",
             description="Compress the exported file",
             default=False,
             )
-    use_hierarchy = BoolProperty(
+    use_hierarchy: BoolProperty(
             name="Hierarchy",
             description="Export parent child relationships",
             default=True,
             )
-    name_decorations = BoolProperty(
+    name_decorations: BoolProperty(
             name="Name decorations",
             description=("Add prefixes to the names of exported nodes to "
                          "indicate their type"),
             default=True,
             )
-    use_h3d = BoolProperty(
+    use_h3d: BoolProperty(
             name="H3D Extensions",
             description="Export shaders for H3D",
             default=False,
             )
 
-    global_scale = FloatProperty(
+    global_scale: FloatProperty(
             name="Scale",
             min=0.01, max=1000.0,
             default=1.0,
@@ -172,15 +171,15 @@ def menu_func_export(self, context):
 def register():
     bpy.utils.register_module(__name__)
 
-    bpy.types.INFO_MT_file_import.append(menu_func_import)
-    bpy.types.INFO_MT_file_export.append(menu_func_export)
+    bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
+    bpy.types.TOPBAR_MT_file_export.append(menu_func_export)
 
 
 def unregister():
     bpy.utils.unregister_module(__name__)
 
-    bpy.types.INFO_MT_file_import.remove(menu_func_import)
-    bpy.types.INFO_MT_file_export.remove(menu_func_export)
+    bpy.types.TOPBAR_MT_file_import.remove(menu_func_import)
+    bpy.types.TOPBAR_MT_file_export.remove(menu_func_export)
 
 # NOTES
 # - blender version is hardcoded

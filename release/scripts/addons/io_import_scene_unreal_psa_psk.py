@@ -89,10 +89,10 @@ class md5_bone:
         self.scale = [0.0] * 3
         self.head = [0.0] * 3
         self.tail = [0.0] * 3
-        self.bindmat = [None] * 3  # is this how you initilize a 2d-array
+        self.bindmat = [None] * 3  # is this how you initialize a 2d-array
         for i in range(3):
             self.bindmat[i] = [0.0] * 3
-        self.origmat = [None] * 3  #is this how you initilize a 2d-array
+        self.origmat = [None] * 3  #is this how you initialize a 2d-array
         for i in range(3):
             self.origmat[i] = [0.0] * 3
         self.parent = ""
@@ -422,13 +422,13 @@ def pskimport(infile,importmesh,importbone,bDebugLogPSK,importmultiuvtextures):
             ob_new = bpy.data.objects.new(meshname, armdata)
             #ob_new = bpy.data.objects.new(meshname, 'ARMATURE')
             #ob_new.data = armdata
-            bpy.context.scene.objects.link(ob_new)
+            bpy.context.collection.objects.link(ob_new)
             #bpy.ops.object.mode_set(mode='OBJECT')
             for i in bpy.context.scene.objects:
-                i.select = False #deselect all objects
-            ob_new.select = True
+                i.select_set(False) #deselect all objects
+            ob_new.select_set(True)
             #set current armature to edit the bone
-            bpy.context.scene.objects.active = ob_new
+            bpy.context.view_layer.objects.active = ob_new
             #set mode to able to edit the bone
             if bpy.ops.object.mode_set.poll():
                 bpy.ops.object.mode_set(mode='EDIT')
@@ -628,7 +628,7 @@ def pskimport(infile,importmesh,importbone,bDebugLogPSK,importmultiuvtextures):
     print("INIT UV TEXTURE...")
     _matcount = 0
     #for mattexcount in materials:
-        #print("MATERAIL ID:", _matcount)
+        #print("MATERIAL ID:", _matcount)
     _textcount = 0
     for uv in me_ob.tessface_uv_textures: # uv texture
         print("UV TEXTURE ID:",_textcount)
@@ -673,7 +673,7 @@ def pskimport(infile,importmesh,importbone,bDebugLogPSK,importmultiuvtextures):
     for bone in ob_new.data.bones:
         #print("names:", bone.name, ":", dir(bone))
         #print("names:", bone.name)
-        group = obmesh.vertex_groups.new(bone.name)
+        group = obmesh.vertex_groups.new(name=bone.name)
 
     for vgroup in obmesh.vertex_groups:
         #print(vgroup.name, ":", vgroup.index)
@@ -697,12 +697,12 @@ def pskimport(infile,importmesh,importbone,bDebugLogPSK,importmultiuvtextures):
     #bpy.ops.object.select_name(name=str(ob_new.name))
     #bpy.context.scene.objects.active = ob_new
     me_ob.update()
-    bpy.context.scene.objects.link(obmesh)
+    bpy.context.collection.objects.link(obmesh)
     bpy.context.scene.update()
-    obmesh.select = False
-    ob_new.select = False
-    obmesh.select = True
-    ob_new.select = True
+    obmesh.select_set(False)
+    ob_new.select_set(False)
+    obmesh.select_set(True)
+    ob_new.select_set(True)
     bpy.ops.object.parent_set(type="ARMATURE")
 
     print ("PSK2Blender completed")
@@ -1044,10 +1044,10 @@ class IMPORT_OT_psa(bpy.types.Operator):
     bl_space_type = "PROPERTIES"
     bl_region_type = "WINDOW"
 
-    filepath = StringProperty(
+    filepath: StringProperty(
             subtype='FILE_PATH',
             )
-    filter_glob = StringProperty(
+    filter_glob: StringProperty(
             default="*.psa",
             options={'HIDDEN'},
             )
@@ -1275,11 +1275,11 @@ def menu_func(self, context):
 
 def register():
     bpy.utils.register_module(__name__)
-    bpy.types.INFO_MT_file_import.append(menu_func)
+    bpy.types.TOPBAR_MT_file_import.append(menu_func)
 
 def unregister():
     bpy.utils.unregister_module(__name__)
-    bpy.types.INFO_MT_file_import.remove(menu_func)
+    bpy.types.TOPBAR_MT_file_import.remove(menu_func)
 
 if __name__ == "__main__":
     register()

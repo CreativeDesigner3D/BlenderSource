@@ -35,17 +35,17 @@ class Sequencer_Extra_RecursiveLoader(Operator):
     bl_label = "Recursive Load"
     bl_options = {'REGISTER', 'UNDO'}
 
-    recursive = BoolProperty(
+    recursive: BoolProperty(
             name="Recursive",
             description="Load in recursive folders",
             default=False
             )
-    recursive_select_by_extension = BoolProperty(
+    recursive_select_by_extension: BoolProperty(
             name="Select by extension",
             description="Load only clips with selected extension",
             default=False
             )
-    ext = EnumProperty(
+    ext: EnumProperty(
             items=functions.movieextdict,
             name="Extension",
             default='3'
@@ -202,7 +202,7 @@ class Sequencer_Extra_ReadExifData(Operator):
         return {'FINISHED'}
 
 
-# TODO: fix poll to hide when unuseful
+# TODO: fix poll to hide when useless
 
 class ExifInfoPanel(Panel):
     """Creates a Panel in the Object properties window"""
@@ -215,7 +215,7 @@ class ExifInfoPanel(Panel):
         if context.space_data.view_type in {'SEQUENCER', 'SEQUENCER_PREVIEW'}:
             strip = functions.act_strip(context)
             scn = context.scene
-            preferences = context.user_preferences
+            preferences = context.preferences
             prefs = preferences.addons[__package__].preferences
 
             if scn and scn.sequence_editor and scn.sequence_editor.active_strip:
@@ -250,7 +250,7 @@ class ExifInfoPanel(Panel):
                         row = col.row()
                         col.label(text=d)
                         col = split.column()
-                        col.label(str(sce['metadata'][0][d]))
+                        col.label(text=str(sce['metadata'][0][d]))
                 else:
                     for d in sce['metadata'][frame - f]:
                         split = layout.split(percentage=0.5)
@@ -258,7 +258,7 @@ class ExifInfoPanel(Panel):
                         row = col.row()
                         col.label(text=d)
                         col = split.column()
-                        col.label(str(sce['metadata'][frame - f][d]))
+                        col.label(text=str(sce['metadata'][frame - f][d]))
 
             except (IndexError, KeyError):
                 pass

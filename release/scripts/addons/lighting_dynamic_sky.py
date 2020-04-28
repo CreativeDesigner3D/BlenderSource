@@ -72,7 +72,7 @@ def check_world_name(name_id="Dynamic"):
 
 
 def check_cycles():
-    return ('cycles' in bpy.context.user_preferences.addons.keys())
+    return ('cycles' in bpy.context.preferences.addons.keys())
 
 
 class dsky(Operator):
@@ -432,21 +432,21 @@ def draw_world_settings(col, context):
         col.label(text="one called {}".format(stored_name), icon="BLANK1")
         return
 
-    col.label("World: %s" % stored_name)
+    col.label(text="World: %s" % stored_name)
     col.separator()
 
-    col.label("Scene Control")
+    col.label(text="Scene Control")
     col.prop(bgp, "default_value", text="Brightness")
     col.prop(so2, "default_value", text="Shadow color saturation")
 
-    col.label("Sky Control")
+    col.label(text="Sky Control")
     col.prop(m, "default_value", text="Sky color")
     col.prop(n, "default_value", text="Horizon Color")
     col.prop(c, "default_value", text="Cloud color")
     col.prop(o, "default_value", text="Cloud opacity")
     col.prop(d, "default_value", text="Cloud density")
 
-    col.label("Sun Control")
+    col.label(text="Sun Control")
     col.prop(suc, "default_value", text="")
     col.prop(so, "default_value", text="Sun value")
     col.prop(sof, "default_value", text="Soft hard")

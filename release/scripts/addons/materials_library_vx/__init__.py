@@ -22,7 +22,7 @@ bl_info = {
   "name": "Material Library",
   "author": "Mackraken (mackraken2023@hotmail.com)",
   "version": (0, 5, 8),
-  "blender": (2, 7, 8),
+  "blender": (2, 78, 0),
   "api": 60995,
   "location": "Properties > Material",
   "description": "Material Library VX",
@@ -145,7 +145,7 @@ class EmptyGroup(PropertyGroup):
 # bpy.utils.register_class(EmptyGroup)
 
 class matlibMaterials(PropertyGroup):
-  category = StringProperty()
+  category: StringProperty()
 # bpy.utils.register_class(matlibMaterials)
 
 #bpy.types.Scene.matlib_categories = CollectionProperty(type=EmptyGroup)
@@ -264,7 +264,7 @@ class Library():
 def get_libraries():
     libs = [Library(matlib_path, f) for f in os.listdir(matlib_path) if f[-5::] == "blend"]
     try:
-        user_path = bpy.context.user_preferences.addons[__name__].preferences.matlib_path
+        user_path = bpy.context.preferences.addons[__name__].preferences.matlib_path
         if user_path:
             if os.path.exists(user_path):
                 libs.extend([Library(user_path, f) for f in os.listdir(user_path) if f[-5::] == "blend"])
@@ -283,13 +283,13 @@ class matlibProperties(PropertyGroup):
   #MATLIB PROPERTIES
 
   #libraries are read from the xml
-  lib_index = IntProperty(min = -1, default = 2, update=update_lib_index)
-  all_materials = CollectionProperty(type = matlibMaterials)
-  materials = CollectionProperty(type = matlibMaterials)
-  mat_index = IntProperty(min = -1, default = -1)
-  categories = CollectionProperty(type = EmptyGroup)
-  cat_index = IntProperty(min = -1, default = -1, update=update_cat_index)
-  search = StringProperty(name="Search", description="Find By Name", update=update_search_index)
+  lib_index: IntProperty(min = -1, default = 2, update=update_lib_index)
+  all_materials: CollectionProperty(type = matlibMaterials)
+  materials: CollectionProperty(type = matlibMaterials)
+  mat_index: IntProperty(min = -1, default = -1)
+  categories: CollectionProperty(type = EmptyGroup)
+  cat_index: IntProperty(min = -1, default = -1, update=update_cat_index)
+  search: StringProperty(name="Search", description="Find By Name", update=update_search_index)
 
   #MATLIB OPTIONS
   #link: import material linked
@@ -299,12 +299,12 @@ class matlibProperties(PropertyGroup):
   #filter: enable or disable category filter
   #last selected: store the last selected object to regain focus when apply a material.
   #hide_search: Hides Search Field
-  link = BoolProperty(name = "Linked", description="Link the material", default = False)
-  force_import = BoolProperty(name = "Force Import", description="Use Scene Materials by default", default = False)
-  filter = BoolProperty(name = "Filter",description="Filter Categories", default = False, update=update_filter)
-  show_prefs = BoolProperty(name = "show_prefs", description="Preferences", default = False)
-  last_selected = StringProperty(name="Last Selected")
-  hide_search = BoolProperty(name="Hide Search", description="Use Blender Search Only")
+  link: BoolProperty(name = "Linked", description="Link the material", default = False)
+  force_import: BoolProperty(name = "Force Import", description="Use Scene Materials by default", default = False)
+  filter: BoolProperty(name = "Filter",description="Filter Categories", default = False, update=update_filter)
+  show_prefs: BoolProperty(name = "show_prefs", description="Preferences", default = False)
+  last_selected: StringProperty(name="Last Selected")
+  hide_search: BoolProperty(name="Hide Search", description="Use Blender Search Only")
   #import_file = StringProperty("Import File", subtype="FILE_PATH")
   #path = os.path.dirname(path)
   #Development only
@@ -514,7 +514,7 @@ if mat:
         return "WARNING", "Can't preview on EDIT MODE"
       if dummy!= active:
         self.last_selected = context.object.name
-      context.scene.objects.active = dummy
+      context.view_layer.objects.active = dummy
       objects.append(dummy)
     #apply
     else:
@@ -529,12 +529,12 @@ if mat:
       try:
         last = context.scene.objects[self.last_selected]
         if last in context.selected_objects:
-          context.scene.objects.active = last
+          context.view_layer.objects.active = last
         else:
           self.last_selected = ""
       except:
-        context.scene.objects.active = None
-    dummy.select = False
+        context.view_layer.objects.active = None
+    dummy.select_set(False)
       #objects = context.selected_objects
 
     material = None
@@ -600,7 +600,7 @@ if mat:
     print ("Material", material, force)
 
     #if material:
-    #maybe some test cases doesnt return a material, gotta take care of that
+    #maybe some test cases doesn't return a material, gotta take care of that
     #i cannot think of any case like that right now
     #maybe import linked when the database isnt sync
     if context.mode == "EDIT_MESH":
@@ -695,7 +695,7 @@ bpy.ops.wm.save_mainfile(filepath="{3}", check_existing=False, compress=True)
 
       return 'INFO', "Material added."
     else:
-      print("Save Material Error: Run Blender with administrative priviledges.")
+      print("Save Material Error: Run Blender with administrative privileges.")
       return 'WARNING', "There was an error saving the material"
 
   def remove_material(self):
@@ -893,7 +893,7 @@ class MATLIB_OT_flush(Operator):
     dummy = matlib.get_dummy(context)
     if dummy == context.object:
       try:
-        context.scene.objects.active = context.scene.objects[matlib.last_selected]
+        context.view_layer.objects.active = context.scene.objects[matlib.last_selected]
       except:
         pass
 
@@ -918,10 +918,10 @@ class MATLIB_OT_operator(Operator):
   bl_idname = "matlib.operator"
   __doc__ = "Add, Remove, Reload, Apply, Preview, Clean Material"
 
-  category = StringProperty(name="Category")
-  filepath = StringProperty(options={'HIDDEN'})
-  cmd = bpy.props.StringProperty(name="Command", options={'HIDDEN'})
-  filter_glob = StringProperty(default="*.blend", options={'HIDDEN'})
+  category: StringProperty(name="Category")
+  filepath: StringProperty(options={'HIDDEN'})
+  cmd: bpy.props.StringProperty(name="Command", options={'HIDDEN'})
+  filter_glob: StringProperty(default="*.blend", options={'HIDDEN'})
   @classmethod
   def poll(cls, context):
     return context.active_object is not None
@@ -952,7 +952,7 @@ class MATLIB_OT_operator(Operator):
       return {'RUNNING_MODAL'}
     return self.execute(context)
 
-  ### TODO: execute doesnt trigger remove
+  ### TODO: execute doesn't trigger remove
   def execute(self, context):
 
     success = ""
@@ -1023,7 +1023,7 @@ class MATLIB_OT_operator(Operator):
       dummy = matlib.get_dummy(context)
       if dummy == context.object:
         try:
-          context.scene.objects.active = context.scene.objects[matlib.last_selected]
+          context.view_layer.objects.active = context.scene.objects[matlib.last_selected]
         except:
           pass
 
@@ -1093,7 +1093,7 @@ def clean_materials():
 
 bin = bpy.app.binary_path
 mats = list_materials()
-bpy.context.user_preferences.filepaths.save_version = 0
+bpy.context.preferences.filepaths.save_version = 0
 for mat in mats:
   clean_materials()
   matpath = os.path.join("{1}", mat + ".blend")
@@ -1132,7 +1132,7 @@ class MATLIB_PT_vxPanel(Panel):
 #      matlibProperties.init = False
 #      matlib.__init__()
 
-    #libaries
+    #libraries
     row = layout.row(align=True)
     if matlib.current_library:
       text = matlib.current_library.shortname
@@ -1144,7 +1144,7 @@ class MATLIB_PT_vxPanel(Panel):
     if matlib.active_material:
       row.label(matlib.active_material.category)
     else:
-      row.label("")
+      row.label(text="")
 #
 #    #search
     if not matlib.hide_search:
@@ -1210,7 +1210,7 @@ def reload_library(self, context):
 class matlibvxPref(AddonPreferences):
     bl_idname = __name__
 
-    matlib_path = StringProperty(
+    matlib_path: StringProperty(
         name="Additional Path",
         description="User defined path to .blend libraries files",
         default="",

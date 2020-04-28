@@ -30,40 +30,40 @@ class makestructure(Operator):
                       "Needs an existing Active Mesh Object")
     bl_options = {'REGISTER', 'UNDO'}
 
-    dc = BoolProperty(
+    dc: BoolProperty(
             name="Delete Base Mesh(es)",
             default=True
             )
-    wh = BoolProperty(
+    wh: BoolProperty(
             name="Stay Within Bounds",
             description="Keeps cubes from exceeding base mesh bounds",
             default=True
             )
-    uf = BoolProperty(
+    uf: BoolProperty(
             name="Uniform Cube Quantity",
             default=False
             )
-    qn = IntProperty(
+    qn: IntProperty(
             name="Cube Quantity",
             default=10,
             min=1, max=1500
             )
-    mn = FloatVectorProperty(
+    mn: FloatVectorProperty(
             name="Min Scales",
             default=(0.1, 0.1, 0.1),
             subtype='XYZ'
             )
-    mx = FloatVectorProperty(
+    mx: FloatVectorProperty(
             name="Max Scales",
             default=(2.0, 2.0, 2.0),
             subtype='XYZ'
             )
-    lo = FloatVectorProperty(
+    lo: FloatVectorProperty(
             name="XYZ Offset",
             default=(0.0, 0.0, 0.0),
             subtype='XYZ'
             )
-    rsd = FloatProperty(
+    rsd: FloatProperty(
             name="Random Seed",
             default=1
             )
@@ -94,20 +94,20 @@ class makestructure(Operator):
         rsdchange = self.rsd
         oblst = []
         uvyes = 0
-        bpy.ops.group.create(name='Cubagrouper')
-        bpy.ops.group.objects_remove()
+        bpy.ops.collection.create(name='Cubagrouper')
+        bpy.ops.collection.objects_remove()
 
         for ob in bpy.context.selected_objects:
             oblst.append(ob)
 
         for obj in oblst:
             bpy.ops.object.select_pattern(pattern=obj.name)  # Select base mesh
-            bpy.context.scene.objects.active = obj
+            bpy.context.view_layer.objects.active = obj
             if obj.data.uv_layers[:] != []:
                 uvyes = 1
             else:
                 uvyes = 0
-            bpy.ops.object.group_link(group='Cubagrouper')
+            bpy.ops.object.collection_link(group='Cubagrouper')
             dim = obj.dimensions
             rot = obj.rotation_euler
             if self.uf is True:
@@ -150,41 +150,41 @@ class makestructure(Operator):
                 bpy.ops.mesh.select_all(action='SELECT')
                 bpy.ops.transform.resize(
                     value=(sx, sy, sz), constraint_axis=(True, True, True),
-                    constraint_orientation='GLOBAL', mirror=False, proportional='DISABLED',
+                    orient_type='GLOBAL', mirror=False, proportional='DISABLED',
                     proportional_edit_falloff='SMOOTH', proportional_size=1, release_confirm=True
                     )
                 bpy.ops.object.mode_set(mode='OBJECT')
                 select = bpy.context.object  # This is used to keep something selected for poll()
-                bpy.ops.object.group_link(group='Cubagrouper')
+                bpy.ops.object.collection_link(group='Cubagrouper')
                 rsdchange += 3
             bpy.ops.object.select_grouped(type='GROUP')
             bpy.ops.transform.rotate(
                     value=rot[0], axis=(1, 0, 0), constraint_axis=(False, False, False),
-                    constraint_orientation='GLOBAL', mirror=False, proportional='DISABLED',
+                    orient_type='GLOBAL', mirror=False, proportional='DISABLED',
                     proportional_edit_falloff='SMOOTH', proportional_size=1, release_confirm=True
                     )
             bpy.ops.transform.rotate(
                     value=rot[1], axis=(0, 1, 0), constraint_axis=(False, False, False),
-                    constraint_orientation='GLOBAL', mirror=False, proportional='DISABLED',
+                    orient_type='GLOBAL', mirror=False, proportional='DISABLED',
                     proportional_edit_falloff='SMOOTH', proportional_size=1, release_confirm=True
                     )
             bpy.ops.transform.rotate(
                     value=rot[2], axis=(0, 0, 1), constraint_axis=(False, False, False),
-                    constraint_orientation='GLOBAL', mirror=False, proportional='DISABLED',
+                    orient_type='GLOBAL', mirror=False, proportional='DISABLED',
                     proportional_edit_falloff='SMOOTH', proportional_size=1, release_confirm=True
                     )
-            bpy.context.scene.objects.active = obj  # Again needed to avoid poll() taking me down
+            bpy.context.view_layer.objects.active = obj  # Again needed to avoid poll() taking me down
             bpy.ops.object.make_links_data(type='MODIFIERS')
             bpy.ops.object.make_links_data(type='MATERIAL')
 
             if uvyes == 1:
                 bpy.ops.object.join_uvs()
 
-            bpy.ops.group.objects_remove()
-            bpy.context.scene.objects.active = select
+            bpy.ops.collection.objects_remove()
+            bpy.context.view_layer.objects.active = select
 
             if self.dc is True:
-                bpy.context.scene.objects.unlink(obj)
+                bpy.context.collection.objects.unlink(obj)
 
         return {'FINISHED'}
 

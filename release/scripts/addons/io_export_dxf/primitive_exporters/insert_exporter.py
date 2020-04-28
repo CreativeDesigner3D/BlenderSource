@@ -38,7 +38,7 @@ def exportInsert(ob, mx, insert_name, **common):
             [point] = projected_co([point1], mx)
             if PERSPECTIVE:
                 clipStart = 10.0
-                coef = -clipStart / (point1*mx)[2]
+                coef = -clipStart / (point1 @ mx)[2]
                 #print 'deb: coef=', coef #--------------
                 #TODO: ? sizeX *= coef
                 #sizeY *= coef
@@ -72,4 +72,3 @@ def exportInsert(ob, mx, insert_name, **common):
         entities.append(dxfINSERT)
 
     return entities
-

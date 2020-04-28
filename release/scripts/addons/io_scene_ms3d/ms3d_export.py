@@ -157,15 +157,15 @@ class Ms3dExporter():
 
             post_setup_environment(self, blender_context)
             # restore active object
-            blender_context.scene.objects.active = self.active_object
+            blender_context.view_layer.objects.active = self.active_object
 
-            if ((not blender_context.scene.objects.active)
+            if ((not blender_context.view_layer.objects.active)
                     and (blender_context.selected_objects)):
-                blender_context.scene.objects.active \
+                blender_context.view_layer.objects.active \
                         = blender_context.selected_objects[0]
 
             # restore pre operator undo state
-            blender_context.user_preferences.edit.use_global_undo = self.undo
+            blender_context.preferences.edit.use_global_undo = self.undo
 
             is_valid, statistics = ms3d_model.is_valid()
             if self.options_verbose in Ms3dUi.VERBOSE_NORMAL:
@@ -219,7 +219,9 @@ class Ms3dExporter():
 
     ###########################################################################
     def create_geometry(self, blender_context, ms3d_model, blender_mesh_objects, blender_to_ms3d_bones):
+        blender_view_layer = blender_context.view_layer
         blender_scene = blender_context.scene
+        blender_collection = blender_context.collection
 
         blender_to_ms3d_vertices = {}
         blender_to_ms3d_triangles = {}
@@ -254,7 +256,7 @@ class Ms3dExporter():
                     ms3d_group._comment_object.comment = \
                             blender_ms3d_group.comment
                     ms3d_group._comment_object.index = len(ms3d_model._groups)
-                ms3d_group.material_index = None # to mark as not setted
+                ms3d_group.material_index = None # to mark as not set
                 ms3d_model._groups.append(ms3d_group)
                 blender_to_ms3d_groups[blender_ms3d_group.id] = ms3d_group
 
@@ -270,8 +272,8 @@ class Ms3dExporter():
             blender_mesh_temp = blender_mesh_object.data.copy()
             blender_mesh_object_temp = blender_mesh_object.copy()
             blender_mesh_object_temp.data = blender_mesh_temp
-            blender_scene.objects.link(blender_mesh_object_temp)
-            blender_scene.objects.active = blender_mesh_object_temp
+            blender_collection.objects.link(blender_mesh_object_temp)
+            blender_view_layer.objects.active = blender_mesh_object_temp
 
             # apply transform
             if self.options_apply_transform:
@@ -531,7 +533,7 @@ class Ms3dExporter():
 
             ##########################
             # remove the temporary data
-            blender_scene.objects.unlink(blender_mesh_object_temp)
+            blender_collection.objects.unlink(blender_mesh_object_temp)
             if blender_mesh_temp is not None:
                 blender_mesh_temp.user_clear()
                 blender_context.blend_data.meshes.remove(blender_mesh_temp)

@@ -150,7 +150,7 @@ def bulge_to_arc(point, next, bulge):
         cosagitta_len = sagitta_len - radius
         direction *= -1
         correction *= -1
-    center = point + section / 2 + section.normalized() * cosagitta_len * rot * direction
+    center = point + section / 2 + section.normalized() * cosagitta_len * direction @ rot
     cp = point - center
     cn = next - center
     cr = cp.to_3d().cross(cn.to_3d()) * correction
@@ -278,14 +278,14 @@ def split_by_width(entity):
         en_template.bulge = []
         en_template.width = []
         en_template.tangents = []
-        
-        # is_closed is an attrib only on polyline 
+
+        # is_closed is an attrib only on polyline
         if en_template.dxftype == 'POLYLINE':
             en_template.is_closed = False
         else:
             # disable closed flag (0x01) when is_closed is a @property
             en_template.flags ^= 1
-            
+
         i = 0
         for pair, same_width in itertools.groupby(entity.width, key=lambda w: WidthTuple(w)):
             en = deepcopy(en_template)

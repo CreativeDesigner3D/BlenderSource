@@ -34,7 +34,7 @@ bl_info = {
 that tries to be representative of its type. These lists are :
 
     * Items (for an iterable object)
-    * Item Values (for an iterable object wich only supports index)
+    * Item Values (for an iterable object which only supports index)
     * Modules
     * Types
     * Properties
@@ -47,7 +47,7 @@ that tries to be representative of its type. These lists are :
 filter section. It is also possible to explore other modules. Go the the root and select
 it in the list of available modules. It will be imported dynamically.
 
-    In the text section, some informations are displayed. The type of the object,
+    In the text section, some information are displayed. The type of the object,
 what it returns, and its docstring. We could hope that these docstrings will be as
 descriptive as possible. This text data block named api_doc_ can be toggled on and off
 with the Escape key. (but a bug prevent the keymap to register correctly at start)
@@ -85,7 +85,7 @@ def init_tree_level():
 
 init_tree_level()
 
-api_doc_ = ''       # the documentation formated for the API Navigator
+api_doc_ = ''       # the documentation formatted for the API Navigator
 module_type = None  # the type of current_module
 return_report = ''  # what current_module returns
 filter_mem = {}     # remember last filters entered for each path
@@ -347,7 +347,7 @@ class Down(ApiNavigator, Operator):
     bl_idname = "api_navigator.down"
     bl_label = "API Navigator Down"
 
-    pointed_module = StringProperty(
+    pointed_module: StringProperty(
                         name="Current Module",
                         default=""
                         )
@@ -405,7 +405,7 @@ class Subscript(ApiNavigator, Operator):
     bl_idname = "api_navigator.subscript"
     bl_label = "API Navigator Subscript"
 
-    subscription = StringProperty(
+    subscription: StringProperty(
                         name="",
                         default=""
                         )
@@ -514,7 +514,7 @@ class OBJECT_PT_api_navigator(ApiNavigator, Panel):
             elif iterable == 'b':
                 box = self.layout.box()
                 row = box.row()
-                row.label(text="Item Values", icon="OOPS")
+                row.label(text="Item Values", icon='OUTLINER')
                 box = box.box()
                 col = box.column(align=True)
                 collection = list(current_module)
@@ -561,10 +561,10 @@ class OBJECT_PT_api_navigator(ApiNavigator, Panel):
         show_panel_elements = bpy.context.window_manager.api_nav_props.panel_toggle[t] if \
                               0 <= t < 10 else True
 
-        lenght = tree_level[t].__len__()
-        too_long = lenght > reduce_to
+        length = tree_level[t].__len__()
+        too_long = length > reduce_to
 
-        if lenght:
+        if length:
             col = layout.column()
             box = col.box()
 
@@ -582,7 +582,7 @@ class OBJECT_PT_api_navigator(ApiNavigator, Panel):
                 i = 0
                 objects, count, filtered = 0, 0, 0
 
-                while count < reduce_to and i < lenght:
+                while count < reduce_to and i < length:
                     obj = tree_level[t][i]
 
                     if filters and filters not in obj:
@@ -652,27 +652,27 @@ class ApiNavProps(PropertyGroup):
 
     bpy.context.window_manager.api_nav_props
     """
-    path = StringProperty(
+    path: StringProperty(
             name="Path",
             description="Enter bpy.ops.api_navigator to see the documentation",
             default="bpy"
             )
-    old_path = StringProperty(
+    old_path: StringProperty(
             name="Old Path",
             default=""
             )
-    filters = StringProperty(
+    filters: StringProperty(
             name="Filters",
             description="Filter the resulting modules",
             default=""
             )
-    reduce_to = IntProperty(
+    reduce_to: IntProperty(
             name="Reduce to",
             description="Display a maximum number of x entries by pages",
             default=10,
             min=1
             )
-    pages = IntProperty(
+    pages: IntProperty(
             name="Pages",
             description="Display a Page",
             default=0,

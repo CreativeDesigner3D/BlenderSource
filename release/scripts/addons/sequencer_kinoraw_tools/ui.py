@@ -29,7 +29,7 @@ class SEQUENCER_EXTRA_MT_input(Menu):
     bl_label = "Input"
 
     def draw(self, context):
-        self.layout.label("Kinoraw Input")
+        self.layout.label(text="Kinoraw Input")
         self.layout.separator()
 
         self.layout.operator_context = "INVOKE_REGION_WIN"
@@ -203,7 +203,7 @@ class JumptoCut(Panel):
     def poll(self, context):
         if context.space_data.view_type in {'SEQUENCER', 'SEQUENCER_PREVIEW'}:
             scn = context.scene
-            preferences = context.user_preferences
+            preferences = context.preferences
             prefs = preferences.addons[__package__].preferences
             if scn and scn.sequence_editor:
                 if prefs.use_jumptocut:
@@ -219,7 +219,7 @@ class JumptoCut(Panel):
         scn = context.scene
         strip = functions.act_strip(context)
 
-        preferences = context.user_preferences
+        preferences = context.preferences
         prefs = preferences.addons[__package__].preferences
 
         layout = self.layout
@@ -265,7 +265,7 @@ class JumptoCut(Panel):
             # hide the play-reversed button
             # since JACK transport doesn't support reversed playback
             if scn.sync_mode == 'AUDIO_SYNC' and \
-                    context.user_preferences.system.audio_device == 'JACK':
+                    context.preferences.system.audio_device == 'JACK':
                 sub = sub_row.row(align=True)
                 sub.scale_x = 2.0
                 sub.operator("screen.animation_play", text="", icon='PLAY')
@@ -321,7 +321,7 @@ class JumptoCut(Panel):
             if prefs.kr_mini_ui:
                 row = layout.row(align=True)
                 row.operator("sequencerextra.extrasnap", text="", icon="SNAP_ON").align = 0
-                row.operator("sequencerextra.extrasnap", text="", icon="SNAP_SURFACE").align = 1
+                row.operator("sequencerextra.extrasnap", text="", icon="NONE").align = 1
                 row.operator("sequencerextra.extrasnap", text="", icon="SNAP_ON").align = 2
 
                 row.separator()
@@ -354,7 +354,7 @@ class JumptoCut(Panel):
                         row.operator("sequencerextra.sourceout", icon='MARKER_HLT', text="OUT")
 
                     row.separator()
-                    row.operator("sequencerextra.setinout", icon="ARROW_LEFTRIGHT", text="")
+                    row.operator("sequencerextra.setinout", icon='ARROW_LEFTRIGHT', text="")
                     row.operator("sequencerextra.triminout", icon="FULLSCREEN_EXIT", text="")
 
                 # miniUI extra actions
@@ -378,14 +378,14 @@ class JumptoCut(Panel):
 
             else:
                 row = layout.row(align=True)
-                row.label("Snap:")
+                row.label(text="Snap:")
 
                 row.operator("sequencerextra.extrasnap", text="Left", icon="SNAP_ON").align = 0
                 row.operator("sequencerextra.extrasnap", text="Center", icon="SNAP_SURFACE").align = 1
                 row.operator("sequencerextra.extrasnap", text="Right", icon="SNAP_ON").align = 2
 
                 row = layout.row(align=True)
-                row.label("Handlers:")
+                row.label(text="Handlers:")
                 row.operator("sequencerextra.extrahandles",
                              text="Left", icon="TRIA_LEFT").side = 0
                 row.operator("sequencerextra.extrahandles",
@@ -411,7 +411,7 @@ class JumptoCut(Panel):
                 row2 = col.row(align=True)
                 row2.operator("sequencerextra.sourceout", icon='MARKER_HLT', text="Set OUT")
                 row3 = col.row()
-                row3.operator("sequencerextra.setinout", icon="ARROW_LEFTRIGHT", text="Selected")
+                row3.operator("sequencerextra.setinout", icon='ARROW_LEFTRIGHT', text="Selected")
 
                 sub_col = box.split(percentage=0.67, align=True)
                 row4 = sub_col.row(align=True)
@@ -591,7 +591,7 @@ class JumptoCut(Panel):
                     sub.operator("screen.animation_play", text="", icon='PAUSE' if
                                  context.screen.is_animation_playing else 'PLAY')
 
-                    row.label("Cut To")
+                    row.label(text="Cut To")
                     for i in range(1, strip.channel):
                         row.operator("sequencer.cut_multicam", text="%d" % i).camera = i
 

@@ -28,8 +28,8 @@ extern "C" {
 #include <Python.h>
 }
 
-#include "StringUtils.h"
 #include "Interpreter.h"
+#include "StringUtils.h"
 
 #include "MEM_guardedalloc.h"
 

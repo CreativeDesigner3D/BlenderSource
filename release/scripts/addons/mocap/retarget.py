@@ -61,8 +61,8 @@ def loadMapping(perf_arm, end_arm):
                 perf_arm.bones[perf_bone.name].map = end_bone.name
 
 #creation of intermediate armature
-# the intermediate armature has the hiearchy of the end user,
-# does not have rotation inheritence
+# the intermediate armature has the hierarchy of the end user,
+# does not have rotation inheritance
 # and bone roll is identical to the performer
 # its purpose is to copy over the rotations
 # easily while concentrating on the hierarchy changes
@@ -92,7 +92,7 @@ def createIntermediate(performer_obj, enduser_obj, root, s_frame, e_frame, scene
             lerp_matrix = first_mat.lerp(next_mat, 0.5)
         return lerp_matrix
 
-    #determines the type of hierachy change needed and calls the
+    #determines the type of hierarchy change needed and calls the
     #right function
     def retargetPerfToInter(inter_bone):
         if inter_bone.bone.reverseMap:
@@ -120,9 +120,9 @@ def createIntermediate(performer_obj, enduser_obj, root, s_frame, e_frame, scene
     #creates the intermediate armature object
     inter_obj = enduser_obj.copy()
     inter_obj.data = inter_obj.data.copy()  # duplicate data
-    bpy.context.scene.objects.link(inter_obj)
+    bpy.context.collection.objects.link(inter_obj)
     inter_obj.name = "intermediate"
-    bpy.context.scene.objects.active = inter_obj
+    bpy.context.view_layer.objects.active = inter_obj
     bpy.ops.object.mode_set(mode='EDIT')
     #add some temporary connecting bones in case end user bones are not connected to their parents
     rollDict = {}
@@ -176,7 +176,7 @@ def retargetEnduser(inter_obj, enduser_obj, root, s_frame, e_frame, scene, step)
     inter_bones = inter_obj.pose.bones
     end_bones = enduser_obj.pose.bones
 
-    #Basic "visual baking" function, for transfering rotations from intermediate to end user
+    #Basic "visual baking" function, for transferring rotations from intermediate to end user
     def bakeTransform(end_bone):
         src_bone = inter_bones[end_bone.name]
         trg_bone = end_bone
@@ -219,7 +219,7 @@ def retargetEnduser(inter_obj, enduser_obj, root, s_frame, e_frame, scene, step)
         end_bone.keyframe_insert("location")
         bakeTransform(end_bone)
 
-#recieves the performer feet bones as a variable
+#receives the performer feet bones as a variable
 # by "feet" I mean those bones that have plants
 # (they don't move, despite root moving) somewhere in the animation.
 
@@ -538,7 +538,7 @@ def totalRetarget(performer_obj, enduser_obj, scene, s_frame, e_frame):
     if not advanced:
         print("hry")
         bpy.ops.object.select_all(action='DESELECT')
-        bpy.context.scene.objects.active = enduser_obj
+        bpy.context.view_layer.objects.active = enduser_obj
         bpy.ops.object.select_pattern(pattern=enduser_obj.name, extend=False)
         IKRetarget(performer_obj, enduser_obj, s_frame, e_frame, scene, step)
         bpy.ops.object.select_pattern(pattern=stride_bone.name, extend=False)

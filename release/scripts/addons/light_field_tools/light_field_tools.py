@@ -39,7 +39,7 @@ Usage:
 A simple interface can be accessed in the tool shelf panel
 in 3D View ([T] Key).
 
-A base mesh has to be provided, which will normaly be a
+A base mesh has to be provided, which will normally be a
 subdivided plane. The script will then create a camera rig
 and a light rig with adjustable properties. A sample camera
 and a spotlight will be created on each vertex of the
@@ -85,7 +85,7 @@ v0.0.1 - Initial version.
 TODO:
 * Restore view after primary camera is changed.
 * Apply object matrix to normals.
-* Allign to normals, somehow,....
+* Align to normals, somehow,....
 * StringProperties with PATH tag, for proper ui.
 """
 
@@ -189,7 +189,7 @@ class OBJECT_OT_create_lightfield_rig(Operator):
             cam.data.angle = scene.lightfield.angle
 
             # display options of the camera
-            cam.data.draw_size = 0.15
+            cam.data.display_size = 0.15
             cam.data.lens_unit = 'FOV'
 
             # handler parent
@@ -228,7 +228,7 @@ class OBJECT_OT_create_lightfield_rig(Operator):
 
     def createSpot(self, index, textured=False):
         scene = bpy.context.scene
-        bpy.ops.object.lamp_add(
+        bpy.ops.object.light_add(
                 type='SPOT')
         spot = bpy.context.active_object
 
@@ -319,18 +319,20 @@ class OBJECT_OT_create_lightfield_basemesh(Operator):
         return normal * vl
 
     def addMeshObj(self, mesh):
+        collection = bpy.context.collection
         scene = bpy.context.scene
+        view_layer = bpy.context.view_layer
 
         for o in scene.objects:
-            o.select = False
+            o.select_set(False)
 
         mesh.update()
         nobj = bpy.data.objects.new(self.objName, mesh)
-        scene.objects.link(nobj)
-        nobj.select = True
+        collection.objects.link(nobj)
+        nobj.select_set(True)
 
-        if scene.objects.active is None or scene.objects.active.mode == 'OBJECT':
-            scene.objects.active = nobj
+        if view_layer.objects.active is None or view_layer.objects.active.mode == 'OBJECT':
+            view_layer.objects.active = nobj
 
     def execute(self, context):
         scene = context.scene

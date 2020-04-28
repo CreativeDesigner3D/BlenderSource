@@ -22,7 +22,7 @@ bl_info = {
     "name": "Is key Free",
     "author": "Antonio Vazquez (antonioya)",
     "version": (1, 1, 1),
-    "blender": (2, 6, 9),
+    "blender": (2, 69, 0),
     "location": "Text Editor > Props Shelf (Ctrl/t > IsKeyFree Tools",
     "description": "Find free shortcuts, inform about used and print a key list",
     "wiki_url": "https://wiki.blender.org/index.php/Extensions:2.6"
@@ -105,18 +105,18 @@ class MyChecker():
         cls.mylist.clear()
         for e in sortkeys:
             cmd = ""
-            if e[2] is not "":
+            if e[2] != "":
                 cmd += e[2] + "+"
-            if e[3] is not "":
+            if e[3] != "":
                 cmd += e[3] + "+"
-            if e[4] is not "":
+            if e[4] != "":
                 cmd += e[4] + "+"
-            if e[5] is not "":
+            if e[5] != "":
                 cmd += e[5] + "+"
 
             cmd += e[1]
 
-            if e[6] is not "":
+            if e[6] != "":
                 cmd += "  " + e[6]
             cls.mylist.append([e[0], cmd])
 
@@ -146,9 +146,9 @@ class MyChecker():
         allkeys = [
             "LEFTMOUSE", "MIDDLEMOUSE", "RIGHTMOUSE", "BUTTON4MOUSE", "BUTTON5MOUSE", "BUTTON6MOUSE",
             "BUTTON7MOUSE",
-            "ACTIONMOUSE", "SELECTMOUSE", "MOUSEMOVE", "INBETWEEN_MOUSEMOVE", "TRACKPADPAN", "TRACKPADZOOM",
+            "MOUSEMOVE", "INBETWEEN_MOUSEMOVE", "TRACKPADPAN", "TRACKPADZOOM",
             "MOUSEROTATE", "WHEELUPMOUSE", "WHEELDOWNMOUSE", "WHEELINMOUSE", "WHEELOUTMOUSE", "EVT_TWEAK_L",
-            "EVT_TWEAK_M", "EVT_TWEAK_R", "EVT_TWEAK_A", "EVT_TWEAK_S", "A", "B", "C", "D", "E", "F", "G", "H",
+            "EVT_TWEAK_M", "EVT_TWEAK_R", "A", "B", "C", "D", "E", "F", "G", "H",
             "I", "J",
             "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", "ZERO", "ONE", "TWO",
             "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE", "LEFT_CTRL", "LEFT_ALT", "LEFT_SHIFT",
@@ -245,23 +245,23 @@ class UIControlPanel(Panel):
             cmd = mychecker.getlast()
             if cmd is not None:
                 row = layout.row()
-                row.label("Current uses of " + str(cmd), icon="PARTICLE_DATA")
+                row.label(text="Current uses of " + str(cmd), icon="PARTICLE_DATA")
             for e in mylist:
                 if oldcontext != e[0]:
                     box = layout.box()
-                    box.label(e[0], icon="UNPINNED")
+                    box.label(text=e[0], icon="UNPINNED")
                     oldcontext = e[0]
 
                 row = box.row(align=True)
-                row.label(e[1])
+                row.label(text=e[1])
         else:
             cmd = mychecker.getlast()
             if cmd is not None:
                 box = layout.box()
                 if mychecker.isvalidkey(mychecker.getlastkey()) is False:
-                    box.label(str(mychecker.getlastkey()) + " looks not valid key", icon="ERROR")
+                    box.label(text=str(mychecker.getlastkey()) + " looks not valid key", icon="ERROR")
                 else:
-                    box.label(str(cmd) + " is free", icon="FILE_TICK")
+                    box.label(text=str(cmd) + " is free", icon="FILE_TICK")
 
 
 # ------------------------------------------------------
@@ -275,31 +275,31 @@ def update_data(self, context):
 
 
 class IskeyFreeProperties(PropertyGroup):
-    data = StringProperty(
+    data: StringProperty(
         name="Key", maxlen=32,
         description="Shortcut to verify"
     )
-    use_crtl = BoolProperty(
+    use_crtl: BoolProperty(
         name="Ctrl",
         description="Ctrl key used in shortcut",
         default=False
     )
-    use_alt = BoolProperty(
+    use_alt: BoolProperty(
         name="Alt",
         description="Alt key used in shortcut",
         default=False
     )
-    use_shift = BoolProperty(
+    use_shift: BoolProperty(
         name="Shift",
         description="Shift key used in shortcut",
         default=False
     )
-    use_oskey = BoolProperty(
+    use_oskey: BoolProperty(
         name="OsKey",
         description="Operating system key used in shortcut",
         default=False
     )
-    numpad = EnumProperty(
+    numpad: EnumProperty(
         items=(
             ('NONE', "Select key", ""),
             ("LEFTMOUSE", "LEFTMOUSE", ""),
@@ -309,8 +309,6 @@ class IskeyFreeProperties(PropertyGroup):
             ("BUTTON5MOUSE", "BUTTON5MOUSE", ""),
             ("BUTTON6MOUSE", "BUTTON6MOUSE", ""),
             ("BUTTON7MOUSE", "BUTTON7MOUSE", ""),
-            ("ACTIONMOUSE", "ACTIONMOUSE", ""),
-            ("SELECTMOUSE", "SELECTMOUSE", ""),
             ("MOUSEMOVE", "MOUSEMOVE", ""),
             ("INBETWEEN_MOUSEMOVE", "INBETWEEN_MOUSEMOVE", ""),
             ("TRACKPADPAN", "TRACKPADPAN", ""),
@@ -323,8 +321,6 @@ class IskeyFreeProperties(PropertyGroup):
             ("EVT_TWEAK_L", "EVT_TWEAK_L", ""),
             ("EVT_TWEAK_M", "EVT_TWEAK_M", ""),
             ("EVT_TWEAK_R", "EVT_TWEAK_R", ""),
-            ("EVT_TWEAK_A", "EVT_TWEAK_A", ""),
-            ("EVT_TWEAK_S", "EVT_TWEAK_S", ""),
             ("A", "A", ""),
             ("B", "B", ""),
             ("C", "C", ""),

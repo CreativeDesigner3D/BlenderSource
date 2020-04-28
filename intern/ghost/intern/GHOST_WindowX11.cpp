@@ -22,18 +22,18 @@
  */
 
 /* For standard X11 cursors */
-#include <X11/cursorfont.h>
 #include <X11/Xatom.h>
-#include <X11/Xutil.h>
 #include <X11/Xmd.h>
+#include <X11/Xutil.h>
+#include <X11/cursorfont.h>
 #ifdef WITH_X11_ALPHA
 #  include <X11/extensions/Xrender.h>
 #endif
-#include "GHOST_WindowX11.h"
-#include "GHOST_SystemX11.h"
-#include "GHOST_IconX11.h"
-#include "STR_String.h"
 #include "GHOST_Debug.h"
+#include "GHOST_IconX11.h"
+#include "GHOST_SystemX11.h"
+#include "GHOST_WindowX11.h"
+#include "STR_String.h"
 
 #ifdef WITH_XDND
 #  include "GHOST_DropTargetX11.h"
@@ -54,15 +54,15 @@
 // For DPI value
 #include <X11/Xresource.h>
 
-#include <cstring>
 #include <cstdio>
+#include <cstring>
 
 /* gethostname */
 #include <unistd.h>
 
 #include <algorithm>
-#include <string>
 #include <math.h>
+#include <string>
 
 /* For obscure full screen mode stuff
  * lifted verbatim from blut. */
@@ -239,6 +239,7 @@ GHOST_WindowX11::GHOST_WindowX11(GHOST_SystemX11 *system,
 #ifdef WITH_XDND
       m_dropTarget(NULL),
 #endif
+      m_tabletData(GHOST_TABLET_DATA_NONE),
 #if defined(WITH_X11_XINPUT) && defined(X_HAVE_UTF8_STRING)
       m_xic(NULL),
 #endif
@@ -498,8 +499,6 @@ GHOST_WindowX11::GHOST_WindowX11(GHOST_SystemX11 *system,
 
 #ifdef WITH_X11_XINPUT
   refreshXInputDevices();
-
-  m_tabletData = GHOST_TABLET_DATA_DEFAULT;
 #endif
 
   /* now set up the rendering context. */

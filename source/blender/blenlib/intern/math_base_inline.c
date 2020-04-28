@@ -28,9 +28,9 @@
 #define __MATH_BASE_INLINE_C__
 
 #include <float.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <limits.h>
 
 #ifdef __SSE2__
 #  include <emmintrin.h>
@@ -375,6 +375,72 @@ MINLINE float wrapf(float value, float max, float min)
   return (range != 0.0f) ? value - (range * floorf((value - min) / range)) : min;
 }
 
+// Square.
+
+MINLINE int square_s(short a)
+{
+  return a * a;
+}
+
+MINLINE int square_i(int a)
+{
+  return a * a;
+}
+
+MINLINE unsigned int square_uint(unsigned int a)
+{
+  return a * a;
+}
+
+MINLINE int square_uchar(unsigned char a)
+{
+  return a * a;
+}
+
+MINLINE float square_f(float a)
+{
+  return a * a;
+}
+
+MINLINE double square_d(double a)
+{
+  return a * a;
+}
+
+// Cube.
+
+MINLINE int cube_s(short a)
+{
+  return a * a * a;
+}
+
+MINLINE int cube_i(int a)
+{
+  return a * a * a;
+}
+
+MINLINE unsigned int cube_uint(unsigned int a)
+{
+  return a * a * a;
+}
+
+MINLINE int cube_uchar(unsigned char a)
+{
+  return a * a * a;
+}
+
+MINLINE float cube_f(float a)
+{
+  return a * a * a;
+}
+
+MINLINE double cube_d(double a)
+{
+  return a * a * a;
+}
+
+// Min/max
+
 MINLINE float min_ff(float a, float b)
 {
   return (a < b) ? a : b;
@@ -454,6 +520,15 @@ MINLINE size_t min_zz(size_t a, size_t b)
   return (a < b) ? a : b;
 }
 MINLINE size_t max_zz(size_t a, size_t b)
+{
+  return (b < a) ? a : b;
+}
+
+MINLINE char min_cc(char a, char b)
+{
+  return (a < b) ? a : b;
+}
+MINLINE char max_cc(char a, char b)
 {
   return (b < a) ? a : b;
 }

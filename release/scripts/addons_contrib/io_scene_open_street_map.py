@@ -238,10 +238,9 @@ def read(context, filepath, scale=100.0, tag=False, utm=False):
         me.transform(global_matrix)
 
     # create the object in the scene
-    scene = context.scene
-    scene.objects.link(obj)
-    scene.objects.active = obj
-    obj.select = True
+    context.collection.objects.link(obj)
+    context.view_layer.objects.active = obj
+    obj.select_set(True)
 
     # entry points for other addons
     obj['osmfile'] = filepath
@@ -321,21 +320,21 @@ class ImportOSM(Operator, ImportHelper):
 
     # ExportHelper mixin class uses this
     filename_ext = ".osm"
-    filter_glob = StringProperty(
+    filter_glob: StringProperty(
             default="*.osm",
             options={'HIDDEN'},
             )
     # List of operator properties, the attributes will be assigned
     # to the class instance from the operator settings before calling.
-    scale = FloatProperty(
+    scale: FloatProperty(
             name="Scale",
             default=100.0,
             )
-    utm = BoolProperty(
+    utm: BoolProperty(
             name="in UTM coordinates",
             default=True,
             )
-    tag = BoolProperty(
+    tag: BoolProperty(
             name="retrieve .osm tags as vertex groups",
             default=False,
             )
@@ -351,9 +350,9 @@ def menu_func_export(self, context):
 
 def register():
     bpy.utils.register_class(ImportOSM)
-    bpy.types.INFO_MT_file_import.append(menu_func_export)
+    bpy.types.TOPBAR_MT_file_import.append(menu_func_export)
 
 
 def unregister():
     bpy.utils.unregister_class(ImportOSM)
-    bpy.types.INFO_MT_file_import.remove(menu_func_export)
+    bpy.types.TOPBAR_MT_file_import.remove(menu_func_export)

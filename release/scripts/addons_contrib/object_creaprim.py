@@ -92,7 +92,7 @@ class CreaPrim(bpy.types.Operator):
 
         objlist = []
         for selobj in bpy.context.scene.objects:
-            if selobj.select and test_data(selobj) is True:
+            if selobj.select_get() and test_data(selobj) is True:
                 objlist.append(selobj)
 
         if len(objlist) == 0:
@@ -151,9 +151,9 @@ class CreaPrim(bpy.types.Operator):
 
         if len(txtlist) > 1:
             makeinit(txtlist, namelist, groupname, addondir)
-            bpy.ops.wm.addon_enable(module="add_mesh_" + groupname)
+            bpy.ops.preferences.addon_enable(module="add_mesh_" + groupname)
         else:
-            bpy.ops.wm.addon_enable(module="add_mesh_" + str.lower(objname))
+            bpy.ops.preferences.addon_enable(module="add_mesh_" + str.lower(objname))
 
         if scriptdir == 1:
             message = "Add Mesh addon " + groupname + " saved to user scripts directory."
@@ -194,8 +194,15 @@ def panel_func(self, context):
     self.layout.prop(scn, "Creaprim_Apply")
 
 
+classes = (
+    CreaPrim,
+    MessageOperator)
+
+
 def register():
-    bpy.utils.register_module(__name__)
+    for cls in classes:
+        bpy.utils.register_class(cls)
+    #bpy.utils.register_module(__name__)
     bpy.types.Scene.Creaprim_Name = bpy.props.StringProperty(
             name="Name",
             description="Name for the primitive",
@@ -206,14 +213,20 @@ def register():
             description="Apply transform to selected objects",
             default=False
             )
-    bpy.types.VIEW3D_PT_tools_object.append(panel_func)
-    bpy.app.handlers.scene_update_post.append(setname)
+    #bpy.types.VIEW3D_PT_tools_object.append(panel_func)
+    bpy.types.OBJECT_PT_context_object.append(panel_func)
+    #bpy.app.handlers.scene_update_post.append(setname)
+    bpy.app.handlers.depsgraph_update_post.append(setname)
 
 
 def unregister():
-    bpy.utils.unregister_module(__name__)
-    bpy.types.VIEW3D_PT_tools_object.remove(panel_func)
-    bpy.app.handlers.scene_update_post.remove(setname)
+    #bpy.utils.unregister_module(__name__)
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)
+    #bpy.types.VIEW3D_PT_tools_object.remove(panel_func)
+    bpy.types.OBJECT_PT_context_object.remove(panel_func)
+    #bpy.app.handlers.scene_update_post.remove(setname)
+    bpy.app.handlers.depsgraph_update_post.remove(setname)
     del bpy.types.Scene.Creaprim_Name
     del bpy.types.Scene.Creaprim_Apply
 
@@ -269,9 +282,10 @@ def do_creaprim(self, mesh, objname, addondir):
     strlist.append("\n")
     strlist.append("        mesh = bpy.data.meshes.new(name=\"" + objname + "\")\n")
     strlist.append("        obj = bpy.data.objects.new(name=\"" + objname + "\", object_data=mesh)\n")
+    strlist.append("        collection = bpy.context.collection\n")
     strlist.append("        scene = bpy.context.scene\n")
-    strlist.append("        scene.objects.link(obj)\n")
-    strlist.append("        obj.location = scene.cursor_location\n")
+    strlist.append("        collection.objects.link(obj)\n")
+    strlist.append("        obj.location = scene.cursor.location\n")
     strlist.append("        bm = bmesh.new()\n")
     strlist.append("        bm.from_mesh(mesh)\n")
     strlist.append("\n")
@@ -340,12 +354,12 @@ def do_creaprim(self, mesh, objname, addondir):
     strlist.append("\n")
     strlist.append("def register():\n")
     strlist.append("    bpy.utils.register_module(__name__)\n")
-    strlist.append("    bpy.types.INFO_MT_mesh_add.append(menu_item)\n")
+    strlist.append("    bpy.types.VIEW3D_MT_mesh_add.append(menu_item)\n")
     strlist.append("\n")
     strlist.append("\n")
     strlist.append("def unregister():\n")
     strlist.append("    bpy.utils.unregister_module(__name__)\n")
-    strlist.append("    bpy.types.INFO_MT_mesh_add.remove(menu_item)\n")
+    strlist.append("    bpy.types.VIEW3D_MT_mesh_add.remove(menu_item)\n")
     strlist.append("\n")
     strlist.append("\n")
     strlist.append("if __name__ == \"__main__\":\n")
@@ -410,8 +424,8 @@ def makeinit(txtlist, namelist, groupname, addondir):
     strlist.append("import bpy\n")
     strlist.append("\n")
     strlist.append("\n")
-    strlist.append("class INFO_MT_mesh_" + str.lower(groupname) + "_add(bpy.types.Menu):\n")
-    strlist.append("    bl_idname = \"INFO_MT_mesh_" + str.lower(groupname) + "_add\"\n")
+    strlist.append("class VIEW3D_MT_mesh_" + str.lower(groupname) + "_add(bpy.types.Menu):\n")
+    strlist.append("    bl_idname = \"VIEW3D_MT_mesh_" + str.lower(groupname) + "_add\"\n")
     strlist.append("    bl_label = \"" + groupname + "\"\n")
     strlist.append("\n")
     strlist.append("    def draw(self, context):\n")
@@ -422,17 +436,17 @@ def makeinit(txtlist, namelist, groupname, addondir):
     strlist.append("\n")
     strlist.append("\n")
     strlist.append("def menu_item(self, context):\n")
-    strlist.append("    self.layout.menu(\"INFO_MT_mesh_" + str.lower(groupname) + "_add\", icon=\"PLUGIN\")\n")
+    strlist.append("    self.layout.menu(\"VIEW3D_MT_mesh_" + str.lower(groupname) + "_add\", icon=\"PLUGIN\")\n")
     strlist.append("\n")
     strlist.append("\n")
     strlist.append("def register():\n")
     strlist.append("    bpy.utils.register_module(__name__)\n")
-    strlist.append("    bpy.types.INFO_MT_mesh_add.append(menu_item)\n")
+    strlist.append("    bpy.types.VIEW3D_MT_mesh_add.append(menu_item)\n")
     strlist.append("\n")
     strlist.append("\n")
     strlist.append("def unregister():\n")
     strlist.append("    bpy.utils.unregister_module(__name__)\n")
-    strlist.append("    bpy.types.INFO_MT_mesh_add.remove(menu_item)\n")
+    strlist.append("    bpy.types.VIEW3D_MT_mesh_add.remove(menu_item)\n")
     strlist.append("\n")
     strlist.append("\n")
     strlist.append("if __name__ == \"__main__\":\n")

@@ -75,7 +75,7 @@ def Add_Chain():
     # Positions Torus primitive to center of scene
     bpy.context.active_object.location = 0.0, 0.0, 0.0
 
-    # Reseting Torus rotation in case of 'Align to view' option enabled
+    # Resetting Torus rotation in case of 'Align to view' option enabled
     bpy.context.active_object.rotation_euler = 0.0, 0.0, 0.0
 
     # Changes Torus name to chain adds variable tor
@@ -103,7 +103,7 @@ def Add_Chain():
     bpy.ops.transform.translate(
             value=(2, 0, 0),
             constraint_axis=(True, False, False),
-            constraint_orientation='GLOBAL',
+            orient_type='GLOBAL',
             mirror=False,
             proportional='DISABLED',
             proportional_edit_falloff='SMOOTH',

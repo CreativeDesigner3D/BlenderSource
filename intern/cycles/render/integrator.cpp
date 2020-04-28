@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
+#include "render/integrator.h"
 #include "device/device.h"
 #include "render/background.h"
-#include "render/integrator.h"
 #include "render/film.h"
 #include "render/jitter.h"
 #include "render/light.h"
@@ -27,8 +27,8 @@
 #include "kernel/kernel_types.h"
 
 #include "util/util_foreach.h"
-#include "util/util_logging.h"
 #include "util/util_hash.h"
+#include "util/util_logging.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -50,7 +50,7 @@ NODE_DEFINE(Integrator)
   SOCKET_INT(ao_bounces, "AO Bounces", 0);
 
   SOCKET_INT(volume_max_steps, "Volume Max Steps", 1024);
-  SOCKET_FLOAT(volume_step_size, "Volume Step Size", 0.1f);
+  SOCKET_FLOAT(volume_step_rate, "Volume Step Rate", 1.0f);
 
   SOCKET_BOOLEAN(caustics_reflective, "Reflective Caustics", true);
   SOCKET_BOOLEAN(caustics_refractive, "Refractive Caustics", true);
@@ -143,7 +143,7 @@ void Integrator::device_update(Device *device, DeviceScene *dscene, Scene *scene
   }
 
   kintegrator->volume_max_steps = volume_max_steps;
-  kintegrator->volume_step_size = volume_step_size;
+  kintegrator->volume_step_rate = volume_step_rate;
 
   kintegrator->caustics_reflective = caustics_reflective;
   kintegrator->caustics_refractive = caustics_refractive;
@@ -190,6 +190,13 @@ void Integrator::device_update(Device *device, DeviceScene *dscene, Scene *scene
   else {
     kintegrator->adaptive_min_samples = max(4, adaptive_min_samples);
   }
+
+  kintegrator->adaptive_step = 4;
+  kintegrator->adaptive_stop_per_sample = device->info.has_adaptive_stop_per_sample;
+
+  /* Adaptive step must be a power of two for bitwise operations to work. */
+  assert((kintegrator->adaptive_step & (kintegrator->adaptive_step - 1)) == 0);
+
   if (aa_samples > 0 && adaptive_threshold == 0.0f) {
     kintegrator->adaptive_threshold = max(0.001f, 1.0f / (float)aa_samples);
     VLOG(1) << "Cycles adaptive sampling: automatic threshold = "

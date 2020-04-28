@@ -20,7 +20,7 @@ bl_info = {
     "name": "Render Settings",
     "author": "meta-androcto, Saidenka",
     "version": (0, 1, 1),
-    "blender": (2, 7, 7),
+    "blender": (2, 77, 0),
     "location": "Render Menu, UV Editor Render Tab",
     "description": "Render Settings BI & Cycles",
     "warning": "",
@@ -40,13 +40,13 @@ class RenderBackground(bpy.types.Operator):
     bl_description = "Render From The Commandline"
     bl_options = {'REGISTER'}
 
-    is_quit = bpy.props.BoolProperty(name="Quit Blender", default=True)
+    is_quit: bpy.props.BoolProperty(name="Quit Blender", default=True)
     items = [
         ('IMAGE', "Image", "", 1),
         ('ANIME', "Animation", "", 2),
     ]
-    mode = bpy.props.EnumProperty(items=items, name="Mode", default='IMAGE')
-    thread = bpy.props.IntProperty(name="Threads", default=2, min=1, max=16, soft_min=1, soft_max=16)
+    mode: bpy.props.EnumProperty(items=items, name="Mode", default='IMAGE')
+    thread: bpy.props.IntProperty(name="Threads", default=2, min=1, max=16, soft_min=1, soft_max=16)
 
     def execute(self, context):
         blend_path = bpy.data.filepath
@@ -71,7 +71,7 @@ class SetRenderResolutionPercentage(bpy.types.Operator):
     bl_description = "Percent of the size of the resolution"
     bl_options = {'REGISTER', 'UNDO'}
 
-    size = bpy.props.IntProperty(name="Rendering size (%)", default=100, min=1, max=1000, soft_min=1, soft_max=1000, step=1)
+    size: bpy.props.IntProperty(name="Rendering size (%)", default=100, min=1, max=1000, soft_min=1, soft_max=1000, step=1)
 
     def execute(self, context):
         context.scene.render.resolution_percentage = self.size
@@ -84,7 +84,7 @@ class ToggleThreadsMode(bpy.types.Operator):
     bl_description = "I will switch the number of threads in the CPU to be used for rendering"
     bl_options = {'REGISTER', 'UNDO'}
 
-    threads = bpy.props.IntProperty(name="Number of threads", default=1, min=1, max=16, soft_min=1, soft_max=16, step=1)
+    threads: bpy.props.IntProperty(name="Number of threads", default=1, min=1, max=16, soft_min=1, soft_max=16, step=1)
 
     def execute(self, context):
         if (context.scene.render.threads_mode == 'AUTO'):
@@ -112,8 +112,8 @@ class SetAllSubsurfRenderLevels(bpy.types.Operator):
         ('ABSOLUTE', "Absolute value", "", 1),
         ('RELATIVE', "Relative value", "", 2),
     ]
-    mode = bpy.props.EnumProperty(items=items, name="Mode")
-    levels = bpy.props.IntProperty(name="Level", default=2, min=-20, max=20, soft_min=-20, soft_max=20, step=1)
+    mode: bpy.props.EnumProperty(items=items, name="Mode")
+    levels: bpy.props.IntProperty(name="Level", default=2, min=-20, max=20, soft_min=-20, soft_max=20, step=1)
 
     def execute(self, context):
         for obj in bpy.data.objects:
@@ -139,7 +139,7 @@ class SyncAllSubsurfRenderLevels(bpy.types.Operator):
     bl_description = "sync_all_subsurf_render_levels"
     bl_options = {'REGISTER', 'UNDO'}
 
-    level_offset = bpy.props.IntProperty(name="Sync Levels", default=0, min=-20, max=20, soft_min=-20, soft_max=20, step=1)
+    level_offset: bpy.props.IntProperty(name="Sync Levels", default=0, min=-20, max=20, soft_min=-20, soft_max=20, step=1)
 
     def execute(self, context):
         for obj in bpy.data.objects:
@@ -161,7 +161,7 @@ class SyncAllSubsurfRenderLevels(bpy.types.Operator):
 
 
 class RenderResolutionPercentageMenu(bpy.types.Menu):
-    bl_idname = "INFO_MT_render_resolution_percentage"
+    bl_idname = "TOPBAR_MT_render_resolution_percentage"
     bl_label = "Rendering size (%)"
     bl_description = "Setting is set to either rendered in what percent of the size of the resolution"
 
@@ -189,7 +189,7 @@ class RenderResolutionPercentageMenu(bpy.types.Menu):
 
 
 class SimplifyRenderMenu(bpy.types.Menu):
-    bl_idname = "INFO_MT_render_simplify"
+    bl_idname = "TOPBAR_MT_render_simplify"
     bl_label = "Simplify Render"
     bl_description = "I simplified set of rendering"
 
@@ -204,7 +204,7 @@ class SimplifyRenderMenu(bpy.types.Menu):
 
 
 class ShadeingMenu(bpy.types.Menu):
-    bl_idname = "INFO_MT_render_shadeing"
+    bl_idname = "TOPBAR_MT_render_shadeing"
     bl_label = "Use shading"
     bl_description = "Shading on / off"
 
@@ -217,7 +217,7 @@ class ShadeingMenu(bpy.types.Menu):
 
 
 class SubsurfMenu(bpy.types.Menu):
-    bl_idname = "INFO_MT_render_subsurf"
+    bl_idname = "TOPBAR_MT_render_subsurf"
     bl_label = "Subsurf Level All"
     bl_description = "Subsurf subdivision level of all objects"
 
@@ -278,7 +278,7 @@ class RenderToolsMenu(bpy.types.Operator):
             self.layout.prop(cscene, "samples", text="Render")
             self.layout.prop(cscene, "preview_samples", text="Preview")
             self.layout.separator()
-            self.layout.prop(context.scene.render, 'use_freestyle', text="Use FreeStyle", icon="WIRE")
+            self.layout.prop(context.scene.render, 'use_freestyle', text="Use FreeStyle", icon='SHADING_WIRE')
             self.layout.separator()
             self.layout.menu(SimplifyRenderMenu.bl_idname, icon="RENDER_RESULT")
             self.layout.menu(SubsurfMenu.bl_idname, icon="MOD_SUBSURF")
@@ -306,7 +306,7 @@ class RenderToolsMenu(bpy.types.Operator):
             self.layout.prop(context.scene.render, 'use_antialiasing', text="Use Anti-aliasing", icon="ALIASED")
             self.layout.prop_menu_enum(context.scene.render, 'antialiasing_samples', text="Set Anti-Aliasing", icon="ANTIALIASED")
             self.layout.prop(context.scene.world.light_settings, 'samples', text="Ray Samples", icon="WORLD")
-            self.layout.prop(context.scene.render, 'use_freestyle', text="Use FreeStyle", icon="WIRE")
+            self.layout.prop(context.scene.render, 'use_freestyle', text="Use FreeStyle", icon='SHADING_WIRE')
             self.layout.menu(ShadeingMenu.bl_idname, icon="TEXTURE_SHADED")
             self.layout.separator()
             self.layout.menu(SimplifyRenderMenu.bl_idname, icon="RENDER_RESULT")
@@ -330,7 +330,7 @@ def menu(self, context):
 
 
 class AnimateRenderMenu(bpy.types.Menu):
-    bl_idname = "INFO_MT_render_animate_menu"
+    bl_idname = "TOPBAR_MT_render_animate_menu"
     bl_label = "Animation"
     bl_description = "Set Frames & Animation Length"
 
@@ -338,7 +338,7 @@ class AnimateRenderMenu(bpy.types.Menu):
         self.layout.separator()
         self.layout.prop(context.scene, 'frame_start', text="Start Frame", icon="COLOR_GREEN")
         self.layout.prop(context.scene, 'frame_end', text="End Frame", icon="COLOR_RED")
-        self.layout.prop(context.scene, 'frame_step', text="Frame Step", icon="ALIGN")
+        self.layout.prop(context.scene, 'frame_step', text="Frame Step", icon='CENTER_ONLY')
         self.layout.prop(context.scene.render, 'fps', text="FPS", icon="AUTO")
 
 
@@ -377,7 +377,7 @@ class RenderSettingsPanel(bpy.types.Panel):
             self.layout.prop(cscene, "samples", text="Render")
             self.layout.prop(cscene, "preview_samples", text="Preview")
             self.layout.separator()
-            self.layout.prop(context.scene.render, 'use_freestyle', text="Use FreeStyle", icon="WIRE")
+            self.layout.prop(context.scene.render, 'use_freestyle', text="Use FreeStyle", icon='SHADING_WIRE')
             self.layout.separator()
             self.layout.menu(SimplifyRenderMenu.bl_idname, icon="RENDER_RESULT")
             self.layout.menu(SubsurfMenu.bl_idname, icon="MOD_SUBSURF")
@@ -405,7 +405,7 @@ class RenderSettingsPanel(bpy.types.Panel):
             self.layout.prop(context.scene.render, 'use_antialiasing', text="Use Anti-aliasing", icon="ALIASED")
             self.layout.prop_menu_enum(context.scene.render, 'antialiasing_samples', text="Set Anti-Aliasing", icon="ANTIALIASED")
             self.layout.prop(context.scene.world.light_settings, 'samples', text="Ray Samples", icon="WORLD")
-            self.layout.prop(context.scene.render, 'use_freestyle', text="Use FreeStyle", icon="WIRE")
+            self.layout.prop(context.scene.render, 'use_freestyle', text="Use FreeStyle", icon='SHADING_WIRE')
             self.layout.menu(ShadeingMenu.bl_idname, icon="TEXTURE_SHADED")
             self.layout.separator()
             self.layout.menu(SimplifyRenderMenu.bl_idname, icon="RENDER_RESULT")
@@ -424,12 +424,12 @@ class RenderSettingsPanel(bpy.types.Panel):
 
 def register():
     bpy.utils.register_module(__name__)
-    bpy.types.INFO_MT_render.append(menu)
+    bpy.types.TOPBAR_MT_render.append(menu)
 
 # unregister
 
 def unregister():
-    bpy.types.INFO_MT_render.remove(menu)
+    bpy.types.TOPBAR_MT_render.remove(menu)
     bpy.utils.unregister_module(__name__)
 
 if __name__ == "__main__":

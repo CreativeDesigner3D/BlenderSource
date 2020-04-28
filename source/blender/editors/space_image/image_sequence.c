@@ -64,22 +64,27 @@ static void image_sequence_get_frame_ranges(wmOperator *op, ListBase *ranges)
   char dir[FILE_MAXDIR];
   const bool do_frame_range = RNA_boolean_get(op->ptr, "use_sequence_detection");
   ImageFrameRange *range = NULL;
+  int range_first_frame = 0;
 
   RNA_string_get(op->ptr, "directory", dir);
   RNA_BEGIN (op->ptr, itemptr, "files") {
     char base_head[FILE_MAX], base_tail[FILE_MAX];
     char head[FILE_MAX], tail[FILE_MAX];
-    unsigned short digits;
+    ushort digits;
     char *filename = RNA_string_get_alloc(&itemptr, "name", NULL, 0);
     ImageFrame *frame = MEM_callocN(sizeof(ImageFrame), "image_frame");
 
     /* use the first file in the list as base filename */
-    frame->framenr = BLI_stringdec(filename, head, tail, &digits);
+    frame->framenr = BLI_path_sequence_decode(filename, head, tail, &digits);
 
     /* still in the same sequence */
     if (do_frame_range && (range != NULL) && (STREQLEN(base_head, head, FILE_MAX)) &&
         (STREQLEN(base_tail, tail, FILE_MAX))) {
-      /* pass */
+      /* Set filepath to first frame in the range. */
+      if (frame->framenr < range_first_frame) {
+        BLI_join_dirfile(range->filepath, sizeof(range->filepath), dir, filename);
+        range_first_frame = frame->framenr;
+      }
     }
     else {
       /* start a new frame range */
@@ -89,6 +94,8 @@ static void image_sequence_get_frame_ranges(wmOperator *op, ListBase *ranges)
 
       BLI_strncpy(base_head, head, sizeof(base_head));
       BLI_strncpy(base_tail, tail, sizeof(base_tail));
+
+      range_first_frame = frame->framenr;
     }
 
     BLI_addtail(&range->frames, frame);
@@ -125,9 +132,9 @@ static int image_get_udim(char *filepath, ListBase *udim_tiles)
   char filename[FILE_MAX], dirname[FILE_MAXDIR];
   BLI_split_dirfile(filepath, dirname, filename, sizeof(dirname), sizeof(filename));
 
-  unsigned short digits;
+  ushort digits;
   char base_head[FILE_MAX], base_tail[FILE_MAX];
-  int id = BLI_stringdec(filename, base_head, base_tail, &digits);
+  int id = BLI_path_sequence_decode(filename, base_head, base_tail, &digits);
 
   if (id < 1001 || id >= IMA_UDIM_MAX) {
     return 0;
@@ -144,7 +151,7 @@ static int image_get_udim(char *filepath, ListBase *udim_tiles)
       continue;
     }
     char head[FILE_MAX], tail[FILE_MAX];
-    id = BLI_stringdec(dir[i].relname, head, tail, &digits);
+    id = BLI_path_sequence_decode(dir[i].relname, head, tail, &digits);
 
     if (digits > 4 || !(STREQLEN(base_head, head, FILE_MAX)) ||
         !(STREQLEN(base_tail, tail, FILE_MAX))) {
@@ -166,7 +173,7 @@ static int image_get_udim(char *filepath, ListBase *udim_tiles)
 
   if (is_udim && has_primary) {
     char primary_filename[FILE_MAX];
-    BLI_stringenc(primary_filename, base_head, base_tail, digits, 1001);
+    BLI_path_sequence_encode(primary_filename, base_head, base_tail, digits, 1001);
     BLI_join_dirfile(filepath, FILE_MAX, dirname, primary_filename);
     return max_udim - 1000;
   }
@@ -226,7 +233,7 @@ ListBase ED_image_filesel_detect_sequences(Main *bmain, wmOperator *op, const bo
     const bool was_relative = BLI_path_is_rel(filepath);
 
     image_sequence_get_frame_ranges(op, &ranges);
-    for (ImageFrameRange *range = ranges.first; range; range = range->next) {
+    LISTBASE_FOREACH (ImageFrameRange *, range, &ranges) {
       image_detect_frame_range(range, detect_udim);
       BLI_freelistN(&range->frames);
 

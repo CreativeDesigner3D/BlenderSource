@@ -497,7 +497,7 @@ def read_colmap(col_bytes, object_layers):
 
 
 def read_color_vmad(col_bytes, object_layers, last_pols_count):
-    """Read the Discontinous (per-polygon) RGB values."""
+    """Read the Discontinuous (per-polygon) RGB values."""
     chunk_len= len(col_bytes)
     dia,= struct.unpack(">H", col_bytes[0:2])
     offset= 2
@@ -570,7 +570,7 @@ def read_uvmap(uv_bytes, object_layers):
 
 
 def read_uv_vmad(uv_bytes, object_layers, last_pols_count):
-    """Read the Discontinous (per-polygon) uv values."""
+    """Read the Discontinuous (per-polygon) uv values."""
     chunk_len= len(uv_bytes)
     offset= 2
     name, name_len= read_lwostring(uv_bytes[offset:])
@@ -1047,7 +1047,7 @@ def build_objects(object_layers, object_surfs, object_tags, object_name, add_sub
                 ngons[fi]= fpol  # Deal with them later
 
         ob= bpy.data.objects.new(layer_data.name, me)
-        bpy.context.scene.objects.link(ob)
+        bpy.context.collection.objects.link(ob)
         ob_dict[layer_data.index]= [ob, layer_data.parent_index]
 
         # Move the object so the pivot is in the right place.
@@ -1222,12 +1222,12 @@ class IMPORT_OT_lwo(bpy.types.Operator):
     bl_description= "Import a LightWave Object file"
     bl_options= {'REGISTER', 'UNDO'}
 
-    filepath= StringProperty(name="File Path", description="Filepath used for importing the LWO file", maxlen=1024, default="")
+    filepath: StringProperty(name="File Path", description="Filepath used for importing the LWO file", maxlen=1024, default="")
 
-    ADD_SUBD_MOD= BoolProperty(name="Apply SubD Modifier", description="Apply the Subdivision Surface modifier to layers with Subpatches", default=True)
-    LOAD_HIDDEN= BoolProperty(name="Load Hidden Layers", description="Load object layers that have been marked as hidden", default=False)
-    SKEL_TO_ARM= BoolProperty(name="Create Armature", description="Create an armature from an embedded Skelegon rig", default=True)
-    USE_EXISTING_MATERIALS= BoolProperty(name="Use Existing Materials", description="Use existing materials if a material by that name already exists", default=False)
+    ADD_SUBD_MOD: BoolProperty(name="Apply SubD Modifier", description="Apply the Subdivision Surface modifier to layers with Subpatches", default=True)
+    LOAD_HIDDEN: BoolProperty(name="Load Hidden Layers", description="Load object layers that have been marked as hidden", default=False)
+    SKEL_TO_ARM: BoolProperty(name="Create Armature", description="Create an armature from an embedded Skelegon rig", default=True)
+    USE_EXISTING_MATERIALS: BoolProperty(name="Use Existing Materials", description="Use existing materials if a material by that name already exists", default=False)
 
     def execute(self, context):
         load_lwo(self.filepath,
@@ -1251,13 +1251,13 @@ def menu_func(self, context):
 def register():
     bpy.utils.register_module(__name__)
 
-    bpy.types.INFO_MT_file_import.append(menu_func)
+    bpy.types.TOPBAR_MT_file_import.append(menu_func)
 
 
 def unregister():
     bpy.utils.unregister_module(__name__)
 
-    bpy.types.INFO_MT_file_import.remove(menu_func)
+    bpy.types.TOPBAR_MT_file_import.remove(menu_func)
 
 if __name__ == "__main__":
     register()

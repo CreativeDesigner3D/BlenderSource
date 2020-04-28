@@ -21,8 +21,7 @@
 bl_info = {
     "name": "Scalable Vector Graphics (SVG) 1.1 format",
     "author": "JM Soler, Sergey Sharybin",
-    "version": (1, 0, 0),
-    "blender": (2, 57, 0),
+    "blender": (2, 80, 0),
     "location": "File > Import > Scalable Vector Graphics (.svg)",
     "description": "Import SVG as curves",
     "warning": "",
@@ -53,13 +52,12 @@ class ImportSVG(bpy.types.Operator, ImportHelper):
     bl_options = {'UNDO'}
 
     filename_ext = ".svg"
-    filter_glob = StringProperty(default="*.svg", options={'HIDDEN'})
+    filter_glob: StringProperty(default="*.svg", options={'HIDDEN'})
 
     def execute(self, context):
         from . import import_svg
 
-        return import_svg.load(self, context,
-            **self.as_keywords(ignore=("filter_glob",)))
+        return import_svg.load(self, context, filepath=self.filepath)
 
 
 def menu_func_import(self, context):
@@ -68,15 +66,15 @@ def menu_func_import(self, context):
 
 
 def register():
-    bpy.utils.register_module(__name__)
+    bpy.utils.register_class(ImportSVG)
 
-    bpy.types.INFO_MT_file_import.append(menu_func_import)
+    bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
 
 
 def unregister():
-    bpy.utils.unregister_module(__name__)
+    bpy.utils.unregister_class(ImportSVG)
 
-    bpy.types.INFO_MT_file_import.remove(menu_func_import)
+    bpy.types.TOPBAR_MT_file_import.remove(menu_func_import)
 
 # NOTES
 # - blender version is hardcoded

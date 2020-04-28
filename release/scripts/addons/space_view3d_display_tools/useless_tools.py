@@ -48,7 +48,7 @@ class UTSetSelectable(Operator):
     bl_label = "Set Selectable"
     bl_description = "Sets selectability for the selected objects"
 
-    selectable = BoolProperty()
+    selectable: BoolProperty()
 
     def execute(self, context):
         errors = []
@@ -72,7 +72,7 @@ class UTSetRenderable(Operator):
     bl_label = "Set Renderable"
     bl_description = "Sets renderability for the selected objects"
 
-    renderable = BoolProperty()
+    renderable: BoolProperty()
 
     def execute(self, context):
         errors = []
@@ -158,10 +158,10 @@ class UTWireShowHideSelAll(Operator):
     bl_label = "Show / Hide Wire Selected or All"
     bl_description = "Change the status of the Wire display on Selected Objects"
 
-    show = BoolProperty(
+    show: BoolProperty(
             default=False
             )
-    selected = BoolProperty(
+    selected: BoolProperty(
             default=False
             )
 
@@ -192,10 +192,10 @@ class UTSubsurfHideSelAll(Operator):
                       "Hide and Show operate on Selected Objects only\n"
                       "Hide All and Show All operate on All Objects in the data")
 
-    show = BoolProperty(
+    show: BoolProperty(
             default=False
             )
-    selected = BoolProperty(
+    selected: BoolProperty(
             default=False
             )
 
@@ -204,7 +204,7 @@ class UTSubsurfHideSelAll(Operator):
         objects = bpy.context.selected_objects if self.selected else bpy.data.objects
         for e in objects:
             try:
-                if e.type not in {"LAMP", "CAMERA", "EMPTY"}:
+                if e.type not in {"LIGHT", "CAMERA", "EMPTY"}:
                     e.modifiers['Subsurf'].show_viewport = self.show
             except Exception as k:
                 name = getattr(e, "name", "Nameless")
@@ -221,10 +221,10 @@ class UTOptimalDisplaySelAll(Operator):
     bl_label = "Optimal Display"
     bl_description = "Disables Optimal Display for all Subsurf modifiers on objects"
 
-    on = BoolProperty(
+    on: BoolProperty(
             default=False
             )
-    selected = BoolProperty(
+    selected: BoolProperty(
             default=False
             )
 
@@ -233,7 +233,7 @@ class UTOptimalDisplaySelAll(Operator):
         objects = bpy.context.selected_objects if self.selected else bpy.data.objects
         for e in objects:
             try:
-                if e.type not in {"LAMP", "CAMERA", "EMPTY"}:
+                if e.type not in {"LIGHT", "CAMERA", "EMPTY"}:
                     e.modifiers['Subsurf'].show_only_control_edges = self.on
             except Exception as k:
                 name = getattr(e, "name", "Nameless")
@@ -250,7 +250,7 @@ class UTAllEdges(Operator):
     bl_label = "All Edges"
     bl_description = "Change the status of All Edges overlay on all objects"
 
-    on = BoolProperty(
+    on: BoolProperty(
             default=False
             )
 
@@ -274,7 +274,7 @@ class UTDoubleSided(Operator):
     bl_label = "Double Sided Normals"
     bl_description = "Disables Double Sided Normals for all objects"
 
-    on = BoolProperty(
+    on: BoolProperty(
             default=False
             )
 

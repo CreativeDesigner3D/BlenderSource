@@ -34,12 +34,17 @@ typedef struct DRW_MeshWeightState {
   /* Set of all selected bones for Multipaint. */
   bool *defgroup_sel; /* [defgroup_len] */
   int defgroup_sel_count;
+
+  /* Set of all locked and unlocked deform bones for Lock Relative mode. */
+  bool *defgroup_locked;   /* [defgroup_len] */
+  bool *defgroup_unlocked; /* [defgroup_len] */
 } DRW_MeshWeightState;
 
 /* DRW_MeshWeightState.flags */
 enum {
   DRW_MESH_WEIGHT_STATE_MULTIPAINT = (1 << 0),
   DRW_MESH_WEIGHT_STATE_AUTO_NORMALIZE = (1 << 1),
+  DRW_MESH_WEIGHT_STATE_LOCK_RELATIVE = (1 << 2),
 };
 
 typedef struct DRW_MeshCDMask {
@@ -248,6 +253,7 @@ void mesh_buffer_cache_create_requested(MeshBatchCache *cache,
                                         MeshBufferCache mbc,
                                         Mesh *me,
                                         const bool is_editmode,
+                                        const bool is_paint_mode,
                                         const float obmat[4][4],
                                         const bool do_final,
                                         const bool do_uvedit,

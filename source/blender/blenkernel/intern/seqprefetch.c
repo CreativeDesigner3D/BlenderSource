@@ -27,11 +27,11 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "DNA_sequence_types.h"
+#include "DNA_anim_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
+#include "DNA_sequence_types.h"
 #include "DNA_windowmanager_types.h"
-#include "DNA_anim_types.h"
 
 #include "BLI_listbase.h"
 #include "BLI_threads.h"
@@ -39,13 +39,14 @@
 #include "IMB_imbuf.h"
 #include "IMB_imbuf_types.h"
 
+#include "BKE_anim_data.h"
 #include "BKE_animsys.h"
-#include "BKE_lib_id.h"
-#include "BKE_scene.h"
-#include "BKE_main.h"
 #include "BKE_context.h"
-#include "BKE_sequencer.h"
 #include "BKE_layer.h"
+#include "BKE_lib_id.h"
+#include "BKE_main.h"
+#include "BKE_scene.h"
+#include "BKE_sequencer.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
@@ -330,6 +331,7 @@ static void *seq_prefetch_frames(void *job)
   while (pfjob->cfra + pfjob->num_frames_prefetched <= pfjob->scene->r.efra) {
     pfjob->scene_eval->ed->prefetch_job = NULL;
 
+    seq_prefetch_update_depsgraph(pfjob);
     AnimData *adt = BKE_animdata_from_id(&pfjob->context_cpy.scene->id);
     BKE_animsys_evaluate_animdata(pfjob->context_cpy.scene,
                                   &pfjob->context_cpy.scene->id,
@@ -337,7 +339,6 @@ static void *seq_prefetch_frames(void *job)
                                   pfjob->cfra + pfjob->num_frames_prefetched,
                                   ADT_RECALC_ALL,
                                   false);
-    seq_prefetch_update_depsgraph(pfjob);
 
     /* This is quite hacky solution:
      * We need cross-reference original scene with copy for cache.

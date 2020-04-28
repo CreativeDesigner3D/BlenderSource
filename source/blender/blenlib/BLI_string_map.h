@@ -28,9 +28,9 @@
  * a special map with string keys can be quite handy. */
 
 #include "BLI_map.h"
+#include "BLI_optional.h"
 #include "BLI_string_ref.h"
 #include "BLI_vector.h"
-#include "BLI_optional.h"
 
 namespace BLI {
 
@@ -447,15 +447,6 @@ template<typename T, typename Allocator = GuardedAllocator> class StringMap {
         m_array.update__empty_to_set();
         return;
       }
-    }
-    ITER_SLOTS_END(offset);
-  }
-
-  template<typename ForwardT> void add__impl(StringRef key, ForwardT &&value)
-  {
-    this->ensure_can_add();
-    uint32_t hash = this->compute_string_hash(key);
-    ITER_SLOTS_BEGIN (hash, m_array, , item, offset) {
     }
     ITER_SLOTS_END(offset);
   }

@@ -129,8 +129,8 @@ class Set_Up_Fold(Operator):
         scn.objects.link(rig)
         scn.objects.active = rig
         bpy.ops.object.mode_set(mode="EDIT")
-        arm.draw_type = "WIRE"
-        rig.show_x_ray = True
+        arm.display_type = "WIRE"
+        rig.show_in_front = True
         mod = obj.modifiers.new("UnFold", "ARMATURE")
         mod.show_in_editmode = True
         mod.object = rig
@@ -151,10 +151,10 @@ class Set_Up_Fold(Operator):
                 b.tail, b.head = fb[1], fb[2]
 
             b.align_roll(f.normal)
-            b.select = False
+            b.select_set(False)
             b.layers = vis
             b.parent = root
-            vg = obj.vertex_groups.new(b.name)
+            vg = obj.vertex_groups.new(name=b.name)
             vg.add(f.vertices, 1, "ADD")
 
         bpy.ops.object.mode_set()
@@ -162,7 +162,7 @@ class Set_Up_Fold(Operator):
         if adv_obj.unfold_modo == "weight":
             obj.vertex_groups.active_index = 0
         scn.objects.active = rig
-        obj.select = False
+        obj.select_set(False)
 
         return {"FINISHED"}
 
@@ -304,7 +304,7 @@ class PanelFOLD(Panel):
         col = box.column()
         col.operator("object.set_up_fold", text="1. Set Up Unfold")
         col.separator()
-        col.label("Unfold Mode:")
+        col.label(text="Unfold Mode:")
         col.prop(adv_obj, "unfold_modo")
         col.prop(adv_obj, "unfold_flip")
 

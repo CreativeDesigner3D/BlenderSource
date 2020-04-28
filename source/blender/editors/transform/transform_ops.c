@@ -30,10 +30,10 @@
 #include "BLT_translation.h"
 
 #include "BKE_context.h"
-#include "BKE_global.h"
-#include "BKE_report.h"
 #include "BKE_editmesh.h"
+#include "BKE_global.h"
 #include "BKE_layer.h"
+#include "BKE_report.h"
 #include "BKE_scene.h"
 
 #include "RNA_access.h"
@@ -42,8 +42,8 @@
 
 #include "WM_api.h"
 #include "WM_message.h"
-#include "WM_types.h"
 #include "WM_toolsystem.h"
+#include "WM_types.h"
 
 #include "UI_interface.h"
 #include "UI_resources.h"
@@ -223,6 +223,9 @@ static int delete_orientation_exec(bContext *C, wmOperator *UNUSED(op))
 
   WM_event_add_notifier(C, NC_SCENE | NA_EDITED, scene);
 
+  struct wmMsgBus *mbus = CTX_wm_message_bus(C);
+  WM_msg_publish_rna_prop(mbus, &scene->id, scene, Scene, transform_orientation_slots);
+
   return OPERATOR_FINISHED;
 }
 
@@ -233,12 +236,11 @@ static int delete_orientation_invoke(bContext *C, wmOperator *op, const wmEvent 
 
 static bool delete_orientation_poll(bContext *C)
 {
-  Scene *scene = CTX_data_scene(C);
-
   if (ED_operator_areaactive(C) == 0) {
     return 0;
   }
 
+  Scene *scene = CTX_data_scene(C);
   return ((scene->orientation_slots[SCE_ORIENT_DEFAULT].type >= V3D_ORIENT_CUSTOM) &&
           (scene->orientation_slots[SCE_ORIENT_DEFAULT].index_custom != -1));
 }
@@ -264,6 +266,7 @@ static int create_orientation_exec(bContext *C, wmOperator *op)
   const bool overwrite = RNA_boolean_get(op->ptr, "overwrite");
   const bool use_view = RNA_boolean_get(op->ptr, "use_view");
   View3D *v3d = CTX_wm_view3d(C);
+  Scene *scene = CTX_data_scene(C);
 
   RNA_string_get(op->ptr, "name", name);
 
@@ -274,10 +277,18 @@ static int create_orientation_exec(bContext *C, wmOperator *op)
     return OPERATOR_CANCELLED;
   }
 
-  BIF_createTransformOrientation(C, op->reports, name, use_view, use, overwrite);
+  if (!BIF_createTransformOrientation(C, op->reports, name, use_view, use, overwrite)) {
+    BKE_report(op->reports, RPT_ERROR, "Unable to create orientation");
+    return OPERATOR_CANCELLED;
+  }
+
+  if (use) {
+    struct wmMsgBus *mbus = CTX_wm_message_bus(C);
+    WM_msg_publish_rna_prop(mbus, &scene->id, scene, Scene, transform_orientation_slots);
+    WM_event_add_notifier(C, NC_SCENE | NA_EDITED, scene);
+  }
 
   WM_event_add_notifier(C, NC_SPACE | ND_SPACE_VIEW3D, v3d);
-  WM_event_add_notifier(C, NC_SCENE | NA_EDITED, CTX_data_scene(C));
 
   return OPERATOR_FINISHED;
 }
@@ -893,8 +904,8 @@ static bool transform_shear_poll(bContext *C)
     return false;
   }
 
-  ScrArea *sa = CTX_wm_area(C);
-  return sa && !ELEM(sa->spacetype, SPACE_ACTION);
+  ScrArea *area = CTX_wm_area(C);
+  return area && !ELEM(area->spacetype, SPACE_ACTION);
 }
 
 static void TRANSFORM_OT_shear(struct wmOperatorType *ot)
@@ -1031,7 +1042,7 @@ static void TRANSFORM_OT_bbone_resize(struct wmOperatorType *ot)
   ot->exec = transform_exec;
   ot->modal = transform_modal;
   ot->cancel = transform_cancel;
-  ot->poll = ED_operator_screenactive;
+  ot->poll = ED_operator_editarmature;
   ot->poll_property = transform_poll_property;
 
   RNA_def_float_translation(
@@ -1248,8 +1259,8 @@ static int transform_from_gizmo_invoke(bContext *C,
 {
   bToolRef *tref = WM_toolsystem_ref_from_context(C);
   if (tref) {
-    ARegion *ar = CTX_wm_region(C);
-    wmGizmoMap *gzmap = ar->gizmo_map;
+    ARegion *region = CTX_wm_region(C);
+    wmGizmoMap *gzmap = region->gizmo_map;
     wmGizmoGroup *gzgroup = gzmap ? WM_gizmomap_group_find(gzmap, "VIEW3D_GGT_xform_gizmo") : NULL;
     if (gzgroup != NULL) {
       PointerRNA gzg_ptr;

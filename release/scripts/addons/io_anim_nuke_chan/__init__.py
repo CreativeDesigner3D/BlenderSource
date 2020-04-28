@@ -74,20 +74,20 @@ class ImportChan(Operator, ImportHelper):
 
     filename_ext = ".chan"
 
-    filter_glob = StringProperty(default="*.chan", options={'HIDDEN'})
+    filter_glob: StringProperty(default="*.chan", options={'HIDDEN'})
 
     rotation_order = rotation_order
-    z_up = BoolProperty(
+    z_up: BoolProperty(
             name="Make Z up",
             description="Switch the Y and Z axis",
             default=True)
 
-    sensor_width = FloatProperty(
+    sensor_width: FloatProperty(
             name="Camera sensor width",
             description="Imported camera sensor width",
             default=32.0)
 
-    sensor_height = FloatProperty(
+    sensor_height: FloatProperty(
             name="Camera sensor height",
             description="Imported camera sensor height",
             default=18.0)
@@ -113,8 +113,8 @@ class ExportChan(Operator, ExportHelper):
     bl_label = "Export chan file"
 
     filename_ext = ".chan"
-    filter_glob = StringProperty(default="*.chan", options={'HIDDEN'})
-    y_up = BoolProperty(
+    filter_glob: StringProperty(default="*.chan", options={'HIDDEN'})
+    y_up: BoolProperty(
             name="Make Y up",
             description="Switch the Y and Z axis",
             default=True)
@@ -143,15 +143,15 @@ def menu_func_export(self, context):
 def register():
     bpy.utils.register_class(ImportChan)
     bpy.utils.register_class(ExportChan)
-    bpy.types.INFO_MT_file_import.append(menu_func_import)
-    bpy.types.INFO_MT_file_export.append(menu_func_export)
+    bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
+    bpy.types.TOPBAR_MT_file_export.append(menu_func_export)
 
 
 def unregister():
     bpy.utils.unregister_class(ImportChan)
     bpy.utils.unregister_class(ExportChan)
-    bpy.types.INFO_MT_file_import.remove(menu_func_import)
-    bpy.types.INFO_MT_file_export.remove(menu_func_export)
+    bpy.types.TOPBAR_MT_file_import.remove(menu_func_import)
+    bpy.types.TOPBAR_MT_file_export.remove(menu_func_export)
 
 
 if __name__ == "__main__":

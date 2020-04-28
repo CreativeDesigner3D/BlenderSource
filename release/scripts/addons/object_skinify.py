@@ -20,7 +20,7 @@ bl_info = {
     "name": "Skinify Rig",
     "author": "Albert Makac (karab44)",
     "version": (0, 11, 0),
-    "blender": (2, 7, 9),
+    "blender": (2, 79, 0),
     "location": "Properties > Bone > Skinify Rig (visible on pose mode only)",
     "description": "Creates a mesh object from selected bones",
     "warning": "",
@@ -181,7 +181,7 @@ def init_props():
 
 # selects vertices
 def select_vertices(mesh_obj, idx):
-    bpy.context.scene.objects.active = mesh_obj
+    bpy.context.view_layer.objects.active = mesh_obj
     mode = mesh_obj.mode
     bpy.ops.object.mode_set(mode='EDIT')
     bpy.ops.mesh.select_all(action='DESELECT')
@@ -362,7 +362,7 @@ def generate_edges(mesh, shape_object, bones, scale, connect_mesh=False, connect
                 # ignore shoulder
                 if 'shoulder' in b.name.lower() and connect_mesh is True:
                     continue
-                # connect the upper arm directly with chest ommiting shoulders
+                # connect the upper arm directly with chest omitting shoulders
                 if 'shoulder' in b.parent.name.lower() and connect_mesh is True:
                     vert1 = b.head
                     vert2 = b.parent.parent.tail
@@ -448,7 +448,7 @@ def generate_mesh(shape_object, size, thickness=0.8, finger_thickness=0.25, sub_
     bpy.ops.object.skin_root_mark(override)
     bpy.ops.transform.skin_resize(override,
             value=(1 * thickness * (size / 10), 1 * thickness * (size / 10), 1 * thickness * (size / 10)),
-            constraint_axis=(False, False, False), constraint_orientation='GLOBAL',
+            constraint_axis=(False, False, False), orient_type='GLOBAL',
             mirror=False, proportional='DISABLED', proportional_edit_falloff='SMOOTH',
             proportional_size=1
             )
@@ -463,7 +463,7 @@ def generate_mesh(shape_object, size, thickness=0.8, finger_thickness=0.25, sub_
         # by default set fingers thickness to 25 percent of body thickness
         bpy.ops.transform.skin_resize(override,
                     value=(finger_thickness, finger_thickness, finger_thickness),
-                    constraint_axis=(False, False, False), constraint_orientation='GLOBAL',
+                    constraint_axis=(False, False, False), orient_type='GLOBAL',
                     mirror=False, proportional='DISABLED', proportional_edit_falloff='SMOOTH',
                     proportional_size=1
                     )
@@ -492,7 +492,7 @@ def generate_mesh(shape_object, size, thickness=0.8, finger_thickness=0.25, sub_
         bpy.ops.mesh.merge(type='CENTER')
         bpy.ops.transform.skin_resize(override,
                 value=(corrective_thickness, corrective_thickness, corrective_thickness),
-                constraint_axis=(False, False, False), constraint_orientation='GLOBAL',
+                constraint_axis=(False, False, False), orient_type='GLOBAL',
                 mirror=False, proportional='DISABLED', proportional_edit_falloff='SMOOTH',
                 proportional_size=1
                 )
@@ -505,7 +505,7 @@ def generate_mesh(shape_object, size, thickness=0.8, finger_thickness=0.25, sub_
         bpy.ops.mesh.merge(type='CENTER')
         bpy.ops.transform.skin_resize(override,
                 value=(corrective_thickness, corrective_thickness, corrective_thickness),
-                constraint_axis=(False, False, False), constraint_orientation='GLOBAL',
+                constraint_axis=(False, False, False), orient_type='GLOBAL',
                 mirror=False, proportional='DISABLED', proportional_edit_falloff='SMOOTH',
                 proportional_size=1
                 )
@@ -519,7 +519,7 @@ def generate_mesh(shape_object, size, thickness=0.8, finger_thickness=0.25, sub_
         corrective_thickness = 0.7
         bpy.ops.transform.skin_resize(override,
                 value=(corrective_thickness, corrective_thickness, corrective_thickness),
-                constraint_axis=(False, False, False), constraint_orientation='GLOBAL',
+                constraint_axis=(False, False, False), orient_type='GLOBAL',
                 mirror=False, proportional='DISABLED', proportional_edit_falloff='SMOOTH',
                 proportional_size=1
                 )
@@ -553,7 +553,7 @@ def generate_mesh(shape_object, size, thickness=0.8, finger_thickness=0.25, sub_
 
 def main(context):
     """
-    This script will create a custome shape
+    This script will create a custom shape
     """
 
     # ### Check if selection is OK ###
@@ -576,7 +576,7 @@ def main(context):
     oldRotation = None
     oldScale = None
     armature_object = scn.objects.active
-    armature_object.select = True
+    armature_object.select_set(True)
 
     old_pose_pos = armature_object.data.pose_position
     bpy.ops.object.mode_set(mode='OBJECT')
@@ -620,20 +620,20 @@ def main(context):
     if sknfy.apply_mod and sknfy.parent_armature:
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.ops.object.select_all(action='DESELECT')
-        ob.select = True
-        armature_object.select = True
+        ob.select_set(True)
+        armature_object.select_set(True)
         scn.objects.active = armature_object
 
         bpy.ops.object.parent_set(type='ARMATURE_AUTO')
         armature_object.data.pose_position = old_pose_pos
-        armature_object.select = False
+        armature_object.select_set(False)
     else:
         bpy.ops.object.mode_set(mode='OBJECT')
         ob.location = oldLocation
         ob.rotation_euler = oldRotation
         ob.scale = oldScale
-        ob.select = False
-        armature_object.select = True
+        ob.select_set(False)
+        armature_object.select_set(True)
         scn.objects.active = armature_object
 
     armature_object.location = oldLocation
@@ -684,12 +684,12 @@ class BONE_PT_custom_shape(Panel):
         row.operator("object.skinify_rig", text="Add Shape", icon='BONE_DATA')
 
         split = layout.split(percentage=0.3)
-        split.label("Thickness:")
+        split.label(text="Thickness:")
         split.prop(scn, "thickness", text="Body", icon='MOD_SKIN')
         split.prop(scn, "finger_thickness", text="Fingers", icon='HAND')
 
         split = layout.split(percentage=0.3)
-        split.label("Mesh Density:")
+        split.label(text="Mesh Density:")
         split.prop(scn, "sub_level", icon='MESH_ICOSPHERE')
 
         row = layout.row()
@@ -707,50 +707,50 @@ class BONE_PT_custom_shape(Panel):
 
 # define the scene properties in a group - call them with context.scene.skinify
 class Skinify_Properties(PropertyGroup):
-    sub_level = IntProperty(
+    sub_level: IntProperty(
             name="Sub level",
             min=0, max=4,
             default=1,
             description="Mesh density"
             )
-    thickness = FloatProperty(
+    thickness: FloatProperty(
             name="Thickness",
             min=0.01,
             default=0.8,
             description="Adjust shape thickness"
             )
-    finger_thickness = FloatProperty(
+    finger_thickness: FloatProperty(
             name="Finger Thickness",
             min=0.01, max=1.0,
             default=0.25,
             description="Adjust finger thickness relative to body"
             )
-    connect_mesh = BoolProperty(
+    connect_mesh: BoolProperty(
             name="Solid Shape",
             default=False,
             description="Makes solid shape from bone chains"
             )
-    connect_parents = BoolProperty(
+    connect_parents: BoolProperty(
             name="Fill Gaps",
             default=False,
             description="Fills the gaps between parented bones"
             )
-    generate_all = BoolProperty(
+    generate_all: BoolProperty(
             name="All Shapes",
             default=False,
             description="Generates shapes from all bones"
             )
-    head_ornaments = BoolProperty(
+    head_ornaments: BoolProperty(
             name="Head Ornaments",
             default=False,
             description="Includes head ornaments"
             )
-    apply_mod = BoolProperty(
+    apply_mod: BoolProperty(
             name="Apply Modifiers",
             default=True,
             description="Applies Modifiers to mesh"
             )
-    parent_armature = BoolProperty(
+    parent_armature: BoolProperty(
             name="Parent Armature",
             default=True,
             description="Applies mesh to Armature"

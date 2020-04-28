@@ -68,39 +68,39 @@ class MakeTriangle(Operator):
             ]
     triangleFaceList = [
             ('DEFAULT', "Normal", "1 Tri(angle) face", 0),
-            ('TRIANGLES', "3 Tri faces", "4 Verticies & 3 Tri(angle) faces", 1),
-            ('QUADS', "3 Quad faces", "7 Verticies & 3 Quad faces", 2),
-            ('SAFEQUADS', "6 Quad faces", "12 Verticies & 6 Quad faces", 3)
+            ('TRIANGLES', "3 Tri faces", "4 Vertices & 3 Tri(angle) faces", 1),
+            ('QUADS', "3 Quad faces", "7 Vertices & 3 Quad faces", 2),
+            ('SAFEQUADS', "6 Quad faces", "12 Vertices & 6 Quad faces", 3)
             ]
 
     # add definitions for some manipulation buttons
-    flipX = BoolProperty(
+    flipX: BoolProperty(
             name="Flip X sign",
             description="Draw on the other side of the X axis (Mirror on Y axis)",
             default=False
             )
-    flipY = BoolProperty(
+    flipY: BoolProperty(
             name="Flip Y sign",
             description="Draw on the other side of the Y axis (Mirror on X axis)",
             default=False
             )
-    scale = FloatProperty(
+    scale: FloatProperty(
             name="Scale",
             description="Triangle scale",
             default=1.0,
             min=1.0
             )
-    triangleType = EnumProperty(
+    triangleType: EnumProperty(
             items=triangleTypeList,
             name="Type",
             description="Triangle Type"
             )
-    triangleFace = EnumProperty(
+    triangleFace: EnumProperty(
             items=triangleFaceList,
             name="Face types",
             description="Triangle Face Types"
             )
-    at_3Dcursor = BoolProperty(
+    at_3Dcursor: BoolProperty(
             name="Use 3D Cursor",
             description="Draw the triangle where the 3D cursor is",
             default=False
@@ -255,7 +255,7 @@ class MakeTriangle(Operator):
         # a triangle consists of 3 points: A, B, C
         # a 'safer' subdividable triangle consists of 4 points: A, B, C, D
         # a subdivide friendly triangle consists of 7 points: A, B, C, D, AB, AC, BC
-        # a truely subdivide friendly triangle consists of (3 x 4 = )12 points:
+        # a truly subdivide friendly triangle consists of (3 x 4 = )12 points:
         # A, B, C, D, E, BC, AAB, AAC, BBA, BBC, BCC, CCA
 
         BasicShapeCreated = False
@@ -263,7 +263,7 @@ class MakeTriangle(Operator):
         go = 0
 
         #
-        # call the functions for creating the triangles and test if successfull
+        # call the functions for creating the triangles and test if successful
         #
         BasicShapeCreated = self.drawBasicTriangleShape()
         if (BasicShapeCreated):
@@ -277,17 +277,17 @@ class MakeTriangle(Operator):
 
             NewMesh.update()
             NewObj = bpy.data.objects.new("Triangle", NewMesh)
-            context.scene.objects.link(NewObj)
+            context.collection.objects.link(NewObj)
 
             # before doing the deselect make sure edit mode isn't active
             exitEditMode()
             bpy.ops.object.select_all(action="DESELECT")
-            NewObj.select = True
-            context.scene.objects.active = NewObj
+            NewObj.select_set(True)
+            context.view_layer.objects.active = NewObj
 
             if self.at_3Dcursor is True:
                 # we'll need to be sure there is actually an object selected
-                if NewObj.select is True:
+                if NewObj.select_get() is True:
                     # we also have to check if we're considered to be in 3D View (view3d)
                     if bpy.ops.view3d.snap_selected_to_cursor.poll() is True:
                         bpy.ops.view3d.snap_selected_to_cursor()

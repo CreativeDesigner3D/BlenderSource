@@ -40,7 +40,7 @@ class SettingsStore:
 # Use global SettingsStore class to store dict so it is not recreated each call
 # todo : come up with better way for storing and checking add-on settings
 def addon_settings_graph(key):
-    addon_prefs = bpy.context.user_preferences.addons[__package__].preferences
+    addon_prefs = bpy.context.preferences.addons[__package__].preferences
 
     if SettingsStore.add_set_graph_dict is not None:
         add_set_graph_dict = SettingsStore.add_set_graph_dict
@@ -146,24 +146,22 @@ def addon_settings_graph(key):
 def display_instructions(region, rv3d, instruct, keys_aff, keys_nav, keys_neg):
 
 
-    userpref = bpy.context.user_preferences
+    userpref = bpy.context.preferences
     system = userpref.system
     rwtools = 0
     rwui = 0
 
-    np_print(system.window_draw_method, system.use_region_overlap)
+    np_print(system.use_region_overlap)
 
 
     if system.use_region_overlap:
-        if system.window_draw_method in ('TRIPLE_BUFFER', 'AUTOMATIC') :
-
-            area = bpy.context.area
-            np_print('GO', area.regions)
-            for r in area.regions:
-                if r.type == 'TOOLS':
-                    rwtools = r.width
-                elif r.type == 'UI':
-                    rwui = r.width
+        area = bpy.context.area
+        np_print('GO', area.regions)
+        for r in area.regions:
+            if r.type == 'TOOLS':
+                rwtools = r.width
+            elif r.type == 'UI':
+                rwui = r.width
 
     np_print('rwtools', rwtools, 'rwui', rwui)
     field_keys_y = 46
@@ -710,4 +708,3 @@ def display_cursor_badge(co2d, symbol, badge_mode, message_main, message_aux, au
             bgl.glEnd()
         '''
         bgl.glDisable(bgl.GL_BLEND)
-

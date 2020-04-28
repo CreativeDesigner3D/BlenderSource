@@ -4,8 +4,8 @@ bl_info = {
     "name": "Surface: Plane / Cone/ Star / Wedge",
     "description": "Create a NURBS surface plane",
     "author": "Folkert de Vries",
-    "version": (1, 0, 1),
-    "blender": (2, 5, 9),
+    "version": (1, 0, 2),
+    "blender": (2, 80, 0),
     "location": "View3D > Add > Surface",
     "warning": "",
     "wiki_url": "",
@@ -31,7 +31,7 @@ from bpy.types import Operator
 # generic class for inheritance
 class MakeSurfaceHelpers:
     # get input for size and resolution
-    size = FloatProperty(
+    size : FloatProperty(
             name="Size",
             description="Size of the object",
             default=1.0,
@@ -39,14 +39,14 @@ class MakeSurfaceHelpers:
             max=100.0,
             unit="LENGTH",
             )
-    res_u = IntProperty(
+    res_u : IntProperty(
             name="Resolution U",
             description="Surface resolution in u direction",
             default=1,
             min=1,
             max=500,
             )
-    res_v = IntProperty(
+    res_v : IntProperty(
             name="Resolution V",
             description="Surface resolution in v direction",
             default=1,
@@ -71,7 +71,7 @@ class MakeSurfaceWedge(Operator, MakeSurfaceHelpers):
     bl_idname = "object.add_surface_wedge"
     bl_label = "Add Surface Wedge"
     bl_description = "Construct a Surface Wedge"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'REGISTER', 'UNDO', 'PRESET'}
 
     def execute(self, context):
         # variables
@@ -81,7 +81,7 @@ class MakeSurfaceWedge(Operator, MakeSurfaceHelpers):
 
         # add a surface Plane
         bpy.ops.object.add_surface_plane()
-        # save some time, by getting instant acces to those values
+        # save some time, by getting instant access to those values
         ao = context.active_object
         point = ao.data.splines[0].points
 
@@ -95,7 +95,7 @@ class MakeSurfaceWedge(Operator, MakeSurfaceHelpers):
         bpy.ops.curve.select_all(action='DESELECT')
 
         # select points 0 and 1, and extrudde them
-        # declaring ao and point again seems necesary...
+        # declaring ao and point again seems necessary...
         ao = context.active_object
         point = ao.data.splines[0].points
         point[0].select = True
@@ -123,7 +123,7 @@ class MakeSurfaceWedge(Operator, MakeSurfaceHelpers):
         # change name
         context.active_object.name = 'SurfaceWedge'
         # get the wedge to the 3d cursor.
-        context.active_object.location = context.scene.cursor_location
+        context.active_object.location = context.scene.cursor.location
         bpy.ops.transform.resize(value=(size, size, size))
 
         # adjust resolution in u and v direction
@@ -137,7 +137,7 @@ class MakeSurfaceCone(Operator, MakeSurfaceHelpers):
     bl_idname = "object.add_surface_cone"
     bl_label = "Add Surface Cone"
     bl_description = "Construct a Surface Cone"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'REGISTER', 'UNDO', 'PRESET'}
 
     def execute(self, context):
         size = self.size
@@ -154,7 +154,7 @@ class MakeSurfaceCone(Operator, MakeSurfaceHelpers):
         bpy.ops.object.mode_set(mode='EDIT')
         # deselect all
         bpy.ops.curve.select_all(action='DESELECT')
-        # too shorten alot of lines
+        # too shorten a lot of lines
         point = ao.data.splines[0].points
         # get middle points
 
@@ -165,7 +165,7 @@ class MakeSurfaceCone(Operator, MakeSurfaceHelpers):
         # select non-middle points and delete them
         bpy.ops.curve.select_all(action='INVERT')
         bpy.ops.curve.delete(type='VERT')
-        # declaring this again seems necesary...
+        # declaring this again seems necessary...
         point = ao.data.splines[0].points
         # list of points to be in center, and 2 bu'' s higher
 
@@ -186,7 +186,7 @@ class MakeSurfaceCone(Operator, MakeSurfaceHelpers):
         bpy.ops.object.editmode_toggle()
         # bring object to cursor
         bpy.ops.object.mode_set(mode='OBJECT')
-        context.active_object.location = context.scene.cursor_location
+        context.active_object.location = context.scene.cursor.location
         # adjust size
         bpy.ops.transform.resize(value=(size, size, size))
 
@@ -200,7 +200,7 @@ class MakeSurfaceCone(Operator, MakeSurfaceHelpers):
 class MakeSurfaceStar(Operator, MakeSurfaceHelpers):
     bl_idname = "object.add_surface_star"
     bl_label = "Add Surface Star"
-    bl_description = "Contruct a Surface Star"
+    bl_description = "Construct a Surface Star"
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
@@ -266,7 +266,7 @@ class MakeSurfaceStar(Operator, MakeSurfaceHelpers):
         # origin to geometry
         bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='MEDIAN')
         # get object to 3d cursor
-        context.active_object.location = context.scene.cursor_location
+        context.active_object.location = context.scene.cursor.location
         # change name
         ao.name = 'SurfaceStar'
         # adjust size
@@ -282,8 +282,8 @@ class MakeSurfaceStar(Operator, MakeSurfaceHelpers):
 class MakeSurfacePlane(Operator, MakeSurfaceHelpers):
     bl_idname = "object.add_surface_plane"
     bl_label = "Add Surface Plane"
-    bl_description = "Contruct a Surface Plane"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_description = "Construct a Surface Plane"
+    bl_options = {'REGISTER', 'UNDO', 'PRESET'}
 
     def execute(self, context):
         size = self.size
@@ -330,11 +330,11 @@ class MakeSurfacePlane(Operator, MakeSurfaceHelpers):
         bpy.ops.object.mode_set(mode='OBJECT')
         bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='MEDIAN')
         # transform scale
-        bpy.ops.object.transform_apply(scale=True)
+        bpy.ops.object.transform_apply(location=False,rotation=False,scale=True)
 
         # bring object to 3d cursor
         bpy.ops.object.mode_set(mode='OBJECT')
-        context.active_object.location = context.scene.cursor_location
+        context.active_object.location = context.scene.cursor.location
         bpy.ops.transform.resize(value=(size, size, size))
 
         # adjust resolution in u and v direction
@@ -347,15 +347,15 @@ class MakeSurfacePlane(Operator, MakeSurfaceHelpers):
 class SmoothXtimes(Operator):
     bl_idname = "curve.smooth_x_times"
     bl_label = "Smooth X Times"
-    bl_space_type = "VIEW_3D"
-    bl_options = {'REGISTER', 'UNDO'}
+    #bl_space_type = "VIEW_3D"
+    bl_options = {'REGISTER', 'UNDO', 'PRESET'}
 
     # use of this class:
     # lets you smooth till a thousand times. this is normally difficult, because
     # you have to press w, click, press w, click etc.
 
     # get values
-    times = IntProperty(
+    times : IntProperty(
             name="Smooth x Times",
             min=1,
             max=1000,
@@ -375,24 +375,25 @@ class SmoothXtimes(Operator):
 
         return{'FINISHED'}
 
+# Register
+classes = [
+    #MakeSurfaceHelpers,
+    MakeSurfacePlane,
+    MakeSurfaceCone,
+    MakeSurfaceStar,
+    MakeSurfaceWedge,
+    SmoothXtimes
+]
 
 def register():
-    bpy.utils.register_class(MakeSurfaceHelpers)
-    bpy.utils.register_class(MakeSurfacePlane)
-    bpy.utils.register_class(MakeSurfaceCone)
-    bpy.utils.register_class(MakeSurfaceStar)
-    bpy.utils.register_class(MakeSurfaceWedge)
-    bpy.utils.register_class(SmoothXtimes)
-
+    from bpy.utils import register_class
+    for cls in classes:
+        register_class(cls)
 
 def unregister():
-    bpy.utils.unregister_class(MakeSurfaceHelpers)
-    bpy.utils.unregister_class(MakeSurfacePlane)
-    bpy.utils.unregister_class(MakeSurfaceCone)
-    bpy.utils.unregister_class(MakeSurfaceStar)
-    bpy.utils.unregister_class(MakeSurfaceWedge)
-    bpy.utils.unregister_class(SmoothXtimes)
-
+    from bpy.utils import unregister_class
+    for cls in reversed(classes):
+        unregister_class(cls)
 
 if __name__ == "__main__":
     register()

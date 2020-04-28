@@ -20,7 +20,7 @@ bl_info = {
     'name': 'Dimension',
     'author': 'Spivak Vladimir (http://cwolf3d.korostyshev.net)',
     'version': (3, 9, 5),
-    'blender': (2, 7, 8),
+    'blender': (2, 78, 0),
     'location': 'View3D > Add > Curve',
     'description': 'Adds Dimension',
     'warning': '', # used for warning icon and text in addons panel
@@ -52,7 +52,7 @@ def addText(string = '', loc = ((0, 0, 0)), textsize = 1, align = 'CENTER', offs
         fnt = bpy.data.fonts.load(font)
     tcu.font = fnt
     text.location = loc
-    bpy.context.scene.objects.link(text)
+    bpy.context.collection.objects.link(text)
 
     return text
 
@@ -1447,7 +1447,7 @@ def ablength(x1 = 0.0, y1 = 0.0, z1 = 0.0, x2 = 0.0, y2 = 0.0, z2 = 0.0):
 def align_matrix(context, location):
 
     loc = Matrix.Translation(location)
-    obj_align = context.user_preferences.edit.object_align
+    obj_align = context.preferences.edit.object_align
     if (context.space_data.type == 'VIEW_3D'
         and obj_align == 'VIEW'):
         rot = context.space_data.region_3d.view_matrix.to_3x3().inverted().to_4x4()
@@ -1462,10 +1462,10 @@ def align_matrix(context, location):
 # sets bezierhandles to auto
 def setBezierHandles(obj, mode = 'VECTOR'):
 
-    scene = bpy.context.scene
+    view_layer = bpy.context.view_layer
     if obj.type !=  'CURVE':
         return
-    scene.objects.active = obj
+    view_layer.objects.active = obj
     bpy.ops.object.mode_set(mode = 'EDIT', toggle = True)
     bpy.ops.curve.select_all(action = 'SELECT')
     bpy.ops.curve.handle_type_set(type = mode)
@@ -1514,7 +1514,6 @@ def createCurve(vertArray, self, align_matrix):
     name = self.Dimension_Type         # Type as name
 
     # create curve
-    scene = bpy.context.scene
     newCurve = bpy.data.curves.new(name, type = 'CURVE') # curvedatablock
     newSpline = newCurve.splines.new('BEZIER') # spline
 
@@ -1528,7 +1527,7 @@ def createCurve(vertArray, self, align_matrix):
 
     # create object with newCurve
     DimensionCurve = bpy.data.objects.new(name, newCurve) # object
-    scene.objects.link(DimensionCurve) # place in active scene
+    bpy.context.collection.objects.link(DimensionCurve) # place in active scene
     DimensionCurve.Dimension = True
     DimensionCurve.matrix_world = align_matrix # apply matrix
     self.Dimension_Name = DimensionCurve.name
@@ -1724,7 +1723,7 @@ def createCurve(vertArray, self, align_matrix):
         DimensionCurve.rotation_euler[0] = radians(self.Dimension_rotation)
         DimensionCurve.rotation_euler[1] = u1
         DimensionCurve.rotation_euler[2] = u2
-    
+
     # Align to view
     if self.Dimension_align_to_camera :
         obj_camera = bpy.context.scene.camera
@@ -1747,11 +1746,11 @@ def createCurve(vertArray, self, align_matrix):
     group_name = 'Dimensions'
 
     bpy.ops.object.mode_set(mode = 'OBJECT')
-        
-    if group_name in bpy.data.groups:
-        group = bpy.data.groups[group_name]
+
+    if group_name in bpy.data.collections:
+        group = bpy.data.collections[group_name]
     else:
-        group = bpy.data.groups.new(group_name)
+        group = bpy.data.collections.new(group_name)
 
     if not DimensionCurve.name in group.objects:
         group.objects.link(DimensionCurve)
@@ -1764,13 +1763,13 @@ def createCurve(vertArray, self, align_matrix):
     if self.Dimension_appoint_parent and not self.Dimension_parent == '':
         const =  DimensionCurve.constraints.new(type='CHILD_OF')
         const.target =  bpy.data.objects[self.Dimension_parent]
-        const.inverse_matrix = bpy.data.objects[self.Dimension_parent].matrix_world.inverted() 
+        const.inverse_matrix = bpy.data.objects[self.Dimension_parent].matrix_world.inverted()
         bpy.context.scene.update()
 
     bpy.ops.object.select_all(action='DESELECT')
-    DimensionCurve.select = True
-    DimensionText.select = True
-    bpy.context.scene.objects.active = DimensionCurve
+    DimensionCurve.select_set(True)
+    DimensionText.select_set(True)
+    bpy.context.view_layer.objects.active = DimensionCurve
     bpy.context.scene.update()
 
     DimensionCurve.Dimension_Name = self.Dimension_Name
@@ -1818,7 +1817,7 @@ def createCurve(vertArray, self, align_matrix):
     #### Parent
     DimensionCurve.Dimension_parent = self.Dimension_parent
     DimensionCurve.Dimension_appoint_parent = self.Dimension_appoint_parent
-    
+
     #### Units
     DimensionCurve.Dimension_units = self.Dimension_units
     DimensionCurve.Dimension_add_units_name = self.Dimension_add_units_name
@@ -2652,15 +2651,15 @@ class Dimension(bpy.types.Operator):
             bpy.context.scene.update()
 
         # turn off undo
-        undo = bpy.context.user_preferences.edit.use_global_undo
-        bpy.context.user_preferences.edit.use_global_undo = False
+        undo = bpy.context.preferences.edit.use_global_undo
+        bpy.context.preferences.edit.use_global_undo = False
 
         # main function
         self.align_matrix = align_matrix(context, self.Dimension_startlocation)
         main(self, self.align_matrix)
 
         # restore pre operator undo state
-        bpy.context.user_preferences.edit.use_global_undo = undo
+        bpy.context.preferences.edit.use_global_undo = undo
 
         return {'FINISHED'}
 
@@ -2668,10 +2667,10 @@ class Dimension(bpy.types.Operator):
     def invoke(self, context, event):
         bpy.context.scene.update()
         if self.Dimension_Change:
-            bpy.context.scene.cursor_location = self.Dimension_startlocation
+            bpy.context.scene.cursor.location = self.Dimension_startlocation
         else:
             if self.Dimension_width_or_location == 'width':
-                self.Dimension_startlocation = bpy.context.scene.cursor_location
+                self.Dimension_startlocation = bpy.context.scene.cursor.location
 
             if self.Dimension_width_or_location == 'location':
                 if (self.Dimension_endlocation[2] - self.Dimension_startlocation[2]) !=  0 :
@@ -2735,10 +2734,10 @@ class DimensionAdd(bpy.types.Panel):
 
         if len(vertex) == 1:
             startvertex = vertex[0]
-            endvertex = bpy.context.scene.cursor_location
+            endvertex = bpy.context.scene.cursor.location
             layout = self.layout
             col = layout.column()
-            col.label("Note:")
+            col.label(text="Note:")
             row = layout.row()
             props1 = row.operator("curve.dimension", text = 'Add linear note')
             props1.Dimension_Change = False
@@ -2759,7 +2758,7 @@ class DimensionAdd(bpy.types.Panel):
             props2.Dimension_parent = obj.name
 
             col = layout.column()
-            col.label("Distance to 3D cursor:")
+            col.label(text="Distance to 3D cursor:")
             row = layout.row()
             props3 = row.operator("curve.dimension", text = 'Add linear dimension')
             props3.Dimension_Change = False
@@ -2782,7 +2781,7 @@ class DimensionAdd(bpy.types.Panel):
             props4.Dimension_parent = obj.name
 
             col = layout.column()
-            col.label("Radius to 3D cursor:")
+            col.label(text="Radius to 3D cursor:")
             row = layout.row()
             props7 = row.operator("curve.dimension", text = 'Add linear radius')
             props7.Dimension_Change = False
@@ -2805,7 +2804,7 @@ class DimensionAdd(bpy.types.Panel):
             props8.Dimension_parent = obj.name
 
             col = layout.column()
-            col.label("Diameter to 3D cursor:")
+            col.label(text="Diameter to 3D cursor:")
             row = layout.row()
             props9 = row.operator("curve.dimension", text = 'Add linear diameter')
             props9.Dimension_Change = False
@@ -2836,7 +2835,7 @@ class DimensionAdd(bpy.types.Panel):
 
             layout = self.layout
             col = layout.column()
-            col.label("Distance:")
+            col.label(text="Distance:")
             row = layout.row()
             props1 = row.operator("curve.dimension", text = 'Add linear dimension')
             props1.Dimension_Change = False
@@ -2859,7 +2858,7 @@ class DimensionAdd(bpy.types.Panel):
             props2.Dimension_parent = obj.name
 
             col = layout.column()
-            col.label("Radius:")
+            col.label(text="Radius:")
             row = layout.row()
             props3 = row.operator("curve.dimension", text = 'Add linear radius')
             props3.Dimension_Change = False
@@ -2882,7 +2881,7 @@ class DimensionAdd(bpy.types.Panel):
             props4.Dimension_parent = obj.name
 
             col = layout.column()
-            col.label("Diameter:")
+            col.label(text="Diameter:")
             row = layout.row()
             props5 = row.operator("curve.dimension", text = 'Add linear diameter')
             props5.Dimension_Change = False
@@ -2914,7 +2913,7 @@ class DimensionAdd(bpy.types.Panel):
 
             layout = self.layout
             col = layout.column()
-            col.label("Angle:")
+            col.label(text="Angle:")
             row = layout.row()
             props1 = row.operator("curve.dimension", text = 'Add Linear angle dimension')
             props1.Dimension_Change = False
@@ -3001,7 +3000,7 @@ class DimensionPanel(bpy.types.Panel):
 #location update
 def StartLocationUpdate(self, context):
 
-    bpy.context.scene.cursor_location = self.Dimension_startlocation
+    bpy.context.scene.cursor.location = self.Dimension_startlocation
 
     return
 
@@ -3182,14 +3181,14 @@ def Dimension_button(self, context):
 def register():
     bpy.utils.register_module(__name__)
 
-    bpy.types.INFO_MT_curve_add.append(Dimension_button)
+    bpy.types.VIEW3D_MT_curve_add.append(Dimension_button)
 
     DimensionVariables()
 
 def unregister():
     bpy.utils.unregister_module(__name__)
 
-    bpy.types.INFO_MT_curve_add.remove(Dimension_button)
+    bpy.types.VIEW3D_MT_curve_add.remove(Dimension_button)
 
 if __name__ == "__main__":
     register()

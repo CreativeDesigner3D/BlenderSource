@@ -364,10 +364,10 @@ def read_pdb_file_sticks(filepath_pdb, use_sticks_bonds, all_atoms):
     split_list = line.split(' ')
 
     # Go to the first entry
-    if "CONECT" not in split_list[0]:
+    if "CONNECT" not in split_list[0]:
         for line in filepath_pdb_p:
             split_list = line.split(' ')
-            if "CONECT" in split_list[0]:
+            if "CONNECT" in split_list[0]:
                 break
 
     Number_of_sticks = 0
@@ -379,8 +379,8 @@ def read_pdb_file_sticks(filepath_pdb, use_sticks_bonds, all_atoms):
         # ... which is broken here (EOF) ...
         if line == "":
             break
-        # ... or here, when no 'CONECT' appears anymore.
-        if "CONECT" not in line:
+        # ... or here, when no 'CONNECT' appears anymore.
+        if "CONNECT" not in line:
             break
 
         # The strings of the atom numbers do have a clear position in the file
@@ -388,13 +388,13 @@ def read_pdb_file_sticks(filepath_pdb, use_sticks_bonds, all_atoms):
         # this. One could also use the split function but then one gets into
         # trouble if there are lots of atoms: For instance, it may happen that
         # one has
-        #                   CONECT 11111  22244444
+        #                   CONNECT 11111  22244444
         #
         # In Fact it means that atom No. 11111 has a connection with atom
         # No. 222 but also with atom No. 44444. The split function would give
         # me only two numbers (11111 and 22244444), which is wrong.
 
-        # Cut spaces from the right and 'CONECT' at the beginning
+        # Cut spaces from the right and 'CONNECT' at the beginning
         line = line.rstrip()
         line = line[6:]
         # Amount of loops
@@ -474,7 +474,7 @@ def read_pdb_file_sticks(filepath_pdb, use_sticks_bonds, all_atoms):
     return all_sticks
 
 
-# Function, which produces a cylinder. All is somewhat easy to undertsand.
+# Function, which produces a cylinder. All is somewhat easy to understand.
 def build_stick(radius, length, sectors):
 
     dphi = 2.0 * pi/(float(sectors)-1)
@@ -522,21 +522,21 @@ def build_stick(radius, length, sectors):
     cylinder.from_pydata(vertices, [], faces1)
     cylinder.update()
     new_cylinder = bpy.data.objects.new("Sticks_Cylinder", cylinder)
-    bpy.context.scene.objects.link(new_cylinder)
+    bpy.context.collection.objects.link(new_cylinder)
 
     # Build the mesh, Cups
     cups = bpy.data.meshes.new("Sticks_Cups")
     cups.from_pydata(vertices, [], faces2)
     cups.update()
     new_cups = bpy.data.objects.new("Sticks_Cups", cups)
-    bpy.context.scene.objects.link(new_cups)
+    bpy.context.collection.objects.link(new_cups)
 
     return (new_cylinder, new_cups)
 
 
 # Function, which puts a camera and light source into the 3D scene
 def camera_light_source(use_camera,
-                        use_lamp,
+                        use_light,
                         object_center_vec,
                         object_size):
 
@@ -563,7 +563,7 @@ def camera_light_source(use_camera,
         camera = bpy.data.objects.new("A_camera", camera_data)
         camera.location = camera_xyz_vec
         camera.layers = current_layers
-        bpy.context.scene.objects.link(camera)
+        bpy.context.collection.objects.link(camera)
 
         # Here the camera is rotated such it looks towards the center of
         # the object. The [0.0, 0.0, 1.0] vector along the z axis
@@ -579,11 +579,11 @@ def camera_light_source(use_camera,
         # Rotate the camera around its axis by 90° such that we have a nice
         # camera position and view onto the object.
         bpy.ops.object.select_all(action='DESELECT')
-        camera.select = True
+        camera.select_set(True)
         bpy.ops.transform.rotate(value=(90.0*2*pi/360.0),
                                  axis=object_camera_vec,
                                  constraint_axis=(False, False, False),
-                                 constraint_orientation='GLOBAL',
+                                 orient_type='GLOBAL',
                                  mirror=False, proportional='DISABLED',
                                  proportional_edit_falloff='SMOOTH',
                                  proportional_size=1, snap=False,
@@ -592,29 +592,29 @@ def camera_light_source(use_camera,
                                  release_confirm=False)
 
     # Here a lamp is put into the scene, if chosen.
-    if use_lamp == True:
+    if use_light == True:
 
         # This is the distance from the object measured in terms of %
         # of the camera distance. It is set onto 50% (1/2) distance.
-        lamp_dl = sqrt(object_size) * 15 * 0.5
+        light_dl = sqrt(object_size) * 15 * 0.5
         # This is a factor to which extend the lamp shall go to the right
         # (from the camera  point of view).
-        lamp_dy_right = lamp_dl * (3.0/4.0)
+        light_dy_right = light_dl * (3.0/4.0)
 
         # Create x, y and z for the lamp.
-        object_lamp_vec = Vector((lamp_dl,lamp_dy_right,lamp_dl))
-        lamp_xyz_vec = object_center_vec + object_lamp_vec
+        object_light_vec = Vector((light_dl,light_dy_right,light_dl))
+        light_xyz_vec = object_center_vec + object_light_vec
 
         # Create the lamp
         current_layers=bpy.context.scene.layers
-        lamp_data = bpy.data.lamps.new(name="A_lamp", type="POINT")
-        lamp_data.distance = 500.0
-        lamp_data.energy = 3.0
-        lamp_data.shadow_method = 'RAY_SHADOW'
-        lamp = bpy.data.objects.new("A_lamp", lamp_data)
-        lamp.location = lamp_xyz_vec
+        light_data = bpy.data.lights.new(name="A_light", type="POINT")
+        light_data.distance = 500.0
+        light_data.energy = 3.0
+        light_data.shadow_method = 'RAY_SHADOW'
+        lamp = bpy.data.objects.new("A_light", light_data)
+        lamp.location = light_xyz_vec
         lamp.layers = current_layers
-        bpy.context.scene.objects.link(lamp)
+        bpy.context.collection.objects.link(lamp)
 
         # Some settings for the World: a bit ambient occlusion
         bpy.context.scene.world.light_settings.use_ambient_occlusion = True
@@ -645,7 +645,7 @@ def draw_atoms_one_type(draw_all_atoms_type,
     atom_mesh.from_pydata(atom_vertices, [], [])
     atom_mesh.update()
     new_atom_mesh = bpy.data.objects.new(atom[0], atom_mesh)
-    bpy.context.scene.objects.link(new_atom_mesh)
+    bpy.context.collection.objects.link(new_atom_mesh)
 
     # Now, build a representative sphere (atom).
     current_layers = bpy.context.scene.layers
@@ -676,7 +676,7 @@ def draw_atoms_one_type(draw_all_atoms_type,
                         enter_editmode=False, location=(0, 0, 0),
                         rotation=(0, 0, 0), layers=current_layers)
 
-    ball = bpy.context.scene.objects.active
+    ball = bpy.context.view_layer.objects.active
     ball.scale  = (atom[3]*Ball_radius_factor,) * 3
 
     if atom[0] == "Vacancy":
@@ -685,7 +685,7 @@ def draw_atoms_one_type(draw_all_atoms_type,
         ball.name = "Ball_"+atom[0]
     ball.active_material = atom[1]
     ball.parent = new_atom_mesh
-    new_atom_mesh.dupli_type = 'VERTS'
+    new_atom_mesh.instance_type = 'VERTS'
     # The object is back translated to 'object_center_vec'.
     new_atom_mesh.location = object_center_vec
 
@@ -838,7 +838,7 @@ def draw_sticks_dupliverts(all_atoms,
         mesh.from_pydata(vertices, [], faces)
         mesh.update()
         new_mesh = bpy.data.objects.new("Sticks"+stick[0], mesh)
-        bpy.context.scene.objects.link(new_mesh)
+        bpy.context.collection.objects.link(new_mesh)
 
         # Build the object.
         # Get the cylinder from the 'build_stick' function.
@@ -851,14 +851,14 @@ def draw_sticks_dupliverts(all_atoms,
         # Smooth the cylinders.
         if use_sticks_smooth == True:
             bpy.ops.object.select_all(action='DESELECT')
-            stick_cylinder.select = True
-            stick_cups.select = True
+            stick_cylinder.select_set(True)
+            stick_cups.select_set(True)
             bpy.ops.object.shade_smooth()
 
         # Parenting the mesh to the cylinder.
         stick_cylinder.parent = new_mesh
         stick_cups.parent = new_mesh
-        new_mesh.dupli_type = 'FACES'
+        new_mesh.instance_type = 'FACES'
         new_mesh.location = center
         atom_object_list.append(new_mesh)
 
@@ -958,7 +958,7 @@ def draw_sticks_skin(all_atoms,
     stick_mesh.from_pydata(stick_vertices, stick_edges, [])
     stick_mesh.update()
     new_stick_mesh = bpy.data.objects.new("Sticks", stick_mesh)
-    bpy.context.scene.objects.link(new_stick_mesh)
+    bpy.context.collection.objects.link(new_stick_mesh)
 
     # Apply the skin modifier.
     new_stick_mesh.modifiers.new(name="Sticks_skin", type='SKIN')
@@ -977,7 +977,7 @@ def draw_sticks_skin(all_atoms,
 
     # This is for putting the radiu of the sticks onto
     # the desired value 'Stick_diameter'
-    bpy.context.scene.objects.active = new_stick_mesh
+    bpy.context.view_layer.objects.active = new_stick_mesh
     # EDIT mode
     bpy.ops.object.mode_set(mode='EDIT', toggle=False)
     bm = bmesh.from_edit_mesh(new_stick_mesh.data)
@@ -994,7 +994,7 @@ def draw_sticks_skin(all_atoms,
                                          Stick_diameter*r_f,
                                          Stick_diameter*r_f),
                              constraint_axis=(False, False, False),
-                             constraint_orientation='GLOBAL',
+                             orient_type='GLOBAL',
                              mirror=False,
                              proportional='DISABLED',
                              proportional_edit_falloff='SMOOTH',
@@ -1062,7 +1062,7 @@ def draw_sticks_normal(all_atoms,
                                             rotation=(0, 0, 0),
                                             layers=current_layers)
         # Put the stick into the scene ...
-        stick = bpy.context.scene.objects.active
+        stick = bpy.context.view_layer.objects.active
         # ... and rotate the stick.
         stick.rotation_euler = euler
         # ... and name
@@ -1072,7 +1072,7 @@ def draw_sticks_normal(all_atoms,
         # Smooth the cylinder.
         if use_sticks_smooth == True:
             bpy.ops.object.select_all(action='DESELECT')
-            stick.select = True
+            stick.select_set(True)
             bpy.ops.object.shade_smooth()
 
         list_group_sub.append(stick)
@@ -1081,9 +1081,9 @@ def draw_sticks_normal(all_atoms,
             if counter == use_sticks_one_object_nr:
                 bpy.ops.object.select_all(action='DESELECT')
                 for stick in list_group_sub:
-                    stick.select = True
+                    stick.select_set(True)
                 bpy.ops.object.join()
-                list_group.append(bpy.context.scene.objects.active)
+                list_group.append(bpy.context.view_layer.objects.active)
                 bpy.ops.object.select_all(action='DESELECT')
                 list_group_sub = []
                 counter = 0
@@ -1094,17 +1094,17 @@ def draw_sticks_normal(all_atoms,
     if use_sticks_one_object == True:
         bpy.ops.object.select_all(action='DESELECT')
         for stick in list_group_sub:
-            stick.select = True
+            stick.select_set(True)
         bpy.ops.object.join()
-        list_group.append(bpy.context.scene.objects.active)
+        list_group.append(bpy.context.view_layer.objects.active)
         bpy.ops.object.select_all(action='DESELECT')
 
         for group in list_group:
-            group.select = True
+            group.select_set(True)
         bpy.ops.object.join()
         bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY',
                                    center='MEDIAN')
-        sticks = bpy.context.scene.objects.active
+        sticks = bpy.context.view_layer.objects.active
         sticks.active_material = stick_material
     else:
         bpy.ops.object.empty_add(type='ARROWS',
@@ -1112,7 +1112,7 @@ def draw_sticks_normal(all_atoms,
                                   location=(0, 0, 0),
                                   rotation=(0, 0, 0),
                                   layers=current_layers)
-        sticks = bpy.context.scene.objects.active
+        sticks = bpy.context.view_layer.objects.active
         for stick in list_group_sub:
             stick.parent = sticks
 
@@ -1145,7 +1145,7 @@ def import_pdb(Ball_type,
                Stick_diameter,
                put_to_center,
                use_camera,
-               use_lamp,
+               use_light,
                filepath_pdb):
 
 
@@ -1237,7 +1237,7 @@ def import_pdb(Ball_type,
 
     # It may happen that the structure in a PDB file already has an offset
     # If chosen, the structure is first put into the center of the scene
-    # (the offset is substracted).
+    # (the offset is subtracted).
 
     if put_to_center == True:
         sum_vec = Vector((0.0,0.0,0.0))
@@ -1245,7 +1245,7 @@ def import_pdb(Ball_type,
         sum_vec = sum([atom.location for atom in all_atoms], sum_vec)
         # Then the average is taken
         sum_vec = sum_vec / Number_of_total_atoms
-        # After, for each atom the center of gravity is substracted
+        # After, for each atom the center of gravity is subtracted
         for atom in all_atoms:
             atom.location -= sum_vec
 
@@ -1376,7 +1376,7 @@ def import_pdb(Ball_type,
     # CAMERA and LIGHT SOURCES
 
     camera_light_source(use_camera,
-                        use_lamp,
+                        use_light,
                         object_center_vec,
                         object_size)
 
@@ -1385,9 +1385,8 @@ def import_pdb(Ball_type,
     bpy.ops.object.select_all(action='DESELECT')
     obj = None
     for obj in atom_object_list:
-        obj.select = True
+        obj.select_set(True)
 
     # activate the last selected object
     if obj:
-        bpy.context.scene.objects.active = obj
-
+        bpy.context.view_layer.objects.active = obj

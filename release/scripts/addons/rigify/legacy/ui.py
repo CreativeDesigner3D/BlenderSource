@@ -124,7 +124,7 @@ class DATA_PT_rigify_layer_names(bpy.types.Panel):
                 col = layout.column(align=True)
             row = col.row()
             row.prop(arm, "layers", index=i, text="", toggle=True)
-            split = row.split(percentage=0.8)
+            split = row.split(factor=0.8)
             split.prop(rigify_layer, "name",  text="Layer %d" % (i + 1))
             split.prop(rigify_layer, "row",   text="")
 
@@ -200,9 +200,9 @@ class BONE_PT_rigify_buttons(bpy.types.Panel):
 
 class VIEW3D_PT_tools_rigify_dev(bpy.types.Panel):
     bl_label = "Rigify Dev Tools"
-    bl_category = 'Tools'
     bl_space_type = 'VIEW_3D'
-    bl_region_type = 'TOOLS'
+    bl_region_type = 'UI'
+    bl_category = 'View'
 
     @classmethod
     def poll(cls, context):
@@ -221,8 +221,8 @@ class VIEW3D_PT_tools_rigify_dev(bpy.types.Panel):
                 r = self.layout.row()
                 r.operator("mesh.rigify_encode_mesh_widget", text="Encode Mesh Widget to Python")
 
-#~ class INFO_MT_armature_metarig_add(bpy.types.Menu):
-    #~ bl_idname = "INFO_MT_armature_metarig_add"
+#~ class VIEW3D_MT_armature_metarig_add(bpy.types.Menu):
+    #~ bl_idname = "VIEW3D_MT_armature_metarig_add"
     #~ bl_label = "Meta-Rig"
 
     #~ def draw(self, context):
@@ -284,14 +284,14 @@ class Generate(bpy.types.Operator):
         import importlib
         importlib.reload(generate)
 
-        use_global_undo = context.user_preferences.edit.use_global_undo
-        context.user_preferences.edit.use_global_undo = False
+        use_global_undo = context.preferences.edit.use_global_undo
+        context.preferences.edit.use_global_undo = False
         try:
             generate.generate_rig(context, context.object)
         except MetarigError as rig_exception:
             rigify_report_exception(self, rig_exception)
         finally:
-            context.user_preferences.edit.use_global_undo = use_global_undo
+            context.preferences.edit.use_global_undo = use_global_undo
 
         return {'FINISHED'}
 
@@ -304,16 +304,16 @@ class Sample(bpy.types.Operator):
     bl_label = "Add a sample metarig for a rig type"
     bl_options = {'UNDO'}
 
-    metarig_type = StringProperty(
-            name="Type",
-            description="Name of the rig type to generate a sample of",
-            maxlen=128,
-            )
+    metarig_type: StringProperty(
+        name="Type",
+        description="Name of the rig type to generate a sample of",
+        maxlen=128,
+    )
 
     def execute(self, context):
         if context.mode == 'EDIT_ARMATURE' and self.metarig_type != "":
-            use_global_undo = context.user_preferences.edit.use_global_undo
-            context.user_preferences.edit.use_global_undo = False
+            use_global_undo = context.preferences.edit.use_global_undo
+            context.preferences.edit.use_global_undo = False
             try:
                 rig = get_rig_type(self.metarig_type)
                 create_sample = rig.create_sample
@@ -322,7 +322,7 @@ class Sample(bpy.types.Operator):
             else:
                 create_sample(context.active_object)
             finally:
-                context.user_preferences.edit.use_global_undo = use_global_undo
+                context.preferences.edit.use_global_undo = use_global_undo
                 bpy.ops.object.mode_set(mode='EDIT')
 
         return {'FINISHED'}
@@ -410,7 +410,7 @@ class EncodeWidget(bpy.types.Operator):
         return {'FINISHED'}
 
 
-#menu_func = (lambda self, context: self.layout.menu("INFO_MT_armature_metarig_add", icon='OUTLINER_OB_ARMATURE'))
+#menu_func = (lambda self, context: self.layout.menu("VIEW3D_MT_armature_metarig_add", icon='OUTLINER_OB_ARMATURE'))
 
 #from bl_ui import space_info  # ensure the menu is loaded first
 
@@ -425,7 +425,7 @@ def register():
     bpy.utils.register_class(EncodeMetarig)
     bpy.utils.register_class(EncodeMetarigSample)
     bpy.utils.register_class(EncodeWidget)
-    #space_info.INFO_MT_armature_add.append(ui.menu_func)
+    #space_info.VIEW3D_MT_armature_add.append(ui.menu_func)
 
 
 def unregister():

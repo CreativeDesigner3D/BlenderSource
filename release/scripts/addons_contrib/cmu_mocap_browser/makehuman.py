@@ -32,13 +32,13 @@ lfoot LegIK_L
 
 
 T_pose_align = [d.split() for d in """\
-clavicle UpArmRot 
-humerus LoArm 
+clavicle UpArmRot
+humerus LoArm
 radius Hand .8
 wrist Hand
-hipjoint UpLeg 
-femur LoLeg 
-tibia Foot 
+hipjoint UpLeg
+femur LoLeg
+tibia Foot
 foot Toe""".splitlines()]
 
 
@@ -85,7 +85,7 @@ class CMUMocapAlignArmatures(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
-        cml = context.user_preferences.addons['cmu_mocap_browser'].preferences
+        cml = context.preferences.addons['cmu_mocap_browser'].preferences
         self.src, self.dst = scan_armatures(context)
         context.scene.frame_set(0)
 
@@ -96,7 +96,7 @@ class CMUMocapAlignArmatures(bpy.types.Operator):
 
         # clear frame poses, leave source selected
         for o in self.dst, self.src:
-            context.scene.objects.active = o
+            context.view_layer.objects.active = o
             bpy.ops.object.mode_set(mode='POSE')
             bpy.ops.pose.select_all(action='SELECT')
             bpy.ops.pose.rot_clear()
@@ -126,7 +126,7 @@ class CMUMocapAlignArmatures(bpy.types.Operator):
         c_d = DPB['Hip_L'].matrix.translation
         b_d = .5 * (c_d + DPB['Hip_R'].matrix.translation)
 
-        # get alignment matrix        
+        # get alignment matrix
         S = Matrix().to_3x3()
         S[0] = (c_s - b_s).normalized()
         S[1] = (a_s - b_s).normalized()
@@ -142,14 +142,14 @@ class CMUMocapAlignArmatures(bpy.types.Operator):
         # scale source to match destination
         s = (a_d - b_d).length / (a_s - b_s).length
         bpy.ops.transform.resize(value=(s, s, s))
-        
+
         # align armatures
         rot = T.to_quaternion()
         bpy.ops.transform.rotate(value=rot.angle, axis=rot.axis)
         a_s = SPB['upperneck'].matrix.translation
         a_s = SMW * a_s
         bpy.ops.transform.translate(value=a_d - a_s)
-        
+
         bpy.ops.pose.select_all(action='DESELECT')
         for bdef in T_pose_align:
             for side in "lr":
@@ -232,12 +232,12 @@ class CMUMocapTransferer(bpy.types.Operator):
         return {'PASS_THROUGH'}
 
     def execute(self, context):
-        cml = context.user_preferences.addons['cmu_mocap_browser'].preferences
+        cml = context.preferences.addons['cmu_mocap_browser'].preferences
         self.src, self.dst = scan_armatures(context)
         DPB = self.dst.pose.bones
         self.set_inverses()
         context.scene.frame_set(0)
-        context.scene.objects.active = self.dst
+        context.view_layer.objects.active = self.dst
         bpy.ops.object.mode_set(mode='POSE')
         bpy.ops.pose.select_all(action='DESELECT')
         for sb, db, cc in [
@@ -280,7 +280,7 @@ class CMUMocapTransferer(bpy.types.Operator):
                     c = DPB[db].constraints["Floor"]
                     c.name = name
                     c.target = floor
-        
+
         bpy.ops.mhx.toggle_fk_ik(toggle="MhaArmIk_L 1 2 3")
         bpy.ops.mhx.toggle_fk_ik(toggle="MhaArmIk_R 1 18 19")
         bpy.ops.mhx.toggle_fk_ik(toggle="MhaLegIk_L 1 4 5")
@@ -296,4 +296,3 @@ class CMUMocapTransferer(bpy.types.Operator):
         bpy.context.scene.frame_set(bpy.context.scene.frame_current)
         context.window_manager.event_timer_remove(self.timer)
         bpy.ops.object.mode_set(mode='OBJECT')
-

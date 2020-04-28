@@ -35,8 +35,8 @@ def get_brush_link(context, types="brush"):
 
 # Addon settings
 def addon_settings(lists=True):
-    # separate function just for more convience
-    addon = bpy.context.user_preferences.addons[get_addon_name]
+    # separate function just for more convenience
+    addon = bpy.context.preferences.addons[get_addon_name]
     colum_n = addon.preferences.column_set if addon else 1
     use_list = addon.preferences.use_brushes_menu_type
 

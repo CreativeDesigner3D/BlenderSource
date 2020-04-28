@@ -22,8 +22,9 @@
  * \brief Configuration file
  */
 
-#include <string>
 #include <algorithm>
+#include <string>
+
 #include "../system/Precision.h"
 
 #ifdef WITH_CXX_GUARDEDALLOC

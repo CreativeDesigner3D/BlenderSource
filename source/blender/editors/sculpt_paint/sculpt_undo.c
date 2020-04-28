@@ -26,33 +26,37 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "BLI_math.h"
-#include "BLI_utildefines.h"
-#include "BLI_string.h"
-#include "BLI_listbase.h"
 #include "BLI_ghash.h"
+#include "BLI_listbase.h"
+#include "BLI_math.h"
+#include "BLI_string.h"
 #include "BLI_task.h"
 #include "BLI_threads.h"
+#include "BLI_utildefines.h"
 
+#include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
-#include "DNA_mesh_types.h"
 #include "DNA_screen_types.h"
 
 #include "BKE_ccg.h"
 #include "BKE_context.h"
 #include "BKE_customdata.h"
-#include "BKE_multires.h"
-#include "BKE_paint.h"
-#include "BKE_key.h"
-#include "BKE_mesh.h"
-#include "BKE_scene.h"
-#include "BKE_subsurf.h"
-#include "BKE_subdiv_ccg.h"
-#include "BKE_undo_system.h"
 #include "BKE_global.h"
+#include "BKE_key.h"
 #include "BKE_main.h"
+#include "BKE_mesh.h"
+#include "BKE_multires.h"
+#include "BKE_object.h"
+#include "BKE_paint.h"
+#include "BKE_scene.h"
+#include "BKE_subdiv_ccg.h"
+#include "BKE_subsurf.h"
+#include "BKE_undo_system.h"
+
+// XXX: Ideally should be no direct call to such low level things.
+#include "BKE_subdiv_eval.h"
 
 #include "DEG_depsgraph.h"
 
@@ -65,6 +69,45 @@
 
 #include "bmesh.h"
 #include "sculpt_intern.h"
+
+/* Implementation of undo system for objects in sculpt mode.
+ *
+ * Each undo step in sculpt mode consists of list of nodes, each node contains:
+ *  - Node type
+ *  - Data for this type.
+ *
+ * Node type used for undo depends on specific operation and active sculpt mode
+ * ("regular" or dynamic topology).
+ *
+ * Regular sculpt brushes will use COORDS, HIDDEN or MASK nodes. These nodes are
+ * created for every BVH node which is affected by the brush. The undo push for
+ * the node happens BEFORE modifications. This makes the operation undo to work
+ * in the following way: for every node in the undo step swap happens between
+ * node in the undo stack and the corresponding value in the BVH. This is how
+ * redo is possible after undo.
+ *
+ * The COORDS, HIDDEN or MASK type of nodes contains arrays of the corresponding
+ * values.
+ *
+ * Operations like Symmetrize are using GEOMETRY type of nodes which pushes the
+ * entire state of the mesh to the undo stack. This node contains all CustomData
+ * layers.
+ *
+ * The tricky aspect of this undo node type is that it stores mesh before and
+ * after modification. This allows the undo system to both undo and redo the
+ * symmetrize operation within the pre-modified-push of other node type
+ * behavior, but it uses more memory that it seems it should be.
+ *
+ * The dynamic topology undo nodes are handled somewhat separately from all
+ * other ones and the idea there is to store log of operations: which vertices
+ * and faces have been added or removed.
+ *
+ * Begin of dynamic topology sculpting mode have own node type. It contains an
+ * entire copy of mesh since just enabling the dynamic topology mode already
+ * does modifications on it.
+ *
+ * End of dynamic topology and symmetrize in this mode are handled in a special
+ * manner as well. */
 
 typedef struct UndoSculpt {
   ListBase nodes;
@@ -79,8 +122,7 @@ static void update_cb(PBVHNode *node, void *rebuild)
   BKE_pbvh_node_mark_update(node);
   BKE_pbvh_node_mark_update_mask(node);
   if (*((bool *)rebuild)) {
-    BKE_pbvh_node_mark_rebuild_draw(node);
-    BKE_pbvh_node_mark_visibility_update(node);
+    BKE_pbvh_node_mark_update_visibility(node);
   }
   BKE_pbvh_node_fully_hidden_set(node, 0);
 }
@@ -199,7 +241,7 @@ static bool sculpt_undo_restore_coords(bContext *C, Depsgraph *depsgraph, Sculpt
       }
 
       /* Propagate new coords to keyblock. */
-      sculpt_vertcos_to_key(ob, ss->shapekey_active, vertCos);
+      SCULPT_vertcos_to_key(ob, ss->shapekey_active, vertCos);
 
       /* PBVH uses it's own mvert array, so coords should be */
       /* propagated to PBVH here. */
@@ -332,6 +374,18 @@ static bool sculpt_undo_restore_mask(bContext *C, SculptUndoNode *unode)
   return true;
 }
 
+static bool sculpt_undo_restore_face_sets(bContext *C, SculptUndoNode *unode)
+{
+  ViewLayer *view_layer = CTX_data_view_layer(C);
+  Object *ob = OBACT(view_layer);
+  Mesh *me = BKE_object_get_original_mesh(ob);
+  int *face_sets = CustomData_get_layer(&me->pdata, CD_SCULPT_FACE_SETS);
+  for (int i = 0; i < me->totpoly; i++) {
+    face_sets[i] = unode->face_sets[i];
+  }
+  return false;
+}
+
 static void sculpt_undo_bmesh_restore_generic_task_cb(
     void *__restrict userdata, const int n, const TaskParallelTLS *__restrict UNUSED(tls))
 {
@@ -371,7 +425,7 @@ static void sculpt_undo_bmesh_restore_generic(bContext *C,
     }
   }
   else {
-    sculpt_pbvh_clear(ob);
+    SCULPT_pbvh_clear(ob);
   }
 }
 
@@ -381,7 +435,7 @@ static void sculpt_undo_bmesh_enable(Object *ob, SculptUndoNode *unode)
   SculptSession *ss = ob->sculpt;
   Mesh *me = ob->data;
 
-  sculpt_pbvh_clear(ob);
+  SCULPT_pbvh_clear(ob);
 
   /* Create empty BMesh and enable logging. */
   ss->bm = BM_mesh_create(&bm_mesh_allocsize_default,
@@ -389,7 +443,7 @@ static void sculpt_undo_bmesh_enable(Object *ob, SculptUndoNode *unode)
                               .use_toolflags = false,
                           }));
   BM_data_layer_add(ss->bm, &ss->bm->vdata, CD_PAINT_MASK);
-  sculpt_dyntopo_node_layers_add(ss);
+  SCULPT_dyntopo_node_layers_add(ss);
   me->flag |= ME_SCULPT_DYNAMIC_TOPOLOGY;
 
   /* Restore the BMLog using saved entries. */
@@ -402,7 +456,7 @@ static void sculpt_undo_bmesh_restore_begin(bContext *C,
                                             SculptSession *ss)
 {
   if (unode->applied) {
-    sculpt_dynamic_topology_disable(C, unode);
+    SCULPT_dynamic_topology_disable(C, unode);
     unode->applied = false;
   }
   else {
@@ -430,35 +484,89 @@ static void sculpt_undo_bmesh_restore_end(bContext *C,
   }
   else {
     /* Disable dynamic topology sculpting. */
-    sculpt_dynamic_topology_disable(C, NULL);
+    SCULPT_dynamic_topology_disable(C, NULL);
     unode->applied = true;
   }
 }
 
-static void sculpt_undo_geometry_restore(SculptUndoNode *unode, Object *ob)
+static void sculpt_undo_geometry_store_data(SculptUndoNodeGeometry *geometry, Object *object)
 {
-  Mesh *me;
-  sculpt_pbvh_clear(ob);
-  me = ob->data;
-  CustomData_free(&me->vdata, me->totvert);
-  CustomData_free(&me->edata, me->totedge);
-  CustomData_free(&me->fdata, me->totface);
-  CustomData_free(&me->ldata, me->totloop);
-  CustomData_free(&me->pdata, me->totpoly);
-  me->totvert = unode->geom_totvert;
-  me->totedge = unode->geom_totedge;
-  me->totloop = unode->geom_totloop;
-  me->totpoly = unode->geom_totpoly;
-  me->totface = 0;
+  Mesh *mesh = object->data;
+
+  BLI_assert(!geometry->is_initialized);
+  geometry->is_initialized = true;
+
+  CustomData_copy(&mesh->vdata, &geometry->vdata, CD_MASK_MESH.vmask, CD_DUPLICATE, mesh->totvert);
+  CustomData_copy(&mesh->edata, &geometry->edata, CD_MASK_MESH.emask, CD_DUPLICATE, mesh->totedge);
+  CustomData_copy(&mesh->ldata, &geometry->ldata, CD_MASK_MESH.lmask, CD_DUPLICATE, mesh->totloop);
+  CustomData_copy(&mesh->pdata, &geometry->pdata, CD_MASK_MESH.pmask, CD_DUPLICATE, mesh->totpoly);
+
+  geometry->totvert = mesh->totvert;
+  geometry->totedge = mesh->totedge;
+  geometry->totloop = mesh->totloop;
+  geometry->totpoly = mesh->totpoly;
+}
+
+static void sculpt_undo_geometry_restore_data(SculptUndoNodeGeometry *geometry, Object *object)
+{
+  Mesh *mesh = object->data;
+
+  BLI_assert(geometry->is_initialized);
+
+  CustomData_free(&mesh->vdata, mesh->totvert);
+  CustomData_free(&mesh->edata, mesh->totedge);
+  CustomData_free(&mesh->fdata, mesh->totface);
+  CustomData_free(&mesh->ldata, mesh->totloop);
+  CustomData_free(&mesh->pdata, mesh->totpoly);
+
+  mesh->totvert = geometry->totvert;
+  mesh->totedge = geometry->totedge;
+  mesh->totloop = geometry->totloop;
+  mesh->totpoly = geometry->totpoly;
+  mesh->totface = 0;
+
   CustomData_copy(
-      &unode->geom_vdata, &me->vdata, CD_MASK_MESH.vmask, CD_DUPLICATE, unode->geom_totvert);
+      &geometry->vdata, &mesh->vdata, CD_MASK_MESH.vmask, CD_DUPLICATE, geometry->totvert);
   CustomData_copy(
-      &unode->geom_edata, &me->edata, CD_MASK_MESH.emask, CD_DUPLICATE, unode->geom_totedge);
+      &geometry->edata, &mesh->edata, CD_MASK_MESH.emask, CD_DUPLICATE, geometry->totedge);
   CustomData_copy(
-      &unode->geom_ldata, &me->ldata, CD_MASK_MESH.lmask, CD_DUPLICATE, unode->geom_totloop);
+      &geometry->ldata, &mesh->ldata, CD_MASK_MESH.lmask, CD_DUPLICATE, geometry->totloop);
   CustomData_copy(
-      &unode->geom_pdata, &me->pdata, CD_MASK_MESH.pmask, CD_DUPLICATE, unode->geom_totpoly);
-  BKE_mesh_update_customdata_pointers(me, false);
+      &geometry->pdata, &mesh->pdata, CD_MASK_MESH.pmask, CD_DUPLICATE, geometry->totpoly);
+
+  BKE_mesh_update_customdata_pointers(mesh, false);
+}
+
+static void sculpt_undo_geometry_free_data(SculptUndoNodeGeometry *geometry)
+{
+  if (geometry->totvert) {
+    CustomData_free(&geometry->vdata, geometry->totvert);
+  }
+  if (geometry->totedge) {
+    CustomData_free(&geometry->edata, geometry->totedge);
+  }
+  if (geometry->totloop) {
+    CustomData_free(&geometry->ldata, geometry->totloop);
+  }
+  if (geometry->totpoly) {
+    CustomData_free(&geometry->pdata, geometry->totpoly);
+  }
+}
+
+static void sculpt_undo_geometry_restore(SculptUndoNode *unode, Object *object)
+{
+  if (unode->geometry_clear_pbvh) {
+    SCULPT_pbvh_clear(object);
+  }
+
+  if (unode->applied) {
+    sculpt_undo_geometry_restore_data(&unode->geometry_modified, object);
+    unode->applied = false;
+  }
+  else {
+    sculpt_undo_geometry_restore_data(&unode->geometry_original, object);
+    unode->applied = true;
+  }
 }
 
 /* Handle all dynamic-topology updates
@@ -519,26 +627,44 @@ static void sculpt_undo_restore_list(bContext *C, Depsgraph *depsgraph, ListBase
 
   if (lb->first) {
     unode = lb->first;
-    if (unode->type == SCULPT_UNDO_GEOMETRY) {
-      if (unode->applied) {
-        sculpt_undo_geometry_restore(unode->next, ob);
-        unode->next->applied = true;
-        unode->applied = false;
+    if (unode->type == SCULPT_UNDO_FACE_SETS) {
+      sculpt_undo_restore_face_sets(C, unode);
+
+      rebuild = true;
+      BKE_pbvh_search_callback(ss->pbvh, NULL, NULL, update_cb, &rebuild);
+
+      BKE_sculpt_update_object_for_edit(depsgraph, ob, true, need_mask);
+
+      SCULPT_visibility_sync_all_face_sets_to_vertices(ss);
+
+      BKE_pbvh_update_vertex_data(ss->pbvh, PBVH_UpdateVisibility);
+
+      if (BKE_pbvh_type(ss->pbvh) == PBVH_FACES) {
+        BKE_mesh_flush_hidden_from_verts(ob->data);
       }
-      else {
-        sculpt_undo_geometry_restore(unode, ob);
-        unode->next->applied = false;
-        unode->applied = true;
+
+      DEG_id_tag_update(&ob->id, ID_RECALC_SHADING);
+      if (!BKE_sculptsession_use_pbvh_draw(ob, v3d)) {
+        DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
       }
-      BKE_sculpt_update_object_for_edit(depsgraph, ob, false, need_mask);
+
+      unode->applied = true;
       return;
     }
   }
 
-  BKE_sculpt_update_object_for_edit(depsgraph, ob, false, need_mask);
+  if (lb->first != NULL) {
+    /* Only do early object update for edits if first node needs this.
+     * Undo steps like geometry does not need object to be updated before they run and will
+     * ensure object is updated after the node is handled. */
+    const SculptUndoNode *first_unode = (const SculptUndoNode *)lb->first;
+    if (first_unode->type != SCULPT_UNDO_GEOMETRY) {
+      BKE_sculpt_update_object_for_edit(depsgraph, ob, false, need_mask);
+    }
 
-  if (lb->first && sculpt_undo_bmesh_restore(C, lb->first, ob, ss)) {
-    return;
+    if (sculpt_undo_bmesh_restore(C, lb->first, ob, ss)) {
+      return;
+    }
   }
 
   char *undo_modified_grids = NULL;
@@ -584,27 +710,43 @@ static void sculpt_undo_restore_list(bContext *C, Depsgraph *depsgraph, ListBase
           update_mask = true;
         }
         break;
+      case SCULPT_UNDO_FACE_SETS:
+        break;
+
+      case SCULPT_UNDO_GEOMETRY:
+        sculpt_undo_geometry_restore(unode, ob);
+        BKE_sculpt_update_object_for_edit(depsgraph, ob, false, need_mask);
+        break;
 
       case SCULPT_UNDO_DYNTOPO_BEGIN:
       case SCULPT_UNDO_DYNTOPO_END:
       case SCULPT_UNDO_DYNTOPO_SYMMETRIZE:
         BLI_assert(!"Dynamic topology should've already been handled");
         break;
-      case SCULPT_UNDO_GEOMETRY:
-        break;
     }
   }
 
   if (use_multires_undo) {
-    int max_grid;
-    unode = lb->first;
-    max_grid = unode->maxgrid;
-    undo_modified_grids = MEM_callocN(sizeof(char) * max_grid, "undo_grids");
     for (unode = lb->first; unode; unode = unode->next) {
+      if (!STREQ(unode->idname, ob->id.name)) {
+        continue;
+      }
+      if (unode->maxgrid == 0) {
+        continue;
+      }
+
+      if (undo_modified_grids == NULL) {
+        undo_modified_grids = MEM_callocN(sizeof(char) * unode->maxgrid, "undo_grids");
+      }
+
       for (int i = 0; i < unode->totgrid; i++) {
         undo_modified_grids[unode->grids[i]] = 1;
       }
     }
+  }
+
+  if (subdiv_ccg != NULL) {
+    BKE_subdiv_eval_refine_from_mesh(subdiv_ccg->subdiv, ob->data, NULL);
   }
 
   if (update || rebuild) {
@@ -619,8 +761,14 @@ static void sculpt_undo_restore_list(bContext *C, Depsgraph *depsgraph, ListBase
     };
     BKE_pbvh_search_callback(ss->pbvh, NULL, NULL, update_cb_partial, &data);
     BKE_pbvh_update_bounds(ss->pbvh, PBVH_UpdateBB | PBVH_UpdateOriginalBB | PBVH_UpdateRedraw);
+
     if (update_mask) {
       BKE_pbvh_update_vertex_data(ss->pbvh, PBVH_UpdateMask);
+    }
+
+    if (update_visibility) {
+      SCULPT_visibility_sync_all_vertex_to_face_sets(ss);
+      BKE_pbvh_update_visibility(ss->pbvh);
     }
 
     if (BKE_sculpt_multires_active(scene, ob)) {
@@ -642,10 +790,6 @@ static void sculpt_undo_restore_list(bContext *C, Depsgraph *depsgraph, ListBase
       BKE_sculptsession_free_deformMats(ss);
     }
 
-    if (update_visibility) {
-      BKE_pbvh_update_visibility(ss->pbvh);
-    }
-
     if (BKE_pbvh_type(ss->pbvh) == PBVH_FACES && update_visibility) {
       Mesh *mesh = ob->data;
       BKE_mesh_flush_hidden_from_verts(mesh);
@@ -655,7 +799,7 @@ static void sculpt_undo_restore_list(bContext *C, Depsgraph *depsgraph, ListBase
       DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
     }
     else {
-      sculpt_update_object_bounding_box(ob);
+      SCULPT_update_object_bounding_box(ob);
     }
   }
 
@@ -701,17 +845,11 @@ static void sculpt_undo_free_list(ListBase *lb)
       BM_log_entry_drop(unode->bm_entry);
     }
 
-    if (unode->geom_totvert) {
-      CustomData_free(&unode->geom_vdata, unode->geom_totvert);
-    }
-    if (unode->geom_totedge) {
-      CustomData_free(&unode->geom_edata, unode->geom_totedge);
-    }
-    if (unode->geom_totloop) {
-      CustomData_free(&unode->geom_ldata, unode->geom_totloop);
-    }
-    if (unode->geom_totpoly) {
-      CustomData_free(&unode->geom_pdata, unode->geom_totpoly);
+    sculpt_undo_geometry_free_data(&unode->geometry_original);
+    sculpt_undo_geometry_free_data(&unode->geometry_modified);
+
+    if (unode->face_sets) {
+      MEM_freeN(unode->face_sets);
     }
 
     MEM_freeN(unode);
@@ -743,7 +881,7 @@ static bool sculpt_undo_cleanup(bContext *C, ListBase *lb)
 }
 #endif
 
-SculptUndoNode *sculpt_undo_get_node(PBVHNode *node)
+SculptUndoNode *SCULPT_undo_get_node(PBVHNode *node)
 {
   UndoSculpt *usculpt = sculpt_undo_get_nodes();
 
@@ -776,16 +914,43 @@ static void sculpt_undo_alloc_and_store_hidden(PBVH *pbvh, SculptUndoNode *unode
   }
 }
 
+/* Allocate node and initialize its default fields specific for the given undo type.
+ * Will also add the node to the list in the undo step. */
+static SculptUndoNode *sculpt_undo_alloc_node_type(Object *object, SculptUndoType type)
+{
+  SculptUndoNode *unode = MEM_callocN(sizeof(SculptUndoNode), "SculptUndoNode");
+  BLI_strncpy(unode->idname, object->id.name, sizeof(unode->idname));
+  unode->type = type;
+
+  UndoSculpt *usculpt = sculpt_undo_get_nodes();
+  BLI_addtail(&usculpt->nodes, unode);
+
+  return unode;
+}
+
+/* Will return first existing undo node of the given type.
+ * If such node does not exist will allocate node of this type, register it in the undo step and
+ * return it. */
+static SculptUndoNode *sculpt_undo_find_or_alloc_node_type(Object *object, SculptUndoType type)
+{
+  UndoSculpt *usculpt = sculpt_undo_get_nodes();
+
+  LISTBASE_FOREACH (SculptUndoNode *, unode, &usculpt->nodes) {
+    if (unode->type == type) {
+      return unode;
+    }
+  }
+
+  return sculpt_undo_alloc_node_type(object, type);
+}
+
 static SculptUndoNode *sculpt_undo_alloc_node(Object *ob, PBVHNode *node, SculptUndoType type)
 {
   UndoSculpt *usculpt = sculpt_undo_get_nodes();
-  SculptUndoNode *unode;
   SculptSession *ss = ob->sculpt;
   int totvert, allvert, totgrid, maxgrid, gridsize, *grids;
 
-  unode = MEM_callocN(sizeof(SculptUndoNode), "SculptUndoNode");
-  BLI_strncpy(unode->idname, ob->id.name, sizeof(unode->idname));
-  unode->type = type;
+  SculptUndoNode *unode = sculpt_undo_alloc_node_type(ob, type);
   unode->node = node;
 
   if (node) {
@@ -828,10 +993,9 @@ static SculptUndoNode *sculpt_undo_alloc_node(Object *ob, PBVHNode *node, Sculpt
     case SCULPT_UNDO_DYNTOPO_SYMMETRIZE:
       BLI_assert(!"Dynamic topology should've already been handled");
     case SCULPT_UNDO_GEOMETRY:
+    case SCULPT_UNDO_FACE_SETS:
       break;
   }
-
-  BLI_addtail(&usculpt->nodes, unode);
 
   if (maxgrid) {
     /* Multires. */
@@ -909,30 +1073,48 @@ static void sculpt_undo_store_mask(Object *ob, SculptUndoNode *unode)
   BKE_pbvh_vertex_iter_end;
 }
 
-static SculptUndoNode *sculpt_undo_geometry_push(Object *ob, SculptUndoType type)
+static SculptUndoNodeGeometry *sculpt_undo_geometry_get(SculptUndoNode *unode)
+{
+  if (!unode->geometry_original.is_initialized) {
+    return &unode->geometry_original;
+  }
+
+  BLI_assert(!unode->geometry_modified.is_initialized);
+
+  return &unode->geometry_modified;
+}
+
+static SculptUndoNode *sculpt_undo_geometry_push(Object *object, SculptUndoType type)
+{
+  SculptUndoNode *unode = sculpt_undo_find_or_alloc_node_type(object, type);
+  unode->applied = false;
+  unode->geometry_clear_pbvh = true;
+
+  SculptUndoNodeGeometry *geometry = sculpt_undo_geometry_get(unode);
+  sculpt_undo_geometry_store_data(geometry, object);
+
+  return unode;
+}
+
+static SculptUndoNode *sculpt_undo_face_sets_push(Object *ob, SculptUndoType type)
 {
   UndoSculpt *usculpt = sculpt_undo_get_nodes();
-  Mesh *me = ob->data;
-  bool applied;
-
   SculptUndoNode *unode = usculpt->nodes.first;
-  /* Store the original mesh in the first node, modifications in the second. */
-  applied = unode != NULL;
 
   unode = MEM_callocN(sizeof(*unode), __func__);
 
   BLI_strncpy(unode->idname, ob->id.name, sizeof(unode->idname));
   unode->type = type;
-  unode->applied = applied;
+  unode->applied = true;
 
-  CustomData_copy(&me->vdata, &unode->geom_vdata, CD_MASK_MESH.vmask, CD_DUPLICATE, me->totvert);
-  CustomData_copy(&me->edata, &unode->geom_edata, CD_MASK_MESH.emask, CD_DUPLICATE, me->totedge);
-  CustomData_copy(&me->ldata, &unode->geom_ldata, CD_MASK_MESH.lmask, CD_DUPLICATE, me->totloop);
-  CustomData_copy(&me->pdata, &unode->geom_pdata, CD_MASK_MESH.pmask, CD_DUPLICATE, me->totpoly);
-  unode->geom_totvert = me->totvert;
-  unode->geom_totedge = me->totedge;
-  unode->geom_totloop = me->totloop;
-  unode->geom_totpoly = me->totpoly;
+  Mesh *me = BKE_object_get_original_mesh(ob);
+
+  unode->face_sets = MEM_callocN(me->totpoly * sizeof(int), "sculpt face sets");
+
+  int *face_sets = CustomData_get_layer(&me->pdata, CD_SCULPT_FACE_SETS);
+  for (int i = 0; i < me->totpoly; i++) {
+    unode->face_sets[i] = face_sets[i];
+  }
 
   BLI_addtail(&usculpt->nodes, unode);
 
@@ -959,25 +1141,13 @@ static SculptUndoNode *sculpt_undo_bmesh_push(Object *ob, PBVHNode *node, Sculpt
       BM_log_before_all_removed(ss->bm, ss->bm_log);
     }
     else if (type == SCULPT_UNDO_DYNTOPO_BEGIN) {
-      Mesh *me = ob->data;
-
       /* Store a copy of the mesh's current vertices, loops, and
        * polys. A full copy like this is needed because entering
        * dynamic-topology immediately does topological edits
        * (converting polys to triangles) that the BMLog can't
        * fully restore from. */
-      CustomData_copy(
-          &me->vdata, &unode->geom_vdata, CD_MASK_MESH.vmask, CD_DUPLICATE, me->totvert);
-      CustomData_copy(
-          &me->edata, &unode->geom_edata, CD_MASK_MESH.emask, CD_DUPLICATE, me->totedge);
-      CustomData_copy(
-          &me->ldata, &unode->geom_ldata, CD_MASK_MESH.lmask, CD_DUPLICATE, me->totloop);
-      CustomData_copy(
-          &me->pdata, &unode->geom_pdata, CD_MASK_MESH.pmask, CD_DUPLICATE, me->totpoly);
-      unode->geom_totvert = me->totvert;
-      unode->geom_totedge = me->totedge;
-      unode->geom_totloop = me->totloop;
-      unode->geom_totpoly = me->totpoly;
+      SculptUndoNodeGeometry *geometry = &unode->geometry_bmesh_enter;
+      sculpt_undo_geometry_store_data(geometry, ob);
 
       unode->bm_entry = BM_log_entry_add(ss->bm_log);
       BM_log_all_added(ss->bm, ss->bm_log);
@@ -1022,6 +1192,7 @@ static SculptUndoNode *sculpt_undo_bmesh_push(Object *ob, PBVHNode *node, Sculpt
       case SCULPT_UNDO_DYNTOPO_END:
       case SCULPT_UNDO_DYNTOPO_SYMMETRIZE:
       case SCULPT_UNDO_GEOMETRY:
+      case SCULPT_UNDO_FACE_SETS:
         break;
     }
   }
@@ -1029,7 +1200,7 @@ static SculptUndoNode *sculpt_undo_bmesh_push(Object *ob, PBVHNode *node, Sculpt
   return unode;
 }
 
-SculptUndoNode *sculpt_undo_push_node(Object *ob, PBVHNode *node, SculptUndoType type)
+SculptUndoNode *SCULPT_undo_push_node(Object *ob, PBVHNode *node, SculptUndoType type)
 {
   SculptSession *ss = ob->sculpt;
   SculptUndoNode *unode;
@@ -1051,7 +1222,12 @@ SculptUndoNode *sculpt_undo_push_node(Object *ob, PBVHNode *node, SculptUndoType
     BLI_thread_unlock(LOCK_CUSTOM1);
     return unode;
   }
-  else if ((unode = sculpt_undo_get_node(node))) {
+  else if (type == SCULPT_UNDO_FACE_SETS) {
+    unode = sculpt_undo_face_sets_push(ob, type);
+    BLI_thread_unlock(LOCK_CUSTOM1);
+    return unode;
+  }
+  else if ((unode = SCULPT_undo_get_node(node))) {
     BLI_thread_unlock(LOCK_CUSTOM1);
     return unode;
   }
@@ -1091,6 +1267,7 @@ SculptUndoNode *sculpt_undo_push_node(Object *ob, PBVHNode *node, SculptUndoType
     case SCULPT_UNDO_DYNTOPO_SYMMETRIZE:
       BLI_assert(!"Dynamic topology should've already been handled");
     case SCULPT_UNDO_GEOMETRY:
+    case SCULPT_UNDO_FACE_SETS:
       break;
   }
 
@@ -1111,7 +1288,7 @@ SculptUndoNode *sculpt_undo_push_node(Object *ob, PBVHNode *node, SculptUndoType
   return unode;
 }
 
-void sculpt_undo_push_begin(const char *name)
+void SCULPT_undo_push_begin(const char *name)
 {
   UndoStack *ustack = ED_undo_stack_get();
 
@@ -1121,7 +1298,12 @@ void sculpt_undo_push_begin(const char *name)
   BKE_undosys_step_push_init_with_type(ustack, C, name, BKE_UNDOSYS_TYPE_SCULPT);
 }
 
-void sculpt_undo_push_end(void)
+void SCULPT_undo_push_end(void)
+{
+  SCULPT_undo_push_end_ex(false);
+}
+
+void SCULPT_undo_push_end_ex(const bool use_nested_undo)
 {
   UndoSculpt *usculpt = sculpt_undo_get_nodes();
   SculptUndoNode *unode;
@@ -1132,15 +1314,11 @@ void sculpt_undo_push_end(void)
       MEM_freeN(unode->no);
       unode->no = NULL;
     }
-
-    if (unode->node) {
-      BKE_pbvh_node_layer_disp_free(unode->node);
-    }
   }
 
   /* We could remove this and enforce all callers run in an operator using 'OPTYPE_UNDO'. */
   wmWindowManager *wm = G_MAIN->wm.first;
-  if (wm->op_undo_depth == 0) {
+  if (wm->op_undo_depth == 0 || use_nested_undo) {
     UndoStack *ustack = ED_undo_stack_get();
     BKE_undosys_step_push(ustack, NULL, NULL);
     WM_file_tag_modified();
@@ -1294,14 +1472,14 @@ static void sculpt_undosys_step_free(UndoStep *us_p)
 
 void ED_sculpt_undo_geometry_begin(struct Object *ob, const char *name)
 {
-  sculpt_undo_push_begin(name);
-  sculpt_undo_push_node(ob, NULL, SCULPT_UNDO_GEOMETRY);
+  SCULPT_undo_push_begin(name);
+  SCULPT_undo_push_node(ob, NULL, SCULPT_UNDO_GEOMETRY);
 }
 
 void ED_sculpt_undo_geometry_end(struct Object *ob)
 {
-  sculpt_undo_push_node(ob, NULL, SCULPT_UNDO_GEOMETRY);
-  sculpt_undo_push_end();
+  SCULPT_undo_push_node(ob, NULL, SCULPT_UNDO_GEOMETRY);
+  SCULPT_undo_push_end();
 }
 
 /* Export for ED_undo_sys. */
@@ -1335,6 +1513,88 @@ static UndoSculpt *sculpt_undo_get_nodes(void)
   UndoStack *ustack = ED_undo_stack_get();
   UndoStep *us = BKE_undosys_stack_init_or_active_with_type(ustack, BKE_UNDOSYS_TYPE_SCULPT);
   return sculpt_undosys_step_get_nodes(us);
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Undo for changes happening on a base mesh for multires sculpting.
+ *
+ * Use this for multires operators which changes base mesh and which are to be
+ * possible. Example of such operators is Apply Base.
+ *
+ * Usage:
+ *
+ *   static int operator_exec((bContext *C, wmOperator *op) {
+ *
+ *      ED_sculpt_undo_push_mixed_begin(C, op->type->name);
+ *      // Modify base mesh.
+ *      ED_sculpt_undo_push_mixed_end(C, op->type->name);
+ *
+ *      return OPERATOR_FINISHED;
+ *   }
+ *
+ * If object is not in sculpt mode or sculpt does not happen on multires then
+ * regular ED_undo_push() is used.
+ * *
+ * \{ */
+
+static bool sculpt_undo_use_multires_mesh(bContext *C)
+{
+  if (BKE_paintmode_get_active_from_context(C) != PAINT_MODE_SCULPT) {
+    return false;
+  }
+
+  Object *object = CTX_data_active_object(C);
+  SculptSession *sculpt_session = object->sculpt;
+
+  return sculpt_session->multires.active;
+}
+
+static void sculpt_undo_push_all_grids(Object *object)
+{
+  SculptSession *ss = object->sculpt;
+  PBVHNode **nodes;
+  int totnodes;
+
+  BKE_pbvh_search_gather(ss->pbvh, NULL, NULL, &nodes, &totnodes);
+  for (int i = 0; i < totnodes; i++) {
+    SculptUndoNode *unode = SCULPT_undo_push_node(object, nodes[i], SCULPT_UNDO_COORDS);
+    unode->node = NULL;
+  }
+
+  MEM_SAFE_FREE(nodes);
+}
+
+void ED_sculpt_undo_push_multires_mesh_begin(bContext *C, const char *str)
+{
+  if (!sculpt_undo_use_multires_mesh(C)) {
+    return;
+  }
+
+  Object *object = CTX_data_active_object(C);
+
+  SCULPT_undo_push_begin(str);
+
+  SculptUndoNode *geometry_unode = SCULPT_undo_push_node(object, NULL, SCULPT_UNDO_GEOMETRY);
+  geometry_unode->geometry_clear_pbvh = false;
+
+  sculpt_undo_push_all_grids(object);
+}
+
+void ED_sculpt_undo_push_multires_mesh_end(bContext *C, const char *str)
+{
+  if (!sculpt_undo_use_multires_mesh(C)) {
+    ED_undo_push(C, str);
+    return;
+  }
+
+  Object *object = CTX_data_active_object(C);
+
+  SculptUndoNode *geometry_unode = SCULPT_undo_push_node(object, NULL, SCULPT_UNDO_GEOMETRY);
+  geometry_unode->geometry_clear_pbvh = false;
+
+  SCULPT_undo_push_end();
 }
 
 /** \} */

@@ -54,12 +54,6 @@ ccl_device void kernel_adaptive_post_adjust(KernelGlobals *kg,
 #ifdef __PASSES__
   int flag = kernel_data.film.pass_flag;
 
-  if (flag & PASSMASK(SHADOW))
-    *(ccl_global float3 *)(buffer + kernel_data.film.pass_shadow) *= sample_multiplier;
-
-  if (flag & PASSMASK(MIST))
-    *(ccl_global float *)(buffer + kernel_data.film.pass_mist) *= sample_multiplier;
-
   if (flag & PASSMASK(NORMAL))
     *(ccl_global float3 *)(buffer + kernel_data.film.pass_normal) *= sample_multiplier;
 
@@ -73,6 +67,11 @@ ccl_device void kernel_adaptive_post_adjust(KernelGlobals *kg,
 
   if (kernel_data.film.use_light_pass) {
     int light_flag = kernel_data.film.light_pass_flag;
+
+    if (light_flag & PASSMASK(MIST))
+      *(ccl_global float *)(buffer + kernel_data.film.pass_mist) *= sample_multiplier;
+
+    /* Shadow pass omitted on purpose. It has its own scale parameter. */
 
     if (light_flag & PASSMASK(DIFFUSE_INDIRECT))
       *(ccl_global float3 *)(buffer + kernel_data.film.pass_diffuse_indirect) *= sample_multiplier;
@@ -151,6 +150,7 @@ ccl_device void kernel_adaptive_post_adjust(KernelGlobals *kg,
   }
 #endif /* __DENOISING_FEATURES__ */
 
+  /* Cryptomatte. */
   if (kernel_data.film.cryptomatte_passes) {
     int num_slots = 0;
     num_slots += (kernel_data.film.cryptomatte_passes & CRYPT_OBJECT) ? 1 : 0;
@@ -162,6 +162,14 @@ ccl_device void kernel_adaptive_post_adjust(KernelGlobals *kg,
     for (int slot = 0; slot < num_slots; slot++) {
       id_buffer[slot].y *= sample_multiplier;
     }
+  }
+
+  /* AOVs. */
+  for (int i = 0; i < kernel_data.film.pass_aov_value_num; i++) {
+    *(buffer + kernel_data.film.pass_aov_value + i) *= sample_multiplier;
+  }
+  for (int i = 0; i < kernel_data.film.pass_aov_color_num; i++) {
+    *((ccl_global float4 *)(buffer + kernel_data.film.pass_aov_color) + i) *= sample_multiplier;
   }
 }
 

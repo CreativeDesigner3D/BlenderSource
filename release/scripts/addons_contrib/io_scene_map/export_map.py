@@ -276,7 +276,7 @@ def write_quake_brush_face(fw, ob, face):
 
     # reuse face vertices
     f_vertices = [me.vertices[vi] for vi in face.vertices]
-  
+
     # original verts as tuples for writing
     orig_vco = tuple(round_vec(v.co) for v in f_vertices)
 
@@ -342,7 +342,7 @@ def write_doom_brush(fw, ob, me):
                 image_text = material.name
 
         # reuse face vertices
-        plane = poly_to_doom(me, p, radius)    
+        plane = poly_to_doom(me, p, radius)
         if plane is None:
             print("    ERROR: Could not create the plane from polygon!");
         elif doom_check_plane(done_planes, plane):
@@ -386,11 +386,12 @@ def write_node_map(fw, ob):
 
 def split_objects(context, objects):
     scene = context.scene
+    view_layer = context.view_layer
     final_objects = []
 
     bpy.ops.object.select_all(action='DESELECT')
     for ob in objects:
-        ob.select = True
+        ob.select_set(True)
 
     bpy.ops.object.duplicate()
     objects = bpy.context.selected_objects
@@ -400,10 +401,10 @@ def split_objects(context, objects):
     tot_ob = len(objects)
     for i, ob in enumerate(objects):
         print("Splitting object: %d/%d" % (i, tot_ob))
-        ob.select = True
-        
+        ob.select_set(True)
+
         if ob.type == "MESH":
-            scene.objects.active = ob
+            view_layer.objects.active = ob
             bpy.ops.object.mode_set(mode='EDIT')
             bpy.ops.mesh.select_all(action='DESELECT')
             bpy.ops.mesh.select_mode(type='EDGE')
@@ -420,14 +421,14 @@ def split_objects(context, objects):
             for split_ob in split_objects:
                 assert(split_ob.type == "MESH")
 
-                scene.objects.active = split_ob
+                view_layer.objects.active = split_ob
                 bpy.ops.object.mode_set(mode='EDIT')
                 bpy.ops.mesh.select_mode(type='EDGE')
                 bpy.ops.mesh.select_all(action="SELECT")
                 bpy.ops.mesh.region_to_loop()
                 bpy.ops.mesh.fill_holes(sides=8)
                 slot_idx = 0
-                for slot_idx, m in enumerate(split_ob.material_slots):                       
+                for slot_idx, m in enumerate(split_ob.material_slots):
                    if m.name == "textures/common/caulk":
                       break
                    #if m.name != "textures/common/caulk":
@@ -442,7 +443,7 @@ def split_objects(context, objects):
                 bpy.ops.object.mode_set(mode='OBJECT')
             final_objects += split_objects
 
-        ob.select = False
+        ob.select_set(False)
 
     print(final_objects)
     return final_objects
@@ -476,6 +477,7 @@ def export_map(context, filepath):
     print("Map Exporter 0.0")
 
     scene = context.scene
+    collection = context.collection
     objects = context.selected_objects
 
     obs_mesh = []
@@ -507,7 +509,7 @@ def export_map(context, filepath):
         if obs_mesh or obs_surf:
             if PREF_DOOM3_FORMAT:
                 fw('Version 2')
-            
+
             # brushes and surf's must be under worldspan
             fw('\n// entity 0\n')
             fw('{\n')
@@ -656,7 +658,7 @@ def export_map(context, filepath):
                 print("\t\tignoring %s" % ob.name)
 
     for ob in obs_mesh:
-        scene.objects.unlink(ob)
+        collection.objects.unlink(ob)
         bpy.data.objects.remove(ob)
 
     print("Exported Map in %.4fsec" % (time.time() - t))
@@ -687,7 +689,7 @@ def save(operator,
     PREF_DEF_TEX_OPTS = texture_opts
     PREF_GRID_SNAP = grid_snap
     PREF_DOOM3_FORMAT = doom3_format
-    
+
     if (PREF_DOOM3_FORMAT):
         PREF_DEF_TEX_OPTS = '0 0 0'
     else:

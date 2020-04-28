@@ -59,8 +59,8 @@ class DynDetailMenu(Menu):
             slider_setting = "detail_size"
 
         elif bpy.context.tool_settings.sculpt.detail_type_method == 'CONSTANT':
-            datapath = "tool_settings.sculpt.constant_detail"
-            slider_setting = "constant_detail"
+            datapath = "tool_settings.sculpt.constant_detail_resolution"
+            slider_setting = "constant_detail_resolution"
         else:
             datapath = "tool_settings.sculpt.detail_percent"
             slider_setting = "detail_percent"
@@ -108,7 +108,7 @@ class DetailMethodMenu(Menu):
                       ("Constant Detail", 'CONSTANT'),
                       ("Brush Detail", 'BRUSH'))
 
-        layout.row().label("Refine")
+        layout.row().label(text="Refine")
         layout.row().separator()
 
         # add the refine menu items
@@ -120,9 +120,9 @@ class DetailMethodMenu(Menu):
                     disable_icon='RADIOBUT_ON'
                     )
 
-        layout.row().label("")
+        layout.row().label(text="")
 
-        layout.row().label("Type")
+        layout.row().label(text="Type")
         layout.row().separator()
 
         # add the type menu items

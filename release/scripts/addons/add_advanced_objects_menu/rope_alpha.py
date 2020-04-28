@@ -25,7 +25,7 @@ bl_info = {
     "description": "Dynamic rope (with cloth) creator",
     "author": "Jorge Hernandez - Melenedez",
     "version": (0, 2, 2),
-    "blender": (2, 7, 3),
+    "blender": (2, 73, 0),
     "location": "Left Toolbar > ClothRope",
     "warning": "",
     "wiki_url": "",
@@ -127,13 +127,13 @@ def which_vertex_are_selected(ob):
 
 def seleccionar_por_nombre(nombre):
     scn = bpy.context.scene
-    bpy.data.objects[nombre].select = True
+    bpy.data.objects[nombre].select_set(True)
 
     scn.objects.active = bpy.data.objects[nombre]
 
 
 def deseleccionar_por_nombre(nombre):
-    bpy.data.objects[nombre].select = False
+    bpy.data.objects[nombre].select_set(False)
 
 
 def crear_vertices(ob):
@@ -172,7 +172,7 @@ def extruir_vertices(longitud, cuantos_segmentos):
             TRANSFORM_OT_translate={
                     "value": (longitud / cuantos_segmentos, 0, 0),
                     "constraint_axis": (True, False, False),
-                    "constraint_orientation": 'GLOBAL', "mirror": False,
+                    "orient_type": 'GLOBAL', "mirror": False,
                     "proportional": 'DISABLED', "proportional_edit_falloff": 'SMOOTH',
                     "proportional_size": 1, "snap": False, "snap_target": 'CLOSEST',
                     "snap_point": (0, 0, 0), "snap_align": False, "snap_normal": (0, 0, 0),
@@ -204,40 +204,40 @@ class ClothRope(Operator):
     bl_description = ("Create a new Scene with a Cloth modifier\n"
                       "Rope Simulation with hooked Helper Objects")
 
-    ropelenght = IntProperty(
+    ropelength: IntProperty(
             name="Rope Length",
             description="Length of the generated Rope",
             default=5
             )
-    ropesegments = IntProperty(
+    ropesegments: IntProperty(
             name="Rope Segments",
             description="Number of the Rope Segments",
             default=5
             )
-    qcr = IntProperty(
+    qcr: IntProperty(
             name="Collision Quality",
             description="Rope's Cloth modifier collsion quality",
             min=1, max=20,
             default=20
             )
-    substeps = IntProperty(
+    substeps: IntProperty(
             name="Rope Substeps",
             description="Rope's Cloth modifier quality",
             min=4, max=80,
             default=50
             )
-    resrope = IntProperty(
+    resrope: IntProperty(
             name="Rope Resolution",
             description="Rope's Bevel resolution",
             default=5
             )
-    radiusrope = FloatProperty(
+    radiusrope: FloatProperty(
             name="Radius",
             description="Rope's Radius",
             min=0.04, max=1,
             default=0.04
             )
-    hide_emptys = BoolProperty(
+    hide_emptys: BoolProperty(
             name="Hide Empties",
             description="Hide Helper Objects",
             default=False
@@ -249,7 +249,7 @@ class ClothRope(Operator):
         scene = bpy.context.scene
         scene.name = "Test Rope"
         seleccionar_todo()
-        longitud = self.ropelenght
+        longitud = self.ropelength
 
         # For the middle to have x segments between the first and
         # last point, must add 1 to the quantity:
@@ -333,15 +333,15 @@ class ClothRope(Operator):
         entrar_en_editmode()  # enter edit mode
         bpy.ops.object.vertex_group_add()  # Creating Master guide group
         select_all_in_edit_mode(ob)
-        bpy.ops.object.vertex_group_assign()  # and assing it
+        bpy.ops.object.vertex_group_assign()  # and assign it
         ob.vertex_groups[1].name = "Guide_rope"
 
-        # extrude the Curve so it has a minumum thickness for collide
+        # extrude the Curve so it has a minimum thickness for collide
         bpy.ops.mesh.extrude_region_move(
                 MESH_OT_extrude_region={"mirror": False},
                 TRANSFORM_OT_translate={
                         "value": (0, 0.005, 0), "constraint_axis": (False, True, False),
-                        "constraint_orientation": 'GLOBAL', "mirror": False,
+                        "orient_type": 'GLOBAL', "mirror": False,
                         "proportional": 'DISABLED', "proportional_edit_falloff": 'SMOOTH',
                         "proportional_size": 1, "snap": False, "snap_target": 'CLOSEST',
                         "snap_point": (0, 0, 0), "snap_align": False, "snap_normal": (0, 0, 0),
@@ -383,7 +383,7 @@ class ClothRope(Operator):
                 MESH_OT_duplicate={"mode": 1},
                 TRANSFORM_OT_translate={
                         "value": (0, 0, 0), "constraint_axis": (False, False, False),
-                        "constraint_orientation": 'GLOBAL', "mirror": False,
+                        "orient_type": 'GLOBAL', "mirror": False,
                         "proportional": 'DISABLED', "proportional_edit_falloff": 'SMOOTH',
                         "proportional_size": 1, "snap": False, "snap_target": 'CLOSEST',
                         "snap_point": (0, 0, 0), "snap_align": False, "snap_normal": (0, 0, 0),
@@ -483,13 +483,13 @@ class ClothRope(Operator):
         box = layout.box()
         col = box.column(align=True)
 
-        col.label("Rope settings:")
+        col.label(text="Rope settings:")
         rowsub0 = col.row()
-        rowsub0.prop(self, "ropelenght", text="Length")
+        rowsub0.prop(self, "ropelength", text="Length")
         rowsub0.prop(self, "ropesegments", text="Segments")
         rowsub0.prop(self, "radiusrope", text="Radius")
 
-        col.label("Quality Settings:")
+        col.label(text="Quality Settings:")
         col.prop(self, "resrope", text="Resolution curve")
         col.prop(self, "qcr", text="Quality Collision")
         col.prop(self, "substeps", text="Substeps")
@@ -502,60 +502,60 @@ class BallRope(Operator):
                       "Wrecking Ball on a rope")
 
     # defaults rope ball
-    ropelenght2 = IntProperty(
+    ropelength2: IntProperty(
             name="Rope Length",
             description="Length of the Wrecking Ball rope",
             default=10
             )
-    ropesegments2 = IntProperty(
+    ropesegments2: IntProperty(
             name="Rope Segments",
             description="Number of the Wrecking Ball rope segments",
             min=0, max=999,
             default=6
             )
-    radiuscubes = FloatProperty(
+    radiuscubes: FloatProperty(
             name="Cube Radius",
             description="Size of the Linked Cubes helpers",
             default=0.5
             )
-    radiusrope = FloatProperty(
+    radiusrope: FloatProperty(
             name="Rope Radius",
             description="Radius of the Rope",
             default=0.4
             )
-    worldsteps = IntProperty(
+    worldsteps: IntProperty(
             name="World Steps",
             description="Rigid Body Solver world steps per second (update)",
             min=60, max=1000,
             default=250
             )
-    solveriterations = IntProperty(
+    solveriterations: IntProperty(
             name="Solver Iterations",
             description="How many times the Rigid Body Solver should run",
             min=10, max=100,
             default=50
             )
-    massball = IntProperty(
+    massball: IntProperty(
             name="Ball Mass",
             description="Mass of the Wrecking Ball",
             default=1
             )
-    resrope = IntProperty(
+    resrope: IntProperty(
             name="Resolution",
             description="Rope resolution",
             default=4
             )
-    grados = FloatProperty(
+    grados: FloatProperty(
             name="Degrees",
             description="Angle of the Wrecking Ball compared to the Ground Plane",
             default=45
             )
-    separacion = FloatProperty(
+    separacion: FloatProperty(
             name="Link Cubes Gap",
             description="Space between the Rope's Linked Cubes",
             default=0.1
             )
-    hidecubes = BoolProperty(
+    hidecubes: BoolProperty(
             name="Hide Link Cubes",
             description="Hide helper geometry for the Rope",
             default=False
@@ -564,7 +564,7 @@ class BallRope(Operator):
     def execute(self, context):
         world_steps = self.worldsteps
         solver_iterations = self.solveriterations
-        longitud = self.ropelenght2
+        longitud = self.ropelength2
 
         # make a + 2, so the segments will be between the two end points...
         segmentos = self.ropesegments2 + 2
@@ -622,7 +622,7 @@ class BallRope(Operator):
             bpy.ops.rigidbody.objects_add(type='ACTIVE')
             bpy.context.object.name = "CubeLink"
             if n != 0:
-                bpy.context.object.draw_type = 'WIRE'
+                bpy.context.object.display_type = 'WIRE'
                 bpy.context.object.hide_render = True
             n += 1
             bpy.context.object.scale.z = (longitud * 2) / (segmentos * 2) - separation
@@ -694,7 +694,7 @@ class BallRope(Operator):
                         TRANSFORM_OT_translate={
                             "value": (0, 0, z / i),
                             "constraint_axis": (False, False, True),
-                            "constraint_orientation": 'GLOBAL', "mirror": False,
+                            "orient_type": 'GLOBAL', "mirror": False,
                             "proportional": 'DISABLED', "proportional_edit_falloff": 'SMOOTH',
                             "proportional_size": 1, "snap": False, "snap_target": 'CLOSEST',
                             "snap_point": (0, 0, 0), "snap_align": False, "snap_normal": (0, 0, 0),
@@ -721,13 +721,13 @@ class BallRope(Operator):
                 )
         bpy.ops.transform.translate(
                 value=(0, 0, -z + 2), constraint_axis=(False, False, True),
-                constraint_orientation='GLOBAL', mirror=False, proportional='DISABLED',
+                orient_type='GLOBAL', mirror=False, proportional='DISABLED',
                 proportional_edit_falloff='SMOOTH', proportional_size=1
                 )
         bpy.ops.transform.resize(
                 value=(longitud / 2, longitud / 2, longitud / 2),
                 constraint_axis=(False, False, False),
-                constraint_orientation='GLOBAL',
+                orient_type='GLOBAL',
                 mirror=False, proportional='DISABLED',
                 proportional_edit_falloff='SMOOTH', proportional_size=1
                 )
@@ -743,7 +743,7 @@ class BallRope(Operator):
         bpy.ops.transform.translate(
                 value=(0, 0, offset_del_suelo_real),
                 constraint_axis=(False, False, True),
-                constraint_orientation='GLOBAL', mirror=False,
+                orient_type='GLOBAL', mirror=False,
                 proportional='DISABLED', proportional_edit_falloff='SMOOTH',
                 proportional_size=1
                 )
@@ -765,7 +765,7 @@ class BallRope(Operator):
         bpy.ops.transform.rotate(
                 value=rotrope, axis=(1, 0, 0),
                 constraint_axis=(True, False, False),
-                constraint_orientation='GLOBAL',
+                orient_type='GLOBAL',
                 mirror=False, proportional='DISABLED',
                 proportional_edit_falloff='SMOOTH',
                 proportional_size=1
@@ -795,12 +795,12 @@ class BallRope(Operator):
         box = layout.box()
         col = box.column(align=True)
 
-        col.label("Rope settings:")
+        col.label(text="Rope settings:")
         rowsub0 = col.row()
         rowsub0.prop(self, "hidecubes", text="Hide Link Cubes")
 
         rowsub1 = col.row(align=True)
-        rowsub1.prop(self, "ropelenght2", text="Length")
+        rowsub1.prop(self, "ropelength2", text="Length")
         rowsub1.prop(self, "ropesegments2", text="Segments")
 
         rowsub2 = col.row(align=True)
@@ -811,7 +811,7 @@ class BallRope(Operator):
         rowsub3.prop(self, "grados", text="Degrees")
         rowsub3.prop(self, "separacion", text="Separation Link Cubes")
 
-        col.label("Quality Settings:")
+        col.label(text="Quality Settings:")
         col.prop(self, "resrope", text="Resolution Rope")
         col.prop(self, "massball", text="Ball Mass")
         col.prop(self, "worldsteps", text="World Steps")

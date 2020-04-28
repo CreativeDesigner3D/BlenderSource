@@ -55,10 +55,10 @@ class OverrideCustomProperty(PropertyGroup):
             return
 
 class Override(PropertyGroup):
-    id_name = StringProperty(name="ID Name", description="Name of the overridden ID datablock")
-    id_library = StringProperty(name="ID Library", description="Library file path of the overridden ID datablock")
+    id_name: StringProperty(name="ID Name", description="Name of the overridden ID datablock")
+    id_library: StringProperty(name="ID Library", description="Library file path of the overridden ID datablock")
 
-    show_expanded = BoolProperty(name="Show Expanded", description="Expand override details in the interface", default=True)
+    show_expanded: BoolProperty(name="Show Expanded", description="Expand override details in the interface", default=True)
 
     def add_custom_property(self, name):
         prop = self.custom_properties.get(name, None)
@@ -79,9 +79,9 @@ class Override(PropertyGroup):
     def draw_custom_props(self, context, layout):
         for prop in self.custom_properties:
             row = layout.row(align=True)
-            row.label(prop.name, icon='DOT')
+            row.label(text=prop.name, icon='DOT')
             row.prop(prop, '["{}"]'.format(escape_identifier("value")), text="")
-        
+
         row = layout.row()
         row.operator_context = 'INVOKE_SCREEN'
         row.context_pointer_set("id_data_override", self)

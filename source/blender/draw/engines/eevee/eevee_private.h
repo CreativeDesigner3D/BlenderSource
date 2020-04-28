@@ -78,6 +78,8 @@ extern struct DrawEngineType draw_engine_eevee_type;
   SHADER_IRRADIANCE
 /* clang-format on */
 
+#define EEVEE_PROBE_MAX min_ii(MAX_PROBE, GPU_max_texture_layers() / 6)
+
 #define SWAP_DOUBLE_BUFFERS() \
   { \
     if (effects->swap_double_buffer) { \
@@ -123,9 +125,21 @@ extern struct DrawEngineType draw_engine_eevee_type;
   } \
   ((void)0)
 
-#define LOOK_DEV_OVERLAY_ENABLED(v3d) \
-  ((v3d) && (v3d->shading.type == OB_MATERIAL) && ((v3d->flag2 & V3D_HIDE_OVERLAYS) == 0) && \
-   (v3d->overlay.flag & V3D_OVERLAY_LOOK_DEV))
+BLI_INLINE bool eevee_hdri_preview_overlay_enabled(const View3D *v3d)
+{
+  /* Only show the HDRI Preview in Shading Preview in the Viewport. */
+  if (v3d == NULL || v3d->shading.type != OB_MATERIAL) {
+    return false;
+  }
+
+  /* Only show the HDRI Preview when viewing the Combined render pass */
+  if (v3d->shading.render_pass != SCE_PASS_COMBINED) {
+    return false;
+  }
+
+  return ((v3d->flag2 & V3D_HIDE_OVERLAYS) == 0) && (v3d->overlay.flag & V3D_OVERLAY_LOOK_DEV);
+}
+
 #define USE_SCENE_LIGHT(v3d) \
   ((!v3d) || \
    ((v3d->shading.type == OB_MATERIAL) && (v3d->shading.flag & V3D_SHADING_SCENE_LIGHTS)) || \
@@ -137,19 +151,6 @@ extern struct DrawEngineType draw_engine_eevee_type;
               ((v3d->shading.flag & V3D_SHADING_SCENE_WORLD_RENDER) == 0))))
 
 #define MIN_CUBE_LOD_LEVEL 3
-
-BLI_INLINE int octahedral_size_from_cubesize(int cube_size)
-{
-  int cube_pixel_count = SQUARE(cube_size) * 6.0f;
-  int octa_size = (int)ceilf(sqrtf(cube_pixel_count));
-  int lod_count = log2_floor_u(octa_size) - MIN_CUBE_LOD_LEVEL;
-  /* Find lowest lod size and grow back to avoid having non matching mipsizes that would
-   * break trilinear interpolation. */
-  octa_size /= 1 << lod_count;
-  octa_size *= 1 << lod_count;
-  return octa_size;
-}
-
 #define MAX_PLANAR_LOD_LEVEL 9
 
 /* All the renderpasses that use the GPUMaterial for accumulation */
@@ -599,6 +600,7 @@ typedef struct EEVEE_EffectsInfo {
   int taa_total_sample;
   float taa_alpha;
   bool prev_drw_support;
+  bool prev_is_navigating;
   float prev_drw_persmat[4][4];
   struct DRWView *taa_view;
   /* Ambient Occlusion */
@@ -901,6 +903,10 @@ void EEVEE_particle_hair_cache_populate(EEVEE_Data *vedata,
                                         EEVEE_ViewLayerData *sldata,
                                         Object *ob,
                                         bool *cast_shadow);
+void EEVEE_object_hair_cache_populate(EEVEE_Data *vedata,
+                                      EEVEE_ViewLayerData *sldata,
+                                      Object *ob,
+                                      bool *cast_shadow);
 void EEVEE_materials_cache_finish(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 struct GPUMaterial *EEVEE_material_world_lightprobe_get(struct Scene *scene, struct World *wo);
 struct GPUMaterial *EEVEE_material_world_background_get(struct Scene *scene, struct World *wo);

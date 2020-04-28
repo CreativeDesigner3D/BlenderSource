@@ -218,19 +218,19 @@ class SVGExport(bpy.types.PropertyGroup):
     """Implements the properties for the SVG exporter"""
     bl_idname = "RENDER_PT_svg_export"
 
-    use_svg_export = BoolProperty(
+    use_svg_export: BoolProperty(
             name="SVG Export",
             description="Export Freestyle edges to an .svg format",
             )
-    split_at_invisible = BoolProperty(
+    split_at_invisible: BoolProperty(
             name="Split at Invisible",
             description="Split the stroke at an invisible vertex",
             )
-    object_fill = BoolProperty(
+    object_fill: BoolProperty(
             name="Fill Contours",
             description="Fill the contour with the object's material color",
             )
-    mode = EnumProperty(
+    mode: EnumProperty(
             name="Mode",
             items=(
                 ('FRAME', "Frame", "Export a single frame", 0),
@@ -238,10 +238,10 @@ class SVGExport(bpy.types.PropertyGroup):
                 ),
             default='FRAME',
             )
-    line_join_type = EnumProperty(
+    line_join_type: EnumProperty(
             name="Linejoin",
             items=(
-                ('MITTER', "Mitter", "Corners are sharp", 0),
+                ('MITER', "Miter", "Corners are sharp", 0),
                 ('ROUND', "Round", "Corners are smoothed", 1),
                 ('BEVEL', "Bevel", "Corners are bevelled", 2),
                 ),

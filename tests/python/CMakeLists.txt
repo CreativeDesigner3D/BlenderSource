@@ -120,6 +120,11 @@ add_blender_test(
   --python ${CMAKE_CURRENT_LIST_DIR}/bl_pyapi_idprop_datablock.py
 )
 
+add_blender_test(
+  script_pyapi_prop_array
+  --python ${CMAKE_CURRENT_LIST_DIR}/bl_pyapi_prop_array.py
+)
+
 # ------------------------------------------------------------------------------
 # DATA MANAGEMENT TESTS
 
@@ -179,6 +184,22 @@ add_blender_test(
   modifiers
   ${TEST_SRC_DIR}/modeling/modifiers.blend
   --python ${TEST_PYTHON_DIR}/modifiers.py
+  --
+  --run-all-tests
+)
+
+add_blender_test(
+  physics_cloth
+  ${TEST_SRC_DIR}/physics/cloth_test.blend
+  --python ${TEST_PYTHON_DIR}/physics_cloth.py
+  --
+  --run-all-tests
+)
+
+add_blender_test(
+  physics_softbody
+  ${TEST_SRC_DIR}/physics/softbody_test.blend
+  --python ${TEST_PYTHON_DIR}/physics_softbody.py
   --
   --run-all-tests
 )
@@ -555,6 +576,7 @@ if(WITH_CYCLES OR WITH_OPENGL_RENDER_TESTS)
       light
       mesh
       motion_blur
+      openvdb
       render_layer
       reports
       shader

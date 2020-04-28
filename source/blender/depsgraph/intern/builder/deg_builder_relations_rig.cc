@@ -25,14 +25,14 @@
 
 #include "intern/builder/deg_builder_relations.h"
 
+#include <cstring> /* required for STREQ later on. */
 #include <stdio.h>
 #include <stdlib.h>
-#include <cstring> /* required for STREQ later on. */
 
 #include "MEM_guardedalloc.h"
 
-#include "BLI_utildefines.h"
 #include "BLI_blenlib.h"
+#include "BLI_utildefines.h"
 
 extern "C" {
 #include "DNA_action_types.h"
@@ -57,8 +57,8 @@ extern "C" {
 #include "intern/node/deg_node_component.h"
 #include "intern/node/deg_node_operation.h"
 
-#include "intern/depsgraph_type.h"
 #include "intern/depsgraph_relation.h"
+#include "intern/depsgraph_type.h"
 
 namespace DEG {
 
@@ -68,6 +68,12 @@ void DepsgraphRelationBuilder::build_ik_pose(Object *object,
                                              bConstraint *con,
                                              RootPChanMap *root_map)
 {
+  if ((con->flag & CONSTRAINT_DISABLE) != 0) {
+    /* Do not add disabled IK constraints to the relations. If these needs to be temporarly
+     * enabled, they will be added as temporary constraints during transform. */
+    return;
+  }
+
   bKinematicConstraint *data = (bKinematicConstraint *)con->data;
   /* Attach owner to IK Solver to. */
   bPoseChannel *rootchan = BKE_armature_ik_solver_find_root(pchan, data);
@@ -350,6 +356,7 @@ void DepsgraphRelationBuilder::build_rig(Object *object)
   }
   /* Links between operations for each bone. */
   LISTBASE_FOREACH (bPoseChannel *, pchan, &object->pose->chanbase) {
+    build_idproperties(pchan->prop);
     OperationKey bone_local_key(
         &object->id, NodeType::BONE, pchan->name, OperationCode::BONE_LOCAL);
     OperationKey bone_pose_key(
@@ -458,6 +465,7 @@ void DepsgraphRelationBuilder::build_proxy_rig(Object *object)
   OperationKey pose_done_key(&object->id, NodeType::EVAL_POSE, OperationCode::POSE_DONE);
   OperationKey pose_cleanup_key(&object->id, NodeType::EVAL_POSE, OperationCode::POSE_CLEANUP);
   LISTBASE_FOREACH (bPoseChannel *, pchan, &object->pose->chanbase) {
+    build_idproperties(pchan->prop);
     OperationKey bone_local_key(
         &object->id, NodeType::BONE, pchan->name, OperationCode::BONE_LOCAL);
     OperationKey bone_ready_key(

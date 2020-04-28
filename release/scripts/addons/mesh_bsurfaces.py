@@ -126,7 +126,7 @@ def get_strokes_type(main_object):
     if strokes_type == "":
         if len(bpy.context.selected_objects) == 2:
             for ob in bpy.context.selected_objects:
-                if ob != bpy.context.scene.objects.active and ob.type == "CURVE":
+                if ob != bpy.context.view_layer.objects.active and ob.type == "CURVE":
                     strokes_type = "EXTERNAL_CURVE"
                     strokes_num = len(ob.data.splines)
 
@@ -136,7 +136,7 @@ def get_strokes_type(main_object):
                             strokes_type = "CURVE_WITH_NON_BEZIER_SPLINES"
                             break
 
-                elif ob != bpy.context.scene.objects.active and ob.type != "CURVE":
+                elif ob != bpy.context.view_layer.objects.active and ob.type != "CURVE":
                     strokes_type = "EXTERNAL_NO_CURVE"
         elif len(bpy.context.selected_objects) > 2:
             strokes_type = "MORE_THAN_ONE_EXTERNAL"
@@ -164,42 +164,42 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
     bl_description = "Generates surfaces from grease pencil strokes, bezier curves or loose edges"
     bl_options = {'REGISTER', 'UNDO'}
 
-    edges_U = IntProperty(
+    edges_U: IntProperty(
                     name="Cross",
                     description="Number of face-loops crossing the strokes",
                     default=1,
                     min=1,
                     max=200
                     )
-    edges_V = IntProperty(
+    edges_V: IntProperty(
                     name="Follow",
                     description="Number of face-loops following the strokes",
                     default=1,
                     min=1,
                     max=200
                     )
-    cyclic_cross = BoolProperty(
+    cyclic_cross: BoolProperty(
                     name="Cyclic Cross",
                     description="Make cyclic the face-loops crossing the strokes",
                     default=False
                     )
-    cyclic_follow = BoolProperty(
+    cyclic_follow: BoolProperty(
                     name="Cyclic Follow",
                     description="Make cyclic the face-loops following the strokes",
                     default=False
                     )
-    loops_on_strokes = BoolProperty(
+    loops_on_strokes: BoolProperty(
                     name="Loops on strokes",
                     description="Make the loops match the paths of the strokes",
                     default=False
                     )
-    automatic_join = BoolProperty(
+    automatic_join: BoolProperty(
                     name="Automatic join",
                     description="Join automatically vertices of either surfaces generated "
                                 "by crosshatching, or from the borders of closed shapes",
                     default=False
                     )
-    join_stretch_factor = FloatProperty(
+    join_stretch_factor: FloatProperty(
                     name="Stretch",
                     description="Amount of stretching or shrinking allowed for "
                                 "edges when joining vertices automatically",
@@ -400,21 +400,21 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
         if not self.using_external_curves:
             try:
                 bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-                bpy.data.objects[self.original_curve.name].select = True
-                bpy.context.scene.objects.active = bpy.data.objects[self.original_curve.name]
+                self.original_curve.select_set(True)
+                bpy.context.view_layer.objects.active = self.original_curve
 
                 bpy.ops.object.delete()
             except:
                 pass
 
             bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-            bpy.data.objects[self.main_object.name].select = True
-            bpy.context.scene.objects.active = bpy.data.objects[self.main_object.name]
+            self.main_object.select_set(True)
+            bpy.context.view_layer.objects.active = self.main_object
         else:
             bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-            bpy.data.objects[self.original_curve.name].select = True
-            bpy.data.objects[self.main_object.name].select = True
-            bpy.context.scene.objects.active = bpy.data.objects[self.main_object.name]
+            self.original_curve.select_set(True)
+            self.main_object.select_set(True)
+            bpy.context.view_layer.objects.active = self.main_object
 
         bpy.ops.object.editmode_toggle('INVOKE_REGION_WIN')
 
@@ -454,7 +454,7 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
                 finish_while = False
 
                 while True:
-                    # if not it'll pass the p_idx as an index bellow and crash
+                    # if not it'll pass the p_idx as an index below and crash
                     if p_idx < len(surface_splines[sp_idx].bezier_points):
                         p_co = surface_splines[sp_idx].bezier_points[p_idx].co
                         new_dist = (prev_p_co - p_co).length
@@ -996,8 +996,8 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
                 self.main_object.modifiers[m_idx].show_viewport = False
 
         bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-        bpy.data.objects[ob_original_splines.name].select = True
-        bpy.context.scene.objects.active = bpy.data.objects[ob_original_splines.name]
+        ob_original_splines.select = True
+        bpy.context.view_layer.objects.active = ob_original_splines
 
         if len(ob_original_splines.data.splines) >= 2:
             bpy.ops.object.duplicate('INVOKE_REGION_WIN')
@@ -1122,8 +1122,8 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
                 self.crosshatch_merge_distance = shortest_dist / 3
 
             bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-            bpy.data.objects[ob_splines.name].select = True
-            bpy.context.scene.objects.active = bpy.data.objects[ob_splines.name]
+            ob_splines.select = True
+            bpy.context.view_layer.objects.active = ob_splines
 
             # Deselect all points
             bpy.ops.object.editmode_toggle('INVOKE_REGION_WIN')
@@ -1310,8 +1310,8 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
         # Delete all duplicates
         for o in objects_to_delete:
             bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-            bpy.data.objects[o.name].select = True
-            bpy.context.scene.objects.active = bpy.data.objects[o.name]
+            o.select_set(True)
+            bpy.context.view_layer.objects.active = o
             bpy.ops.object.delete()
 
         # If the main object has modifiers, turn their "viewport view status" to
@@ -1355,11 +1355,11 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
 
         ob = bpy.data.objects.new(me_name, me)
         ob.data = me
-        bpy.context.scene.objects.link(ob)
+        bpy.context.collection.objects.link(ob)
 
         bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-        bpy.data.objects[ob.name].select = True
-        bpy.context.scene.objects.active = bpy.data.objects[ob.name]
+        ob.select_set(True)
+        bpy.context.view_layer.objects.active = ob
 
         # Get together each vert and its nearest, to the middle position
         verts = ob.data.vertices
@@ -1407,7 +1407,7 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
                                     threshold=average_edge_length / 15.0)
         bpy.ops.object.editmode_toggle('INVOKE_REGION_WIN')
 
-        final_points_ob = bpy.context.scene.objects.active
+        final_points_ob = bpy.context.view_layer.objects.active
 
         # Make a dictionary with the verts related to each vert
         related_key_verts = {}
@@ -1533,19 +1533,19 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
         me_surf.update()
 
         ob_surface = bpy.data.objects.new(surf_me_name, me_surf)
-        bpy.context.scene.objects.link(ob_surface)
+        bpy.context.collection.objects.link(ob_surface)
 
         # Delete final points temporal object
         bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-        bpy.data.objects[final_points_ob.name].select = True
-        bpy.context.scene.objects.active = bpy.data.objects[final_points_ob.name]
+        final_points_ob.select = True
+        bpy.context.view_layer.objects.active = final_points_ob
 
         bpy.ops.object.delete()
 
         # Delete isolated verts if there are any
         bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-        bpy.data.objects[ob_surface.name].select = True
-        bpy.context.scene.objects.active = bpy.data.objects[ob_surface.name]
+        ob_surface.select = True
+        bpy.context.view_layer.objects.active = ob_surface
 
         bpy.ops.object.editmode_toggle('INVOKE_REGION_WIN')
         bpy.ops.mesh.select_all(action='DESELECT')
@@ -1589,7 +1589,7 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
 
         bpy.ops.object.duplicate('INVOKE_REGION_WIN')
 
-        final_ob_duplicate = bpy.context.scene.objects.active
+        final_ob_duplicate = bpy.context.view_layer.objects.active
 
         bpy.ops.object.modifier_add('INVOKE_REGION_WIN', type='SHRINKWRAP')
         shrinkwrap_modifier = final_ob_duplicate.modifiers[-1]
@@ -1682,15 +1682,15 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
 
         # Delete duplicated object
         bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-        bpy.data.objects[final_ob_duplicate.name].select = True
-        bpy.context.scene.objects.active = bpy.data.objects[final_ob_duplicate.name]
+        final_ob_duplicate.select_set(True)
+        bpy.context.view_layer.objects.active = final_ob_duplicate
         bpy.ops.object.delete()
 
         # Join crosshatched surface and main object
         bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-        bpy.data.objects[ob_surface.name].select = True
-        bpy.data.objects[self.main_object.name].select = True
-        bpy.context.scene.objects.active = bpy.data.objects[self.main_object.name]
+        ob_surface.select = True
+        self.main_object.select_set(True)
+        bpy.context.view_layer.objects.active = self.main_object
 
         bpy.ops.object.join('INVOKE_REGION_WIN')
 
@@ -1893,8 +1893,8 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
         bpy.ops.object.editmode_toggle('INVOKE_REGION_WIN')
 
         bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-        bpy.data.objects[self.main_splines.name].select = True
-        bpy.context.scene.objects.active = bpy.context.scene.objects[self.main_splines.name]
+        self.main_splines.select = True
+        bpy.context.view_layer.objects.active = self.main_splines
 
         # Enter editmode for the new curve (converted from grease pencil strokes), to smooth it out
         bpy.ops.object.editmode_toggle('INVOKE_REGION_WIN')
@@ -2419,7 +2419,7 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
                 # Create a curve object for the actual spline "cyclic extension"
                 simplified_curve.append(bpy.data.curves.new('SURFSKIO_simpl_crv', 'CURVE'))
                 ob_simplified_curve.append(bpy.data.objects.new('SURFSKIO_simpl_crv', simplified_curve[i]))
-                bpy.context.scene.objects.link(ob_simplified_curve[i])
+                bpy.context.collection.objects.link(ob_simplified_curve[i])
 
                 simplified_curve[i].dimensions = "3D"
 
@@ -2445,8 +2445,8 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
                 spline_bp_count = len(spline.bezier_points)
 
                 bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-                bpy.data.objects[ob_simplified_curve[i].name].select = True
-                bpy.context.scene.objects.active = bpy.context.scene.objects[ob_simplified_curve[i].name]
+                ob_simplified_curve[i].select_set(True)
+                bpy.context.view_layer.objects.active = ob_simplified_curve[i]
 
                 bpy.ops.object.editmode_toggle('INVOKE_REGION_WIN')
                 bpy.ops.curve.select_all('INVOKE_REGION_WIN', action='SELECT')
@@ -2490,8 +2490,8 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
 
                 # Delete the temporal curve
                 bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-                bpy.data.objects[ob_simplified_curve[i].name].select = True
-                bpy.context.scene.objects.active = bpy.context.scene.objects[ob_simplified_curve[i].name]
+                ob_simplified_curve[i].select_set(True)
+                bpy.context.view_layer.objects.active = ob_simplified_curve[i]
 
                 bpy.ops.object.delete()
 
@@ -2587,7 +2587,7 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
         me = bpy.data.meshes.new(mesh_ctrl_pts_name)
         ob_ctrl_pts = bpy.data.objects.new(mesh_ctrl_pts_name, me)
         ob_ctrl_pts.data = me
-        bpy.context.scene.objects.link(ob_ctrl_pts)
+        bpy.context.collection.objects.link(ob_ctrl_pts)
 
         cyclic_loops_U = []
         first_verts = []
@@ -2629,8 +2629,8 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
                 vert_num_in_spline += 1
 
         bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-        bpy.data.objects[ob_ctrl_pts.name].select = True
-        bpy.context.scene.objects.active = bpy.data.objects[ob_ctrl_pts.name]
+        ob_ctrl_pts.select_set(True)
+        bpy.context.view_layer.objects.active = ob_ctrl_pts
 
         bpy.ops.object.editmode_toggle('INVOKE_REGION_WIN')
         bpy.ops.mesh.select_all(action='DESELECT')
@@ -2697,7 +2697,7 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
 
         # Create curves from control points.
         bpy.ops.object.convert('INVOKE_REGION_WIN', target='CURVE', keep_original=False)
-        ob_curves_surf = bpy.context.scene.objects.active
+        ob_curves_surf = bpy.context.view_layer.objects.active
         bpy.ops.object.editmode_toggle('INVOKE_REGION_WIN')
         bpy.ops.curve.spline_type_set('INVOKE_REGION_WIN', type='BEZIER')
         bpy.ops.curve.handle_type_set('INVOKE_REGION_WIN', type='AUTOMATIC')
@@ -2708,7 +2708,7 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
 
         # Get the coords of all points on first loop-U, for later comparison with its
         # subdivided version, to know which points of the loops-U are crossed by the
-        # original strokes. The indices wiil be the same for the other loops-U
+        # original strokes. The indices will be the same for the other loops-U
         if self.loops_on_strokes:
             coords_loops_U_control_points = []
             for p in ob_ctrl_pts.data.splines[0].bezier_points:
@@ -2741,7 +2741,7 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
         for i in range(len(ob_curves_surf.data.splines)):
             spline_U_curve = bpy.data.curves.new('SURFSKIO_spline_U_' + str(i), 'CURVE')
             ob_spline_U = bpy.data.objects.new('SURFSKIO_spline_U_' + str(i), spline_U_curve)
-            bpy.context.scene.objects.link(ob_spline_U)
+            bpy.context.collection.objects.link(ob_spline_U)
 
             spline_U_curve.dimensions = "3D"
 
@@ -2771,8 +2771,8 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
 
             splines_U_objects.append(ob_spline_U)
             bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-            bpy.data.objects[ob_spline_U.name].select = True
-            bpy.context.scene.objects.active = bpy.data.objects[ob_spline_U.name]
+            ob_spline_U.select = True
+            bpy.context.view_layer.objects.active = ob_spline_U
 
         # When option "Loops on strokes" is active each "Cross" loop will have
         # its own proportions according to where the original strokes "touch" them
@@ -2787,7 +2787,7 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
             # Make a dictionary with the number of the edge, in the selected chain V, corresponding to each stroke
             edge_order_number_for_splines = {}
             if self.selection_V_exists:
-                # For two-connected selections add a first hypothetic stroke at the begining.
+                # For two-connected selections add a first hypothetic stroke at the beginning.
                 if selection_type == "TWO_CONNECTED":
                     edge_order_number_for_splines[0] = 0
 
@@ -2928,7 +2928,7 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
                 for i in range(0, len(surface_splines_parsed[0])):
                     surface_splines_parsed[0][i] = self.main_object.matrix_world * verts_ordered_V2[i].co
 
-        # When "Automatic join" option is active (and the selection type is not "TWO_CONNECTED"),
+        # When "Automatic join" option is active (and the selection type != "TWO_CONNECTED"),
         # merge the verts of the tips of the loops when they are "near enough"
         if self.automatic_join and selection_type != "TWO_CONNECTED":
             # Join the tips of "Follow" loops that are near enough and must be "closed"
@@ -2973,17 +2973,17 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
                             surface_splines_parsed[0][i] = verts_middle_position_co
                             surface_splines_parsed[len(surface_splines_parsed) - 1][i] = verts_middle_position_co
 
-        # Delete object with control points and object from grease pencil convertion
+        # Delete object with control points and object from grease pencil conversion
         bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-        bpy.data.objects[ob_ctrl_pts.name].select = True
-        bpy.context.scene.objects.active = bpy.data.objects[ob_ctrl_pts.name]
+        ob_ctrl_pts.select_set(True)
+        bpy.context.view_layer.objects.active = ob_ctrl_pts
 
         bpy.ops.object.delete()
 
         for sp_ob in splines_U_objects:
             bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-            bpy.data.objects[sp_ob.name].select = True
-            bpy.context.scene.objects.active = bpy.data.objects[sp_ob.name]
+            sp_ob.select_set(True)
+            bpy.context.view_layer.objects.active = sp_ob
 
             bpy.ops.object.delete()
 
@@ -3013,7 +3013,7 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
         me_surf.update()
 
         ob_surface = bpy.data.objects.new(surf_me_name, me_surf)
-        bpy.context.scene.objects.link(ob_surface)
+        bpy.context.collection.objects.link(ob_surface)
 
         # Select all the "unselected but participating" verts, from closed selection
         # or double selections with middle-vertex, for later join with remove doubles
@@ -3022,8 +3022,8 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
 
         # Join the new mesh to the main object
         ob_surface.select = True
-        self.main_object.select = True
-        bpy.context.scene.objects.active = bpy.data.objects[self.main_object.name]
+        self.main_object.select_set(True)
+        bpy.context.view_layer.objects.active = self.main_object
 
         bpy.ops.object.join('INVOKE_REGION_WIN')
 
@@ -3037,7 +3037,7 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
 
     def execute(self, context):
 
-        bpy.context.user_preferences.edit.use_global_undo = False
+        bpy.context.preferences.edit.use_global_undo = False
 
         if not self.is_fill_faces:
             bpy.ops.wm.context_set_value(data_path='tool_settings.mesh_select_mode',
@@ -3046,7 +3046,7 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
             # Build splines from the "last saved splines".
             last_saved_curve = bpy.data.curves.new('SURFSKIO_last_crv', 'CURVE')
             self.main_splines = bpy.data.objects.new('SURFSKIO_last_crv', last_saved_curve)
-            bpy.context.scene.objects.link(self.main_splines)
+            bpy.context.collection.objects.link(self.main_splines)
 
             last_saved_curve.dimensions = "3D"
 
@@ -3060,8 +3060,8 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
             bpy.ops.object.editmode_toggle('INVOKE_REGION_WIN')
 
             bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-            bpy.data.objects[self.main_splines.name].select = True
-            bpy.context.scene.objects.active = bpy.data.objects[self.main_splines.name]
+            self.main_splines.select = True
+            bpy.context.view_layer.objects.active = self.main_splines
 
             bpy.ops.object.editmode_toggle('INVOKE_REGION_WIN')
 
@@ -3083,8 +3083,8 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
                 strokes_for_crosshatch = False
 
             bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-            bpy.data.objects[self.main_object.name].select = True
-            bpy.context.scene.objects.active = bpy.data.objects[self.main_object.name]
+            self.main_object.select_set(True)
+            bpy.context.view_layer.objects.active = self.main_object
 
             bpy.ops.object.editmode_toggle('INVOKE_REGION_WIN')
 
@@ -3097,28 +3097,28 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
             bpy.ops.object.editmode_toggle('INVOKE_REGION_WIN')
 
             bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-            bpy.data.objects[self.main_splines.name].select = True
-            bpy.context.scene.objects.active = bpy.data.objects[self.main_splines.name]
+            self.main_splines.select = True
+            bpy.context.view_layer.objects.active = self.main_splines
 
             bpy.ops.object.delete()
 
             bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-            bpy.data.objects[self.main_object.name].select = True
-            bpy.context.scene.objects.active = bpy.data.objects[self.main_object.name]
+            self.main_object.select_set(True)
+            bpy.context.view_layer.objects.active = self.main_object
 
             bpy.ops.object.editmode_toggle('INVOKE_REGION_WIN')
 
-        bpy.context.user_preferences.edit.use_global_undo = self.initial_global_undo_state
+        bpy.context.preferences.edit.use_global_undo = self.initial_global_undo_state
 
         return{'FINISHED'}
 
     def invoke(self, context, event):
-        self.initial_global_undo_state = bpy.context.user_preferences.edit.use_global_undo
+        self.initial_global_undo_state = bpy.context.preferences.edit.use_global_undo
 
-        self.main_object = bpy.context.scene.objects.active
+        self.main_object = bpy.context.view_layer.objects.active
         self.main_object_selected_verts_count = int(self.main_object.data.total_vert_sel)
 
-        bpy.context.user_preferences.edit.use_global_undo = False
+        bpy.context.preferences.edit.use_global_undo = False
         bpy.ops.wm.context_set_value(data_path='tool_settings.mesh_select_mode',
                                      value='True, False, False')
 
@@ -3159,13 +3159,13 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
                 # self.original_curve = bpy.context.object
                 gplayer_prefix_translated = bpy.app.translations.pgettext_data('GP_Layer')
                 for ob in bpy.context.selected_objects:
-                    if ob != bpy.context.scene.objects.active and \
+                    if ob != bpy.context.view_layer.objects.active and \
                        ob.name.startswith((gplayer_prefix_translated, 'GP_Layer')):
                         self.original_curve = ob
                 self.using_external_curves = False
             elif self.strokes_type == "EXTERNAL_CURVE":
                 for ob in bpy.context.selected_objects:
-                    if ob != bpy.context.scene.objects.active:
+                    if ob != bpy.context.view_layer.objects.active:
                         self.original_curve = ob
                 self.using_external_curves = True
 
@@ -3176,18 +3176,18 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
             for o in bpy.data.objects:
                 if o.name.find("SURFSKIO_") != -1:
                     bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-                    bpy.data.objects[o.name].select = True
-                    bpy.context.scene.objects.active = bpy.data.objects[o.name]
+                    o.select_set(True)
+                    bpy.context.view_layer.objects.active = o
 
                     bpy.ops.object.delete()
 
             bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-            bpy.data.objects[self.original_curve.name].select = True
-            bpy.context.scene.objects.active = bpy.data.objects[self.original_curve.name]
+            self.original_curve.select_set(True)
+            bpy.context.view_layer.objects.active = self.original_curve
 
             bpy.ops.object.duplicate('INVOKE_REGION_WIN')
 
-            self.temporary_curve = bpy.context.scene.objects.active
+            self.temporary_curve = bpy.context.view_layer.objects.active
 
             # Deselect all points of the curve
             bpy.ops.object.editmode_toggle('INVOKE_REGION_WIN')
@@ -3206,8 +3206,8 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
             bpy.ops.object.editmode_toggle('INVOKE_REGION_WIN')
 
             bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-            bpy.data.objects[self.temporary_curve.name].select = True
-            bpy.context.scene.objects.active = bpy.data.objects[self.temporary_curve.name]
+            self.temporary_curve.select_set(True)
+            bpy.context.view_layer.objects.active = self.temporary_curve
 
             # Set a minimum number of points for crosshatch
             minimum_points_num = 15
@@ -3215,7 +3215,7 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
             bpy.ops.object.editmode_toggle('INVOKE_REGION_WIN')
             # Check if the number of points of each curve has at least the number of points
             # of minimum_points_num, which is a bit more than the face-loops limit.
-            # If not, subdivide to reach at least that number of ponts
+            # If not, subdivide to reach at least that number of points
             for i in range(len(self.temporary_curve.data.splines)):
                 sp = self.temporary_curve.data.splines[i]
 
@@ -3244,8 +3244,8 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
 
             if not self.is_crosshatch:
                 bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-                bpy.data.objects[self.temporary_curve.name].select = True
-                bpy.context.scene.objects.active = bpy.data.objects[self.temporary_curve.name]
+                self.temporary_curve.select_set(True)
+                bpy.context.view_layer.objects.active = self.temporary_curve
 
                 bpy.ops.object.editmode_toggle('INVOKE_REGION_WIN')
 
@@ -3254,7 +3254,7 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
 
                 # Check if the number of points of each curve has at least the number of points
                 # of minimum_points_num, which is a bit more than the face-loops limit.
-                # If not, subdivide to reach at least that number of ponts
+                # If not, subdivide to reach at least that number of points
                 for i in range(len(self.temporary_curve.data.splines)):
                     sp = self.temporary_curve.data.splines[i]
 
@@ -3320,33 +3320,33 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
 
             # Delete temporary strokes curve object
             bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-            bpy.data.objects[self.temporary_curve.name].select = True
-            bpy.context.scene.objects.active = bpy.data.objects[self.temporary_curve.name]
+            self.temporary_curve.select_set(True)
+            bpy.context.view_layer.objects.active = self.temporary_curve
 
             bpy.ops.object.delete()
 
             bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-            bpy.data.objects[self.main_object.name].select = True
-            bpy.context.scene.objects.active = bpy.data.objects[self.main_object.name]
+            self.main_object.select_set(True)
+            bpy.context.view_layer.objects.active = self.main_object
 
             bpy.ops.object.editmode_toggle('INVOKE_REGION_WIN')
 
             self.execute(context)
             # Set again since "execute()" will turn it again to its initial value
-            bpy.context.user_preferences.edit.use_global_undo = False
+            bpy.context.preferences.edit.use_global_undo = False
 
             # If "Keep strokes" option is not active, delete original strokes curve object
             if (not self.stopping_errors and not self.keep_strokes) or self.is_crosshatch:
                 bpy.ops.object.editmode_toggle('INVOKE_REGION_WIN')
                 bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-                bpy.data.objects[self.original_curve.name].select = True
-                bpy.context.scene.objects.active = bpy.data.objects[self.original_curve.name]
+                self.original_curve.select_set(True)
+                bpy.context.view_layer.objects.active = self.original_curve
 
                 bpy.ops.object.delete()
 
                 bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-                bpy.data.objects[self.main_object.name].select = True
-                bpy.context.scene.objects.active = bpy.data.objects[self.main_object.name]
+                self.main_object.select_set(True)
+                bpy.context.view_layer.objects.active = self.main_object
 
                 bpy.ops.object.editmode_toggle('INVOKE_REGION_WIN')
 
@@ -3354,7 +3354,7 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
             if self.strokes_type == "GP_STROKES" and not self.stopping_errors:
                 bpy.ops.gpencil.active_frame_delete('INVOKE_REGION_WIN')
 
-            bpy.context.user_preferences.edit.use_global_undo = self.initial_global_undo_state
+            bpy.context.preferences.edit.use_global_undo = self.initial_global_undo_state
 
             if not self.stopping_errors:
                 return {"FINISHED"}
@@ -3366,15 +3366,15 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
             created_faces_count = self.fill_with_faces(self.main_object)
 
             bpy.ops.object.editmode_toggle('INVOKE_REGION_WIN')
-            bpy.context.user_preferences.edit.use_global_undo = self.initial_global_undo_state
+            bpy.context.preferences.edit.use_global_undo = self.initial_global_undo_state
 
             if created_faces_count == 0:
-                self.report({'WARNING'}, "There aren't any strokes attatched to the object")
+                self.report({'WARNING'}, "There aren't any strokes attached to the object")
                 return {"CANCELLED"}
             else:
                 return {"FINISHED"}
 
-        bpy.context.user_preferences.edit.use_global_undo = self.initial_global_undo_state
+        bpy.context.preferences.edit.use_global_undo = self.initial_global_undo_state
 
         if self.strokes_type == "EXTERNAL_NO_CURVE":
             self.report({'WARNING'}, "The secondary object is not a Curve.")
@@ -3391,7 +3391,7 @@ class GPENCIL_OT_SURFSK_add_surface(Operator):
             return{"CANCELLED"}
 
         elif self.strokes_type == "NO_STROKES":
-            self.report({'WARNING'}, "There aren't any strokes attatched to the object")
+            self.report({'WARNING'}, "There aren't any strokes attached to the object")
             return{"CANCELLED"}
 
         elif self.strokes_type == "CURVE_WITH_NON_BEZIER_SPLINES":
@@ -3415,14 +3415,14 @@ class GPENCIL_OT_SURFSK_edit_strokes(Operator):
         selected_objs = bpy.context.selected_objects
         if self.strokes_type == "EXTERNAL_CURVE" or self.strokes_type == "SINGLE_CURVE_STROKE_NO_SELECTION":
             for ob in selected_objs:
-                if ob != bpy.context.scene.objects.active:
+                if ob != bpy.context.view_layer.objects.active:
                     curve_ob = ob
 
             bpy.ops.object.editmode_toggle('INVOKE_REGION_WIN')
 
             bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-            bpy.data.objects[curve_ob.name].select = True
-            bpy.context.scene.objects.active = bpy.data.objects[curve_ob.name]
+            curve_ob.select_set(True)
+            bpy.context.view_layer.objects.active = curve_ob
 
             bpy.ops.object.editmode_toggle('INVOKE_REGION_WIN')
         elif self.strokes_type == "GP_STROKES" or self.strokes_type == "SINGLE_GP_STROKE_NO_SELECTION":
@@ -3430,29 +3430,29 @@ class GPENCIL_OT_SURFSK_edit_strokes(Operator):
             bpy.ops.object.editmode_toggle('INVOKE_REGION_WIN')
             bpy.ops.gpencil.convert('INVOKE_REGION_WIN', type='CURVE', use_link_strokes=False)
             for ob in bpy.context.selected_objects:
-                    if ob != bpy.context.scene.objects.active and ob.name.startswith("GP_Layer"):
+                    if ob != bpy.context.view_layer.objects.active and ob.name.startswith("GP_Layer"):
                         ob_gp_strokes = ob
 
             # ob_gp_strokes = bpy.context.object
 
             # Delete grease pencil strokes
             bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-            bpy.data.objects[self.main_object.name].select = True
-            bpy.context.scene.objects.active = bpy.data.objects[self.main_object.name]
+            self.main_object.select_set(True)
+            bpy.context.view_layer.objects.active = self.main_object
 
             bpy.ops.gpencil.active_frame_delete('INVOKE_REGION_WIN')
 
             # Clean up curves
             bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-            bpy.data.objects[ob_gp_strokes.name].select = True
-            bpy.context.scene.objects.active = bpy.data.objects[ob_gp_strokes.name]
+            ob_gp_strokes.select_set(True)
+            bpy.context.view_layer.objects.active = ob_gp_strokes
 
             curve_crv = ob_gp_strokes.data
             bpy.ops.object.editmode_toggle('INVOKE_REGION_WIN')
             bpy.ops.curve.spline_type_set('INVOKE_REGION_WIN', type="BEZIER")
             bpy.ops.curve.handle_type_set('INVOKE_REGION_WIN', type="AUTOMATIC")
-            bpy.data.curves[curve_crv.name].show_handles = False
-            bpy.data.curves[curve_crv.name].show_normal_face = False
+            curve_crv.show_handles = False
+            curve_crv.show_normal_face = False
 
         elif self.strokes_type == "EXTERNAL_NO_CURVE":
             self.report({'WARNING'}, "The secondary object is not a Curve.")
@@ -3463,7 +3463,7 @@ class GPENCIL_OT_SURFSK_edit_strokes(Operator):
             return{"CANCELLED"}
 
         elif self.strokes_type == "NO_STROKES" or self.strokes_type == "SELECTION_ALONE":
-            self.report({'WARNING'}, "There aren't any strokes attatched to the object")
+            self.report({'WARNING'}, "There aren't any strokes attached to the object")
             return{"CANCELLED"}
 
         else:
@@ -3488,15 +3488,15 @@ class CURVE_OT_SURFSK_reorder_splines(Operator):
         bpy.ops.object.editmode_toggle('INVOKE_REGION_WIN')
         bpy.ops.gpencil.convert('INVOKE_REGION_WIN', type='CURVE', use_link_strokes=False)
         for ob in bpy.context.selected_objects:
-            if ob != bpy.context.scene.objects.active and ob.name.startswith("GP_Layer"):
+            if ob != bpy.context.view_layer.objects.active and ob.name.startswith("GP_Layer"):
                 GP_strokes_curve = ob
 
         # GP_strokes_curve = bpy.context.object
         objects_to_delete.append(GP_strokes_curve)
 
         bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-        bpy.data.objects[GP_strokes_curve.name].select = True
-        bpy.context.scene.objects.active = bpy.data.objects[GP_strokes_curve.name]
+        GP_strokes_curve.select_set(True)
+        bpy.context.view_layer.objects.active = GP_strokes_curve
 
         bpy.ops.object.editmode_toggle('INVOKE_REGION_WIN')
         bpy.ops.curve.select_all('INVOKE_REGION_WIN', action='SELECT')
@@ -3511,8 +3511,8 @@ class CURVE_OT_SURFSK_reorder_splines(Operator):
         bpy.ops.object.convert(target='MESH', keep_original=False)
 
         bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-        bpy.data.objects[self.main_curve.name].select = True
-        bpy.context.scene.objects.active = bpy.data.objects[self.main_curve.name]
+        self.main_curve.select_set(True)
+        bpy.context.view_layer.objects.active = self.main_curve
 
         bpy.ops.object.duplicate('INVOKE_REGION_WIN')
         curves_duplicate_1 = bpy.context.object
@@ -3524,7 +3524,7 @@ class CURVE_OT_SURFSK_reorder_splines(Operator):
         # has a limit of 100 subdivisions per iteration
         for x in range(round(minimum_points_num / 100)):
             # Check if the number of points of each curve has at least the number of points
-            # of minimum_points_num. If not, subdivide to reach at least that number of ponts
+            # of minimum_points_num. If not, subdivide to reach at least that number of points
             for i in range(len(curves_duplicate_1.data.splines)):
                 sp = curves_duplicate_1.data.splines[i]
 
@@ -3554,8 +3554,8 @@ class CURVE_OT_SURFSK_reorder_splines(Operator):
 
         # Duplicate the duplicate and add Shrinkwrap to it, with the grease pencil strokes curve as target
         bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-        bpy.data.objects[curves_duplicate_2.name].select = True
-        bpy.context.scene.objects.active = bpy.data.objects[curves_duplicate_2.name]
+        curves_duplicate_2.select_set(True)
+        bpy.context.view_layer.objects.active = curves_duplicate_2
 
         bpy.ops.object.modifier_add('INVOKE_REGION_WIN', type='SHRINKWRAP')
         curves_duplicate_2.modifiers["Shrinkwrap"].wrap_method = "NEAREST_VERTEX"
@@ -3626,8 +3626,8 @@ class CURVE_OT_SURFSK_reorder_splines(Operator):
         curve_original_name = self.main_curve.name
 
         bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-        bpy.data.objects[self.main_curve.name].select = True
-        bpy.context.scene.objects.active = bpy.data.objects[self.main_curve.name]
+        self.main_curve.select_set(True)
+        bpy.context.view_layer.objects.active = self.main_curve
 
         self.main_curve.name = "SURFSKIO_CRV_ORD"
 
@@ -3656,8 +3656,8 @@ class CURVE_OT_SURFSK_reorder_splines(Operator):
         for order_idx in splines_new_order:
             bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
             bpy.data.objects[splines_unordered[order_idx]].select = True
-            bpy.data.objects["SURFSKIO_CRV_ORD"].select = True
-            bpy.context.scene.objects.active = bpy.data.objects["SURFSKIO_CRV_ORD"]
+            bpy.data.objects["SURFSKIO_CRV_ORD"].select_set(True)
+            bpy.context.view_layer.objects.active = bpy.data.objects["SURFSKIO_CRV_ORD"]
 
             bpy.ops.object.join('INVOKE_REGION_WIN')
 
@@ -3667,14 +3667,14 @@ class CURVE_OT_SURFSK_reorder_splines(Operator):
         # Delete all unused objects
         for o in objects_to_delete:
             bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-            bpy.data.objects[o.name].select = True
-            bpy.context.scene.objects.active = bpy.data.objects[o.name]
+            o.select_set(True)
+            bpy.context.view_layer.objects.active = o
 
             bpy.ops.object.delete()
 
         bpy.ops.object.select_all('INVOKE_REGION_WIN', action='DESELECT')
-        bpy.data.objects[curve_original_name].select = True
-        bpy.context.scene.objects.active = bpy.data.objects[curve_original_name]
+        bpy.data.objects[curve_original_name].select_set(True)
+        bpy.context.view_layer.objects.active = bpy.data.objects[curve_original_name]
 
         bpy.ops.object.editmode_toggle('INVOKE_REGION_WIN')
         bpy.ops.curve.select_all('INVOKE_REGION_WIN', action='DESELECT')
@@ -3858,7 +3858,7 @@ def update_panel(self, context):
                 bpy.utils.unregister_class(panel)
 
         for panel in panels:
-            panel.bl_category = context.user_preferences.addons[__name__].preferences.category
+            panel.bl_category = context.preferences.addons[__name__].preferences.category
             bpy.utils.register_class(panel)
 
     except Exception as e:
@@ -3871,7 +3871,7 @@ class BsurfPreferences(AddonPreferences):
     # when defining this in a submodule of a python package.
     bl_idname = __name__
 
-    category = StringProperty(
+    category: StringProperty(
             name="Tab Category",
             description="Choose a name for the category of the panel",
             default="Tools",
@@ -3889,33 +3889,33 @@ class BsurfPreferences(AddonPreferences):
 
 # Properties
 class BsurfacesProps(PropertyGroup):
-    SURFSK_cyclic_cross = BoolProperty(
+    SURFSK_cyclic_cross: BoolProperty(
                 name="Cyclic Cross",
                 description="Make cyclic the face-loops crossing the strokes",
                 default=False
                 )
-    SURFSK_cyclic_follow = BoolProperty(
+    SURFSK_cyclic_follow: BoolProperty(
                 name="Cyclic Follow",
                 description="Make cyclic the face-loops following the strokes",
                 default=False
                 )
-    SURFSK_keep_strokes = BoolProperty(
+    SURFSK_keep_strokes: BoolProperty(
                 name="Keep strokes",
                 description="Keeps the sketched strokes or curves after adding the surface",
                 default=False
                 )
-    SURFSK_automatic_join = BoolProperty(
+    SURFSK_automatic_join: BoolProperty(
                 name="Automatic join",
                 description="Join automatically vertices of either surfaces "
                             "generated by crosshatching, or from the borders of closed shapes",
                 default=True
                 )
-    SURFSK_loops_on_strokes = BoolProperty(
+    SURFSK_loops_on_strokes: BoolProperty(
                 name="Loops on strokes",
                 description="Make the loops match the paths of the strokes",
                 default=True
                 )
-    SURFSK_precision = IntProperty(
+    SURFSK_precision: IntProperty(
                 name="Precision",
                 description="Precision level of the surface calculation",
                 default=2,

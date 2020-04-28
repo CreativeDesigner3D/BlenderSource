@@ -25,9 +25,9 @@
 #ifndef __GHOST_IWINDOW_H__
 #define __GHOST_IWINDOW_H__
 
-#include "STR_String.h"
 #include "GHOST_Rect.h"
 #include "GHOST_Types.h"
+#include "STR_String.h"
 
 /**
  * Interface for GHOST windows.
@@ -242,16 +242,6 @@ class GHOST_IWindow {
   virtual void setUserData(const GHOST_TUserDataPtr userData) = 0;
 
   virtual bool isDialog() const = 0;
-
-  /**
-   * Returns the tablet data (pressure etc).
-   * \return The tablet data (pressure etc).
-   */
-  virtual const GHOST_TabletData &GetTabletData()
-  {
-    /* Default state when no tablet is used, for systems without tablet support. */
-    return GHOST_TABLET_DATA_DEFAULT;
-  }
 
   /***************************************************************************************
    * Progress bar functionality
