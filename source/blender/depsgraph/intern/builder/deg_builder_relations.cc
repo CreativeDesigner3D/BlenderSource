@@ -1234,6 +1234,12 @@ void DepsgraphRelationBuilder::build_animdata(ID *id)
   build_animdata_curves(id);
   /* Drivers. */
   build_animdata_drivers(id);
+
+  if (check_id_has_anim_component(id)) {
+    ComponentKey animation_key(id, NodeType::ANIMATION);
+    ComponentKey parameters_key(id, NodeType::PARAMETERS);
+    add_relation(animation_key, parameters_key, "Animation -> Parameters");
+  }
 }
 
 void DepsgraphRelationBuilder::build_animdata_curves(ID *id)
@@ -1871,8 +1877,9 @@ void DepsgraphRelationBuilder::build_particle_settings(ParticleSettings *part)
     ComponentKey texture_key(&mtex->tex->id, NodeType::GENERIC_DATABLOCK);
     add_relation(texture_key,
                  particle_settings_reset_key,
-                 "Particle Texture",
+                 "Particle Texture -> Particle Reset",
                  RELATION_FLAG_FLUSH_USER_EDIT_ONLY);
+    add_relation(texture_key, particle_settings_eval_key, "Particle Texture -> Particle Eval");
     /* TODO(sergey): Consider moving texture space handling to an own
      * function. */
     if (mtex->texco == TEXCO_OBJECT && mtex->object != nullptr) {
@@ -2239,14 +2246,20 @@ void DepsgraphRelationBuilder::build_light(Light *lamp)
   build_idproperties(lamp->id.properties);
   build_animdata(&lamp->id);
   build_parameters(&lamp->id);
+
+  ComponentKey lamp_parameters_key(&lamp->id, NodeType::PARAMETERS);
+
   /* light's nodetree */
   if (lamp->nodetree != nullptr) {
     build_nodetree(lamp->nodetree);
-    ComponentKey lamp_parameters_key(&lamp->id, NodeType::PARAMETERS);
     ComponentKey nodetree_key(&lamp->nodetree->id, NodeType::SHADING);
     add_relation(nodetree_key, lamp_parameters_key, "NTree->Light Parameters");
     build_nested_nodetree(&lamp->id, lamp->nodetree);
   }
+
+  /* For allowing drivers on lamp properties. */
+  ComponentKey shading_key(&lamp->id, NodeType::SHADING);
+  add_relation(lamp_parameters_key, shading_key, "Light Shading Parameters");
 }
 
 void DepsgraphRelationBuilder::build_nodetree(bNodeTree *ntree)
@@ -2854,6 +2867,9 @@ void DepsgraphRelationBuilder::build_driver_relations(IDNode *id_node)
   DriverGroupMap driver_groups;
 
   LISTBASE_FOREACH (FCurve *, fcu, &adt->drivers) {
+    if (fcu->rna_path == nullptr) {
+      continue;
+    }
     // Get the RNA path except the part after the last dot.
     char *last_dot = strrchr(fcu->rna_path, '.');
     string rna_prefix;
@@ -2904,7 +2920,7 @@ void DepsgraphRelationBuilder::build_driver_relations(IDNode *id_node)
       }
     }
   }
-}
+}  // namespace DEG
 
 /* **** ID traversal callbacks functions **** */
 

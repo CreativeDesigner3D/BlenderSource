@@ -515,7 +515,6 @@ static void gp_brush_angle(bGPdata *gpd, Brush *brush, tGPspoint *pt, const floa
   float mvec[2];
   float sen = brush->gpencil_settings->draw_angle_factor; /* sensitivity */
   float fac;
-  float mpressure;
 
   /* default angle of brush in radians */
   float angle = brush->gpencil_settings->draw_angle;
@@ -543,9 +542,7 @@ static void gp_brush_angle(bGPdata *gpd, Brush *brush, tGPspoint *pt, const floa
 
     fac = 1.0f - fabs(dot_v2v2(v0, mvec)); /* 0.0 to 1.0 */
     /* interpolate with previous point for smoother transitions */
-    mpressure = interpf(pt->pressure - (sen * fac), (pt - 1)->pressure, 0.3f);
-    pt->pressure = mpressure;
-
+    pt->pressure = interpf(pt->pressure - (sen * fac), (pt - 1)->pressure, 0.3f);
     CLAMP(pt->pressure, GPENCIL_ALPHA_OPACITY_THRESH, 1.0f);
   }
 }
@@ -1751,7 +1748,7 @@ static void gp_init_drawing_brush(bContext *C, tGPsdata *p)
   /* if not exist, create a new one */
   if ((paint->brush == NULL) || (paint->brush->gpencil_settings == NULL)) {
     /* create new brushes */
-    BKE_brush_gpencil_paint_presets(bmain, ts);
+    BKE_brush_gpencil_paint_presets(bmain, ts, true);
     changed = true;
   }
   /* be sure curves are initializated */
@@ -3151,7 +3148,6 @@ static void gp_brush_angle_segment(tGPsdata *p, tGPspoint *pt_prev, tGPspoint *p
 
   float mvec[2];
   float fac;
-  float mpressure;
 
   /* angle vector of the brush with full thickness */
   float v0[2] = {cos(angle), sin(angle)};
@@ -3159,13 +3155,10 @@ static void gp_brush_angle_segment(tGPsdata *p, tGPspoint *pt_prev, tGPspoint *p
   mvec[0] = pt->x - pt_prev->x;
   mvec[1] = pt->y - pt_prev->y;
   normalize_v2(mvec);
-
   fac = 1.0f - fabs(dot_v2v2(v0, mvec)); /* 0.0 to 1.0 */
   /* interpolate with previous point for smoother transitions */
-  mpressure = interpf(pt->pressure - (sen * fac), pt_prev->pressure, 0.3f);
-  pt->pressure = mpressure;
-
-  CLAMP(pt->pressure, pt_prev->pressure * 0.5f, 1.0f);
+  pt->pressure = interpf(pt->pressure - (sen * fac), pt_prev->pressure, 0.3f);
+  CLAMP(pt->pressure, GPENCIL_ALPHA_OPACITY_THRESH, 1.0f);
 }
 
 /* Add arc points between two mouse events using the previous segment to determine the vertice of
@@ -3241,6 +3234,7 @@ static void gpencil_add_arc_points(tGPsdata *p, float mval[2], int segments)
   corner[0] = midpoint[0] - (cp1[0] - midpoint[0]);
   corner[1] = midpoint[1] - (cp1[1] - midpoint[1]);
 
+  tGPspoint *pt_step = pt_prev;
   for (int i = 0; i < segments; i++) {
     pt = &points[idx_prev + i - 1];
     pt->x = corner[0] + (end[0] - corner[0]) * sinf(a) + (start[0] - corner[0]) * cosf(a);
@@ -3250,9 +3244,12 @@ static void gpencil_add_arc_points(tGPsdata *p, float mval[2], int segments)
     pt->pressure = pt_prev->pressure;
     pt->strength = pt_prev->strength;
 
-    /* Apply angle of stroke to brush size. */
+    /* Apply angle of stroke to brush size to interpolated points but slightly attenuated.. */
     if (brush_settings->draw_angle_factor != 0.0f) {
-      gp_brush_angle_segment(p, pt_prev, pt);
+      gp_brush_angle_segment(p, pt_step, pt);
+      CLAMP(pt->pressure, pt_prev->pressure * 0.5f, 1.0f);
+      /* Use the previous interpolated point for next segment. */
+      pt_step = pt;
     }
 
     /* Apply randomness to pressure. */

@@ -432,7 +432,7 @@ class _draw_tool_settings_context_mode:
 
             row.prop(gp_settings, "use_material_pin", text="")
 
-            if brush.gpencil_tool in {'DRAW', 'FILL'} and ma:
+            if brush.gpencil_tool in {'DRAW', 'FILL'}:
                 row.separator(factor=1.0)
                 subrow = row.row(align=True)
                 row.prop_enum(settings, "color_mode", 'MATERIAL', text="", icon='MATERIAL')
@@ -1469,6 +1469,7 @@ class VIEW3D_MT_select_pose(Menu):
         layout.separator()
 
         layout.operator("pose.select_constraint_target", text="Constraint Target")
+        layout.operator("pose.select_linked", text="Linked")
 
         layout.separator()
 
@@ -3184,7 +3185,6 @@ class VIEW3D_MT_face_sets_init(Menu):
         op.mode = 'FACE_MAPS'
 
 
-
 class VIEW3D_MT_particle(Menu):
     bl_label = "Particle"
 
@@ -4004,6 +4004,7 @@ class VIEW3D_MT_edit_mesh_edges(Menu):
         layout.separator()
 
         layout.operator("transform.edge_slide")
+        layout.operator("mesh.offset_edge_loops_slide")
 
         layout.separator()
 
@@ -5280,6 +5281,7 @@ class VIEW3D_MT_sculpt_mask_edit_pie(Menu):
         op.mode = 'INVERT'
         op = pie.operator("paint.mask_flood_fill", text='Clear Mask')
         op.mode = 'VALUE'
+        op.value = 0.0
         op = pie.operator("sculpt.mask_filter", text='Smooth Mask')
         op.filter_type = 'SMOOTH'
         op.auto_iteration_count = True

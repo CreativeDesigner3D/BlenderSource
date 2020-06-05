@@ -5509,7 +5509,7 @@ static int ui_do_but_BLOCK(bContext *C, uiBut *but, uiHandleButtonData *data, co
     }
     else if (but->type == UI_BTYPE_MENU) {
       if (ELEM(event->type, WHEELDOWNMOUSE, WHEELUPMOUSE) && event->ctrl) {
-        const int direction = (event->type == WHEELDOWNMOUSE) ? -1 : 1;
+        const int direction = (event->type == WHEELDOWNMOUSE) ? 1 : -1;
 
         data->value = ui_but_menu_step(but, direction);
 
@@ -8276,6 +8276,11 @@ void UI_context_active_but_prop_handle(bContext *C)
   }
 }
 
+void UI_context_active_but_clear(bContext *C, wmWindow *win, ARegion *region)
+{
+  wm_event_handler_ui_cancel_ex(C, win, region, false);
+}
+
 wmOperator *UI_context_active_operator_get(const struct bContext *C)
 {
   ARegion *region_ctx = CTX_wm_region(C);
@@ -8807,7 +8812,7 @@ static int ui_handle_button_event(bContext *C, const wmEvent *event, uiBut *but)
     if (post_but) {
       button_activate_init(C, region, post_but, post_type);
     }
-    else {
+    else if (!((event->type == EVT_BUT_CANCEL) && (event->val == 1))) {
       /* XXX issue is because WM_event_add_mousemove(wm) is a bad hack and not reliable,
        * if that gets coded better this bypass can go away too.
        *
@@ -10938,8 +10943,7 @@ void UI_screen_free_active_but(const bContext *C, bScreen *screen)
 {
   wmWindow *win = CTX_wm_window(C);
 
-  ED_screen_areas_iter(win, screen, area)
-  {
+  ED_screen_areas_iter (win, screen, area) {
     LISTBASE_FOREACH (ARegion *, region, &area->regionbase) {
       uiBut *but = ui_region_find_active_but(region);
       if (but) {

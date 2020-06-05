@@ -1137,6 +1137,11 @@ static char *rna_SceneEEVEE_path(PointerRNA *UNUSED(ptr))
   return BLI_strdup("eevee");
 }
 
+static char *rna_SceneGpencil_path(PointerRNA *UNUSED(ptr))
+{
+  return BLI_strdup("grease_pencil_settings");
+}
+
 static int rna_RenderSettings_stereoViews_skip(CollectionPropertyIterator *iter,
                                                void *UNUSED(data))
 {
@@ -3369,14 +3374,15 @@ static void rna_def_tool_settings(BlenderRNA *brna)
   prop = RNA_def_property(srna, "use_keyframe_insert_auto", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "autokey_mode", AUTOKEY_ON);
   RNA_def_property_ui_text(
-      prop, "Auto Keying", "Automatic keyframe insertion for Objects and Bones");
+      prop, "Auto Keying", "Automatic keyframe insertion for Objects, Bones and Masks");
   RNA_def_property_ui_icon(prop, ICON_REC, 0);
 
   prop = RNA_def_property(srna, "auto_keying_mode", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_bitflag_sdna(prop, NULL, "autokey_mode");
   RNA_def_property_enum_items(prop, auto_key_items);
-  RNA_def_property_ui_text(
-      prop, "Auto-Keying Mode", "Mode of automatic keyframe insertion for Objects and Bones");
+  RNA_def_property_ui_text(prop,
+                           "Auto-Keying Mode",
+                           "Mode of automatic keyframe insertion for Objects, Bones and Masks");
 
   prop = RNA_def_property(srna, "use_record_with_nla", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "autokey_flag", ANIMRECORD_FLAG_WITHNLA);
@@ -3843,7 +3849,7 @@ static void rna_def_unit_settings(BlenderRNA *brna)
       "Scale to use when converting between blender units and dimensions."
       " When working at microscopic or astronomical scale, a small or large unit scale"
       " respectively can be used to avoid numerical precision problems");
-  RNA_def_property_range(prop, 0.00001, 100000.0);
+  RNA_def_property_range(prop, 1e-9f, 1e+9f);
   RNA_def_property_ui_range(prop, 0.001, 100.0, 0.1, 6);
   RNA_def_property_update(prop, NC_WINDOW, NULL);
 
@@ -7194,6 +7200,28 @@ static void rna_def_scene_eevee(BlenderRNA *brna)
   RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
 }
 
+static void rna_def_scene_gpencil(BlenderRNA *brna)
+{
+  StructRNA *srna;
+  PropertyRNA *prop;
+
+  srna = RNA_def_struct(brna, "SceneGpencil", NULL);
+  RNA_def_struct_path_func(srna, "rna_SceneGpencil_path");
+  RNA_def_struct_ui_text(srna, "Grease Pencil Render", "Render settings");
+
+  prop = RNA_def_property(srna, "antialias_threshold", PROP_FLOAT, PROP_NONE);
+  RNA_def_property_float_sdna(prop, NULL, "smaa_threshold");
+  RNA_def_property_float_default(prop, 1.0f);
+  RNA_def_property_range(prop, 0.0f, FLT_MAX);
+  RNA_def_property_ui_range(prop, 0.0f, 2.0f, 1, 3);
+  RNA_def_property_ui_text(prop,
+                           "Anti-Aliasing Threshold",
+                           "Threshold for edge detection algorithm (higher values might overblur "
+                           "some part of the image)");
+  RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
+  RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, NULL);
+}
+
 void RNA_def_scene(BlenderRNA *brna)
 {
   StructRNA *srna;
@@ -7667,6 +7695,11 @@ void RNA_def_scene(BlenderRNA *brna)
   RNA_def_property_struct_type(prop, "SceneEEVEE");
   RNA_def_property_ui_text(prop, "EEVEE", "EEVEE settings for the scene");
 
+  /* Grease Pencil */
+  prop = RNA_def_property(srna, "grease_pencil_settings", PROP_POINTER, PROP_NONE);
+  RNA_def_property_struct_type(prop, "SceneGpencil");
+  RNA_def_property_ui_text(prop, "Grease Pencil", "Grease Pencil settings for the scene");
+
   /* Nestled Data  */
   /* *** Non-Animated *** */
   RNA_define_animate_sdna(false);
@@ -7685,6 +7718,7 @@ void RNA_def_scene(BlenderRNA *brna)
   rna_def_scene_display(brna);
   rna_def_scene_eevee(brna);
   rna_def_view_layer_eevee(brna);
+  rna_def_scene_gpencil(brna);
   RNA_define_animate_sdna(true);
   /* *** Animated *** */
   rna_def_scene_render_data(brna);

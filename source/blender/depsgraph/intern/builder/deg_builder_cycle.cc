@@ -192,7 +192,7 @@ void solve_cycles(CyclesSolverState *state)
                          current->via_relation->name + "'\n";
             current = current->from;
           }
-          /*printf("Dependency cycle detected:\n%s", cycle_str.c_str()); */
+          /* printf("Dependency cycle detected:\n%s", cycle_str.c_str()); */
           Relation *sacrificial_relation = select_relation_to_murder(rel, entry);
           sacrificial_relation->flag |= RELATION_FLAG_CYCLIC;
           ++state->num_cycles;

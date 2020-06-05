@@ -655,6 +655,8 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row = layout.row()
         row.prop(md, "use_mirror_u", text="Flip U")
         row.prop(md, "use_mirror_v", text="Flip V")
+        row = layout.row()
+        row.prop(md, "use_mirror_udim", text="Flip UDIM")
 
         col = layout.column(align=True)
 
@@ -703,7 +705,10 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col.operator("object.multires_base_apply", text="Apply Base")
         col.prop(md, "uv_smooth", text="")
         col.prop(md, "show_only_control_edges")
-        col.prop(md, "use_creases")
+
+        row = col.row()
+        row.enabled = not have_displacement
+        row.prop(md, "use_creases")
 
         layout.separator()
 
@@ -1341,7 +1346,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         if md.mode == 'VOXEL':
             layout.prop(md, "voxel_size")
             layout.prop(md, "adaptivity")
-        else: 
+        else:
             row.prop(md, "octree_depth")
             row.prop(md, "scale")
 

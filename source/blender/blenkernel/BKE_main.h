@@ -87,7 +87,7 @@ enum {
 typedef struct Main {
   struct Main *next, *prev;
   char name[1024];                   /* 1024 = FILE_MAX */
-  short versionfile, subversionfile; /* see BLENDER_VERSION, BLENDER_SUBVERSION */
+  short versionfile, subversionfile; /* see BLENDER_FILE_VERSION, BLENDER_FILE_SUBVERSION */
   short minversionfile, minsubversionfile;
   uint64_t build_commit_timestamp; /* commit's timestamp from buildinfo */
   char build_hash[16];             /* hash from buildinfo */
@@ -104,6 +104,12 @@ typedef struct Main {
    * instead do a complete full re-read/update from stored memfile.
    */
   char use_memfile_full_barrier;
+
+  /**
+   * When linking, disallow creation of new data-blocks.
+   * Make sure we don't do this by accident, see T76738.
+   */
+  char is_locked_for_linking;
 
   BlendThumbnail *blen_thumb;
 

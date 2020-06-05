@@ -1448,7 +1448,8 @@ static int outliner_object_operation_exec(bContext *C, wmOperator *op)
   }
   else if (event == OL_OP_REMAP) {
     outliner_do_libdata_operation(C, op->reports, scene, soops, &soops->tree, id_remap_cb, NULL);
-    str = "Remap ID";
+    /* No undo push here, operator does it itself (since it's a modal one, the op_undo_depth trick
+     * does not work here). */
   }
   else if (event == OL_OP_LOCALIZED) { /* disabled, see above enum (ton) */
     outliner_do_object_operation(C, op->reports, scene, soops, &soops->tree, id_local_cb);
@@ -1479,7 +1480,9 @@ static int outliner_object_operation_exec(bContext *C, wmOperator *op)
     ED_outliner_select_sync_from_object_tag(C);
   }
 
-  ED_undo_push(C, str);
+  if (str != NULL) {
+    ED_undo_push(C, str);
+  }
 
   return OPERATOR_FINISHED;
 }
@@ -1601,6 +1604,7 @@ static const EnumPropertyItem *outliner_id_operation_itemf(bContext *C,
 
 static int outliner_id_operation_exec(bContext *C, wmOperator *op)
 {
+  wmWindowManager *wm = CTX_wm_manager(C);
   Scene *scene = CTX_data_scene(C);
   SpaceOutliner *soops = CTX_wm_space_outliner(C);
   int scenelevel = 0, objectlevel = 0, idlevel = 0, datalevel = 0;
@@ -1721,16 +1725,22 @@ static int outliner_id_operation_exec(bContext *C, wmOperator *op)
       if (idlevel > 0) {
         outliner_do_libdata_operation(
             C, op->reports, scene, soops, &soops->tree, id_remap_cb, NULL);
-        ED_undo_push(C, "Remap");
+        /* No undo push here, operator does it itself (since it's a modal one, the op_undo_depth
+         * trick does not work here). */
       }
       break;
     }
     case OUTLINER_IDOP_COPY: {
+      wm->op_undo_depth++;
       WM_operator_name_call(C, "OUTLINER_OT_id_copy", WM_OP_INVOKE_DEFAULT, NULL);
+      wm->op_undo_depth--;
+      /* No need for undo, this operation does not change anything... */
       break;
     }
     case OUTLINER_IDOP_PASTE: {
+      wm->op_undo_depth++;
       WM_operator_name_call(C, "OUTLINER_OT_id_paste", WM_OP_INVOKE_DEFAULT, NULL);
+      wm->op_undo_depth--;
       ED_outliner_select_sync_from_all_tag(C);
       ED_undo_push(C, "Paste");
       break;
@@ -1845,7 +1855,6 @@ static int outliner_lib_operation_exec(bContext *C, wmOperator *op)
 
   switch (event) {
     case OL_LIB_RENAME: {
-      /* rename */
       outliner_do_libdata_operation(
           C, op->reports, scene, soops, &soops->tree, item_rename_cb, NULL);
 
@@ -1860,16 +1869,17 @@ static int outliner_lib_operation_exec(bContext *C, wmOperator *op)
       break;
     }
     case OL_LIB_RELOCATE: {
-      /* rename */
       outliner_do_libdata_operation(
           C, op->reports, scene, soops, &soops->tree, lib_relocate_cb, NULL);
-      ED_undo_push(C, "Relocate Library");
+      /* No undo push here, operator does it itself (since it's a modal one, the op_undo_depth
+       * trick does not work here). */
       break;
     }
     case OL_LIB_RELOAD: {
-      /* rename */
       outliner_do_libdata_operation(
           C, op->reports, scene, soops, &soops->tree, lib_reload_cb, NULL);
+      /* No undo push here, operator does it itself (since it's a modal one, the op_undo_depth
+       * trick does not work here). */
       break;
     }
     default:
@@ -2016,7 +2026,7 @@ void OUTLINER_OT_action_set(wmOperatorType *ot)
   ot->poll = ED_operator_outliner_active;
 
   /* flags */
-  ot->flag = 0;
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
   /* props */
   // TODO: this would be nicer as an ID-pointer...
@@ -2060,6 +2070,7 @@ static const EnumPropertyItem prop_animdata_op_types[] = {
 
 static int outliner_animdata_operation_exec(bContext *C, wmOperator *op)
 {
+  wmWindowManager *wm = CTX_wm_manager(C);
   SpaceOutliner *soops = CTX_wm_space_outliner(C);
   int scenelevel = 0, objectlevel = 0, idlevel = 0, datalevel = 0;
   eOutliner_AnimDataOps event;
@@ -2088,7 +2099,10 @@ static int outliner_animdata_operation_exec(bContext *C, wmOperator *op)
 
     case OUTLINER_ANIMOP_SET_ACT:
       /* delegate once again... */
+      wm->op_undo_depth++;
       WM_operator_name_call(C, "OUTLINER_OT_action_set", WM_OP_INVOKE_REGION_WIN, NULL);
+      wm->op_undo_depth--;
+      ED_undo_push(C, "Set active action");
       break;
 
     case OUTLINER_ANIMOP_CLEAR_ACT:
@@ -2368,6 +2382,7 @@ static int do_outliner_operation_event(
       /* Only redraw, don't rebuild here because TreeElement pointers will
        * become invalid and operations will crash. */
       ED_region_tag_redraw_no_rebuild(region);
+      ED_outliner_select_sync_from_outliner(C, soops);
     }
 
     set_operation_types(soops, &soops->tree, &scenelevel, &objectlevel, &idlevel, &datalevel);

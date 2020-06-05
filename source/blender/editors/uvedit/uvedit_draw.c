@@ -216,7 +216,7 @@ static void uvedit_get_batches(Object *ob,
   }
 }
 
-static void draw_uvs_shadow(SpaceImage *UNUSED(sima),
+static void draw_uvs_shadow(SpaceImage *sima,
                             const Scene *scene,
                             Object *obedit,
                             Depsgraph *depsgraph)
@@ -231,9 +231,19 @@ static void draw_uvs_shadow(SpaceImage *UNUSED(sima),
   DRW_mesh_batch_cache_create_requested(ob_eval, me, scene, false, false);
 
   if (edges) {
+    if (sima->flag & SI_SMOOTH_UV) {
+      GPU_line_smooth(true);
+      GPU_blend(true);
+    }
+
     GPU_batch_program_set_builtin(edges, GPU_SHADER_2D_UV_UNIFORM_COLOR);
     GPU_batch_uniform_4fv(edges, "color", col);
     GPU_batch_draw(edges);
+
+    if (sima->flag & SI_SMOOTH_UV) {
+      GPU_line_smooth(false);
+      GPU_blend(false);
+    }
   }
 }
 

@@ -524,8 +524,7 @@ void wm_event_do_notifiers(bContext *C)
           ED_region_do_listen(win, NULL, region, note, scene);
         }
 
-        ED_screen_areas_iter(win, screen, area)
-        {
+        ED_screen_areas_iter (win, screen, area) {
           ED_area_do_listen(win, area, note, scene);
           for (region = area->regionbase.first; region; region = region->next) {
             ED_region_do_listen(win, area, region, note, scene);
@@ -603,6 +602,12 @@ static int wm_handler_ui_call(bContext *C,
     }
   }
 
+  /* Don't block file-select events. Those are triggered by a separate file browser window.
+   * See T75292. */
+  if (event->type == EVT_FILESELECT) {
+    return WM_UI_HANDLER_CONTINUE;
+  }
+
   /* we set context to where ui handler came from */
   if (handler->context.area) {
     CTX_wm_area_set(C, handler->context.area);
@@ -641,11 +646,11 @@ static int wm_handler_ui_call(bContext *C,
   return WM_HANDLER_CONTINUE;
 }
 
-static void wm_handler_ui_cancel(bContext *C)
+void wm_event_handler_ui_cancel_ex(bContext *C,
+                                   wmWindow *win,
+                                   ARegion *region,
+                                   bool reactivate_button)
 {
-  wmWindow *win = CTX_wm_window(C);
-  ARegion *region = CTX_wm_region(C);
-
   if (!region) {
     return;
   }
@@ -657,9 +662,17 @@ static void wm_handler_ui_cancel(bContext *C)
       wmEvent event;
       wm_event_init_from_window(win, &event);
       event.type = EVT_BUT_CANCEL;
+      event.val = reactivate_button ? 0 : 1;
       handler->handle_fn(C, &event, handler->user_data);
     }
   }
+}
+
+static void wm_event_handler_ui_cancel(bContext *C)
+{
+  wmWindow *win = CTX_wm_window(C);
+  ARegion *region = CTX_wm_region(C);
+  wm_event_handler_ui_cancel_ex(C, win, region, true);
 }
 
 /** \} */
@@ -1366,7 +1379,7 @@ static int wm_operator_invoke(bContext *C,
        * while dragging the view or worse, that stay there permanently
        * after the modal operator has swallowed all events and passed
        * none to the UI handler */
-      wm_handler_ui_cancel(C);
+      wm_event_handler_ui_cancel(C);
     }
     else {
       WM_operator_free(op);
@@ -1655,8 +1668,7 @@ static void wm_handler_op_context(bContext *C, wmEventHandler_Op *handler, const
     else {
       ScrArea *area = NULL;
 
-      ED_screen_areas_iter(win, screen, area_iter)
-      {
+      ED_screen_areas_iter (win, screen, area_iter) {
         if (area_iter == handler->context.area) {
           area = area_iter;
           break;
@@ -2663,6 +2675,12 @@ static int wm_handlers_do_gizmo_handler(bContext *C,
   return action;
 }
 
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Handle Single Event (All Handler Types)
+ * \{ */
+
 static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers)
 {
   const bool do_debug_handler =
@@ -2954,7 +2972,7 @@ static int wm_handlers_do(bContext *C, wmEvent *event, ListBase *handlers)
     else {
       wmWindow *win = CTX_wm_window(C);
       if (win) {
-        if (ISKEYMODIFIER(win->eventstate->prevtype)) {
+        if (ISKEYMODIFIER(win->eventstate->type)) {
           win->eventstate->check_click = 0;
         }
       }
@@ -2963,6 +2981,14 @@ static int wm_handlers_do(bContext *C, wmEvent *event, ListBase *handlers)
 
   return action;
 }
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Event Queue Utilities
+ *
+ * Utilities used by #wm_event_do_handlers.
+ * \{ */
 
 static bool wm_event_inside_rect(const wmEvent *event, const rcti *rect)
 {
@@ -2989,8 +3015,7 @@ static ScrArea *area_event_inside(bContext *C, const int xy[2])
   bScreen *screen = CTX_wm_screen(C);
 
   if (screen) {
-    ED_screen_areas_iter(win, screen, area)
-    {
+    ED_screen_areas_iter (win, screen, area) {
       if (BLI_rcti_isect_pt_v(&area->totrct, xy)) {
         return area;
       }
@@ -3109,6 +3134,33 @@ static bool wm_event_pie_filter(wmWindow *win, const wmEvent *event)
     return false;
   }
 }
+
+/**
+ * Account for the special case when events are being handled and a file is loaded.
+ * In this case event handling exits early, however when "Load UI" is disabled
+ * the even will still be in #wmWindow.queue.
+ *
+ * Without this it's possible to continuously handle the same event, see: T76484.
+ */
+static void wm_event_free_and_remove_from_queue_if_valid(wmEvent *event)
+{
+  LISTBASE_FOREACH (wmWindowManager *, wm, &G_MAIN->wm) {
+    LISTBASE_FOREACH (wmWindow *, win, &wm->windows) {
+      if (BLI_remlink_safe(&win->queue, event)) {
+        wm_event_free(event);
+        return;
+      }
+    }
+  }
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Main Event Queue (Every Window)
+ *
+ * Handle events for all windows, run from the #WM_main event loop.
+ * \{ */
 
 /* called in main loop */
 /* goes over entire hierarchy:  events -> window -> screen -> area -> region */
@@ -3232,6 +3284,7 @@ void wm_event_do_handlers(bContext *C)
 
       /* fileread case */
       if (CTX_wm_window(C) == NULL) {
+        wm_event_free_and_remove_from_queue_if_valid(event);
         return;
       }
 
@@ -3267,8 +3320,7 @@ void wm_event_do_handlers(bContext *C)
         }
 #endif
 
-        ED_screen_areas_iter(win, screen, area)
-        {
+        ED_screen_areas_iter (win, screen, area) {
           /* after restoring a screen from SCREENMAXIMIZED we have to wait
            * with the screen handling till the region coordinates are updated */
           if (screen->skip_handling == true) {
@@ -3306,6 +3358,7 @@ void wm_event_do_handlers(bContext *C)
 
                   /* fileread case (python), [#29489] */
                   if (CTX_wm_window(C) == NULL) {
+                    wm_event_free_and_remove_from_queue_if_valid(event);
                     return;
                   }
 
@@ -3340,6 +3393,7 @@ void wm_event_do_handlers(bContext *C)
 
           /* fileread case */
           if (CTX_wm_window(C) == NULL) {
+            wm_event_free_and_remove_from_queue_if_valid(event);
             return;
           }
         }
@@ -3438,8 +3492,7 @@ void WM_event_add_fileselect(bContext *C, wmOperator *op)
         bool cancel_handler = true;
 
         /* find the area with the file selector for this handler */
-        ED_screen_areas_iter(win, screen, area)
-        {
+        ED_screen_areas_iter (win, screen, area) {
           if (area->spacetype == SPACE_FILE) {
             SpaceFile *sfile = area->spacedata.first;
 
@@ -4145,6 +4198,19 @@ static void wm_eventemulation(wmEvent *event, bool test_only)
   }
 }
 
+static const wmTabletData wm_event_tablet_data_default = {
+    .active = EVT_TABLET_NONE,
+    .pressure = 1.0f,
+    .x_tilt = 0.0f,
+    .y_tilt = 0.0f,
+    .is_motion_absolute = false,
+};
+
+void WM_event_tablet_data_default_set(wmTabletData *tablet_data)
+{
+  *tablet_data = wm_event_tablet_data_default;
+}
+
 void wm_tablet_data_from_ghost(const GHOST_TabletData *tablet_data, wmTabletData *wmtab)
 {
   if ((tablet_data != NULL) && tablet_data->Active != GHOST_kTabletModeNone) {
@@ -4157,11 +4223,7 @@ void wm_tablet_data_from_ghost(const GHOST_TabletData *tablet_data, wmTabletData
     // printf("%s: using tablet %.5f\n", __func__, wmtab->pressure);
   }
   else {
-    wmtab->active = EVT_TABLET_NONE;
-    wmtab->pressure = 1.0f;
-    wmtab->x_tilt = 0.0f;
-    wmtab->y_tilt = 0.0f;
-    wmtab->is_motion_absolute = false;
+    *wmtab = wm_event_tablet_data_default;
     // printf("%s: not using tablet\n", __func__);
   }
 }
@@ -4932,8 +4994,7 @@ void WM_window_cursor_keymap_status_refresh(bContext *C, wmWindow *win)
   }
 
   ScrArea *area = NULL;
-  ED_screen_areas_iter(win, screen, area_iter)
-  {
+  ED_screen_areas_iter (win, screen, area_iter) {
     if (BLI_findindex(&area_iter->regionbase, region) != -1) {
       area = area_iter;
       break;

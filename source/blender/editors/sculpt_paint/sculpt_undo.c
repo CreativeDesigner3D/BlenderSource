@@ -847,6 +847,7 @@ static void sculpt_undo_free_list(ListBase *lb)
 
     sculpt_undo_geometry_free_data(&unode->geometry_original);
     sculpt_undo_geometry_free_data(&unode->geometry_modified);
+    sculpt_undo_geometry_free_data(&unode->geometry_bmesh_enter);
 
     if (unode->face_sets) {
       MEM_freeN(unode->face_sets);
@@ -890,6 +891,17 @@ SculptUndoNode *SCULPT_undo_get_node(PBVHNode *node)
   }
 
   return BLI_findptr(&usculpt->nodes, node, offsetof(SculptUndoNode, node));
+}
+
+SculptUndoNode *SCULPT_undo_get_first_node()
+{
+  UndoSculpt *usculpt = sculpt_undo_get_nodes();
+
+  if (usculpt == NULL) {
+    return NULL;
+  }
+
+  return usculpt->nodes.first;
 }
 
 static void sculpt_undo_alloc_and_store_hidden(PBVH *pbvh, SculptUndoNode *unode)
@@ -1321,6 +1333,9 @@ void SCULPT_undo_push_end_ex(const bool use_nested_undo)
   if (wm->op_undo_depth == 0 || use_nested_undo) {
     UndoStack *ustack = ED_undo_stack_get();
     BKE_undosys_step_push(ustack, NULL, NULL);
+    if (wm->op_undo_depth == 0) {
+      BKE_undosys_stack_limit_steps_and_memory_defaults(ustack);
+    }
     WM_file_tag_modified();
   }
 }
@@ -1554,6 +1569,17 @@ static bool sculpt_undo_use_multires_mesh(bContext *C)
 static void sculpt_undo_push_all_grids(Object *object)
 {
   SculptSession *ss = object->sculpt;
+
+  /* It is possible that undo push is done from an object state where there is no PBVH. This
+   * happens, for example, when an operation which tagged for geometry update was performed prior
+   * to the current operation without making any stroke inbetween.
+   *
+   * Skip pushing nodes based on the following logic: on redo SCULPT_UNDO_COORDS will ensure
+   * PBVH for the new base geometry, which will have same coordinates as if we create PBVH here. */
+  if (ss->pbvh == NULL) {
+    return;
+  }
+
   PBVHNode **nodes;
   int totnodes;
 

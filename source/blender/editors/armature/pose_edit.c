@@ -665,6 +665,11 @@ static int pose_bone_rotmode_exec(bContext *C, wmOperator *op)
 
   /* set rotation mode of selected bones  */
   CTX_DATA_BEGIN_WITH_ID (C, bPoseChannel *, pchan, selected_pose_bones, Object *, ob) {
+    /* use API Method for conversions... */
+    BKE_rotMode_change_values(
+        pchan->quat, pchan->eul, pchan->rotAxis, &pchan->rotAngle, pchan->rotmode, (short)mode);
+
+    /* finally, set the new rotation type */
     pchan->rotmode = mode;
 
     if (prev_ob != ob) {
@@ -901,8 +906,6 @@ static int pose_bone_layers_exec(bContext *C, wmOperator *op)
     RNA_boolean_set_array(&ptr, "layers", layers);
 
     if (prev_ob != ob) {
-      BKE_armature_refresh_layer_used(ob->data);
-
       /* Note, notifier might evolve. */
       WM_event_add_notifier(C, NC_OBJECT | ND_POSE, ob);
       DEG_id_tag_update((ID *)ob->data, ID_RECALC_COPY_ON_WRITE);

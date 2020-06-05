@@ -78,14 +78,20 @@ BlenderSync::~BlenderSync()
 {
 }
 
+void BlenderSync::reset(BL::BlendData &b_data, BL::Scene &b_scene)
+{
+  /* Update data and scene pointers in case they change in session reset,
+   * for example after undo. */
+  this->b_data = b_data;
+  this->b_scene = b_scene;
+}
+
 /* Sync */
 
 void BlenderSync::sync_recalc(BL::Depsgraph &b_depsgraph, BL::SpaceView3D &b_v3d)
 {
   /* Sync recalc flags from blender to cycles. Actual update is done separate,
    * so we can do it later on if doing it immediate is not suitable. */
-
-  bool has_updated_objects = b_depsgraph.id_type_updated(BL::DriverTarget::id_type_OBJECT);
 
   if (experimental) {
     /* Mark all meshes as needing to be exported again if dicing changed. */
@@ -108,7 +114,7 @@ void BlenderSync::sync_recalc(BL::Depsgraph &b_depsgraph, BL::SpaceView3D &b_v3d
     }
 
     if (dicing_prop_changed) {
-      for (const pair<GeometryKey, Geometry *> &iter : geometry_map.key_to_scene_data()) {
+      for (const pair<const GeometryKey, Geometry *> &iter : geometry_map.key_to_scene_data()) {
         Geometry *geom = iter.second;
         if (geom->type == Geometry::MESH) {
           Mesh *mesh = static_cast<Mesh *>(geom);
@@ -188,19 +194,6 @@ void BlenderSync::sync_recalc(BL::Depsgraph &b_depsgraph, BL::SpaceView3D &b_v3d
   BlenderViewportParameters new_viewport_parameters(b_v3d);
   if (viewport_parameters.modified(new_viewport_parameters)) {
     world_recalc = true;
-  }
-
-  /* Updates shader with object dependency if objects changed. */
-  if (has_updated_objects) {
-    if (scene->default_background->has_object_dependency) {
-      world_recalc = true;
-    }
-
-    foreach (Shader *shader, scene->shaders) {
-      if (shader->has_object_dependency) {
-        shader->need_sync_object = true;
-      }
-    }
   }
 }
 

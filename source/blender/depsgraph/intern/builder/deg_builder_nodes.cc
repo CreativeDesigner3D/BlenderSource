@@ -83,6 +83,7 @@ extern "C" {
 #include "BKE_key.h"
 #include "BKE_lattice.h"
 #include "BKE_layer.h"
+#include "BKE_light.h"
 #include "BKE_mask.h"
 #include "BKE_material.h"
 #include "BKE_mball.h"
@@ -1413,7 +1414,11 @@ void DepsgraphNodeBuilder::build_armature(bArmature *armature)
   build_animdata(&armature->id);
   build_parameters(&armature->id);
   /* Make sure pose is up-to-date with armature updates. */
-  add_operation_node(&armature->id, NodeType::ARMATURE, OperationCode::ARMATURE_EVAL);
+  bArmature *armature_cow = (bArmature *)get_cow_id(&armature->id);
+  add_operation_node(&armature->id,
+                     NodeType::ARMATURE,
+                     OperationCode::ARMATURE_EVAL,
+                     function_bind(BKE_armature_refresh_layer_used, _1, armature_cow));
   build_armature_bones(&armature->bonebase);
 }
 
@@ -1448,6 +1453,12 @@ void DepsgraphNodeBuilder::build_light(Light *lamp)
   build_parameters(&lamp->id);
   /* light's nodetree */
   build_nodetree(lamp->nodetree);
+
+  Light *lamp_cow = get_cow_datablock(lamp);
+  add_operation_node(&lamp->id,
+                     NodeType::SHADING,
+                     OperationCode::LIGHT_UPDATE,
+                     function_bind(BKE_light_eval, _1, lamp_cow));
 }
 
 void DepsgraphNodeBuilder::build_nodetree(bNodeTree *ntree)

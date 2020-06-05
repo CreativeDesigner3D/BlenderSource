@@ -230,19 +230,17 @@ static void blo_update_defaults_screen(bScreen *screen,
   /* 2D animation template. */
   if (app_template && STREQ(app_template, "2D_Animation")) {
     LISTBASE_FOREACH (ScrArea *, area, &screen->areabase) {
-      LISTBASE_FOREACH (ARegion *, region, &area->regionbase) {
-        if (area->spacetype == SPACE_ACTION) {
-          SpaceAction *saction = area->spacedata.first;
-          /* Enable Sliders. */
-          saction->flag |= SACTION_SLIDERS;
-        }
-        else if (area->spacetype == SPACE_VIEW3D) {
-          View3D *v3d = area->spacedata.first;
-          /* Set Material Color by default. */
-          v3d->shading.color_type = V3D_SHADING_MATERIAL_COLOR;
-          /* Enable Annotations. */
-          v3d->flag2 |= V3D_SHOW_ANNOTATION;
-        }
+      if (area->spacetype == SPACE_ACTION) {
+        SpaceAction *saction = area->spacedata.first;
+        /* Enable Sliders. */
+        saction->flag |= SACTION_SLIDERS;
+      }
+      else if (area->spacetype == SPACE_VIEW3D) {
+        View3D *v3d = area->spacedata.first;
+        /* Set Material Color by default. */
+        v3d->shading.color_type = V3D_SHADING_MATERIAL_COLOR;
+        /* Enable Annotations. */
+        v3d->flag2 |= V3D_SHOW_ANNOTATION;
       }
     }
   }
@@ -368,7 +366,13 @@ static void blo_update_defaults_scene(Main *bmain, Scene *scene)
 
 /**
  * Update defaults in startup.blend, without having to save and embed the file.
- * This function can be emptied each time the startup.blend is updated. */
+ * This function can be emptied each time the startup.blend is updated.
+ *
+ * \note Screen data may be cleared at this point, this will happen in the case
+ * an app-template's data needs to be versioned when read-file is called with "Load UI" disabled.
+ * Versioning the screen data can be safely skipped without "Load UI" since the screen data
+ * will have been versioned when it was first loaded.
+ */
 void BLO_update_defaults_startup_blend(Main *bmain, const char *app_template)
 {
   /* For all app templates. */
@@ -458,7 +462,10 @@ void BLO_update_defaults_startup_blend(Main *bmain, const char *app_template)
 
     /* Reset all grease pencil brushes. */
     Scene *scene = bmain->scenes.first;
-    BKE_brush_gpencil_paint_presets(bmain, scene->toolsettings);
+    BKE_brush_gpencil_paint_presets(bmain, scene->toolsettings, true);
+    BKE_brush_gpencil_sculpt_presets(bmain, scene->toolsettings, true);
+    BKE_brush_gpencil_vertex_presets(bmain, scene->toolsettings, true);
+    BKE_brush_gpencil_weight_presets(bmain, scene->toolsettings, true);
 
     /* Ensure new Paint modes. */
     BKE_paint_ensure_from_paintmode(scene, PAINT_MODE_VERTEX_GPENCIL);
@@ -479,24 +486,26 @@ void BLO_update_defaults_startup_blend(Main *bmain, const char *app_template)
   }
 
   /* Workspaces. */
-  wmWindow *win = ((wmWindowManager *)bmain->wm.first)->windows.first;
-  for (WorkSpace *workspace = bmain->workspaces.first; workspace; workspace = workspace->id.next) {
-    WorkSpaceLayout *layout = BKE_workspace_hook_layout_for_workspace_get(win->workspace_hook,
-                                                                          workspace);
+  LISTBASE_FOREACH (wmWindowManager *, wm, &bmain->wm) {
+    LISTBASE_FOREACH (wmWindow *, win, &wm->windows) {
+      LISTBASE_FOREACH (WorkSpace *, workspace, &bmain->workspaces) {
+        WorkSpaceLayout *layout = BKE_workspace_hook_layout_for_workspace_get(win->workspace_hook,
+                                                                              workspace);
+        /* Name all screens by their workspaces (avoids 'Default.###' names). */
+        /* Default only has one window. */
+        if (layout->screen) {
+          bScreen *screen = layout->screen;
+          BLI_strncpy(screen->id.name + 2, workspace->id.name + 2, sizeof(screen->id.name) - 2);
+          BLI_libblock_ensure_unique_name(bmain, screen->id.name);
+        }
 
-    /* Name all screens by their workspaces (avoids 'Default.###' names). */
-    /* Default only has one window. */
-    if (layout->screen) {
-      bScreen *screen = layout->screen;
-      BLI_strncpy(screen->id.name + 2, workspace->id.name + 2, sizeof(screen->id.name) - 2);
-      BLI_libblock_ensure_unique_name(bmain, screen->id.name);
-    }
-
-    /* For some reason we have unused screens, needed until re-saving.
-     * Clear unused layouts because they're visible in the outliner & Python API. */
-    LISTBASE_FOREACH_MUTABLE (WorkSpaceLayout *, layout_iter, &workspace->layouts) {
-      if (layout != layout_iter) {
-        BKE_workspace_layout_remove(bmain, workspace, layout_iter);
+        /* For some reason we have unused screens, needed until re-saving.
+         * Clear unused layouts because they're visible in the outliner & Python API. */
+        LISTBASE_FOREACH_MUTABLE (WorkSpaceLayout *, layout_iter, &workspace->layouts) {
+          if (layout != layout_iter) {
+            BKE_workspace_layout_remove(bmain, workspace, layout_iter);
+          }
+        }
       }
     }
   }

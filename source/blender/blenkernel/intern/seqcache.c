@@ -1217,12 +1217,21 @@ void BKE_sequencer_cache_cleanup_sequence(Scene *scene,
 struct ImBuf *BKE_sequencer_cache_get(
     const SeqRenderData *context, Sequence *seq, float cfra, int type, bool skip_disk_cache)
 {
+
+  if (context->skip_cache || context->is_proxy_render || !seq) {
+    return NULL;
+  }
+
   Scene *scene = context->scene;
 
   if (context->is_prefetch_render) {
     context = BKE_sequencer_prefetch_get_original_context(context);
     scene = context->scene;
     seq = BKE_sequencer_prefetch_get_original_sequence(seq, scene);
+  }
+
+  if (!seq) {
+    return NULL;
   }
 
   if (!scene->ed->cache) {
@@ -1287,6 +1296,10 @@ bool BKE_sequencer_cache_put_if_possible(const SeqRenderData *context,
     seq = BKE_sequencer_prefetch_get_original_sequence(seq, scene);
   }
 
+  if (!seq) {
+    return false;
+  }
+
   if (BKE_sequencer_cache_recycle_item(scene)) {
     BKE_sequencer_cache_put(context, seq, cfra, type, ibuf, cost, skip_disk_cache);
     return true;
@@ -1306,16 +1319,16 @@ void BKE_sequencer_cache_put(const SeqRenderData *context,
                              float cost,
                              bool skip_disk_cache)
 {
+  if (i == NULL || context->skip_cache || context->is_proxy_render || !seq) {
+    return;
+  }
+
   Scene *scene = context->scene;
 
   if (context->is_prefetch_render) {
     context = BKE_sequencer_prefetch_get_original_context(context);
     scene = context->scene;
     seq = BKE_sequencer_prefetch_get_original_sequence(seq, scene);
-  }
-
-  if (i == NULL || context->skip_cache || context->is_proxy_render || !seq) {
-    return;
   }
 
   /* Prevent reinserting, it breaks cache key linking. */

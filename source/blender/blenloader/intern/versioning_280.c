@@ -159,6 +159,8 @@ static bScreen *screen_parent_find(const bScreen *screen)
 
 static void do_version_workspaces_create_from_screens(Main *bmain)
 {
+  bmain->is_locked_for_linking = false;
+
   for (bScreen *screen = bmain->screens.first; screen; screen = screen->id.next) {
     const bScreen *screen_parent = screen_parent_find(screen);
     WorkSpace *workspace;
@@ -180,6 +182,8 @@ static void do_version_workspaces_create_from_screens(Main *bmain)
     }
     BKE_workspace_layout_add(bmain, workspace, screen, screen->id.name + 2);
   }
+
+  bmain->is_locked_for_linking = true;
 }
 
 static void do_version_area_change_space_to_space_action(ScrArea *area, const Scene *scene)
@@ -252,7 +256,7 @@ static void do_version_workspaces_after_lib_link(Main *bmain)
       win->workspace_hook = BKE_workspace_instance_hook_create(bmain);
 
       BKE_workspace_active_set(win->workspace_hook, workspace);
-      BKE_workspace_active_layout_set(win->workspace_hook, layout);
+      BKE_workspace_hook_layout_for_workspace_set(win->workspace_hook, workspace, layout);
 
       /* Move scene and view layer to window. */
       Scene *scene = screen->scene;
@@ -1694,20 +1698,10 @@ void do_versions_after_linking_280(Main *bmain, ReportList *UNUSED(reports))
       rename_id_for_versioning(bmain, ID_MA, "Black Dots", "Dots Stroke");
     }
 
-    /* Remove useless Fill Area.001 brush. */
-    brush = BLI_findstring(&bmain->brushes, "Fill Area.001", offsetof(ID, name) + 2);
-    if (brush) {
-      BKE_id_delete(bmain, brush);
-    }
-
     brush = BLI_findstring(&bmain->brushes, "Pencil", offsetof(ID, name) + 2);
 
     for (Scene *scene = bmain->scenes.first; scene; scene = scene->id.next) {
       ToolSettings *ts = scene->toolsettings;
-
-      BKE_brush_gpencil_vertex_presets(bmain, ts);
-      BKE_brush_gpencil_sculpt_presets(bmain, ts);
-      BKE_brush_gpencil_weight_presets(bmain, ts);
 
       /* Ensure new Paint modes. */
       BKE_paint_ensure_from_paintmode(scene, PAINT_MODE_GPENCIL);
@@ -1722,8 +1716,6 @@ void do_versions_after_linking_280(Main *bmain, ReportList *UNUSED(reports))
         /* Enable cursor by default. */
         paint->flags |= PAINT_SHOW_BRUSH;
       }
-      /* Ensure Palette by default. */
-      BKE_gpencil_palette_ensure(bmain, scene);
     }
   }
 
@@ -1737,11 +1729,6 @@ void do_versions_after_linking_280(Main *bmain, ReportList *UNUSED(reports))
 
     /* Reset all grease pencil brushes. */
     LISTBASE_FOREACH (Scene *, scene, &bmain->scenes) {
-      BKE_brush_gpencil_paint_presets(bmain, scene->toolsettings);
-      BKE_brush_gpencil_sculpt_presets(bmain, scene->toolsettings);
-      BKE_brush_gpencil_weight_presets(bmain, scene->toolsettings);
-      BKE_brush_gpencil_vertex_presets(bmain, scene->toolsettings);
-
       /* Ensure new Paint modes. */
       BKE_paint_ensure_from_paintmode(scene, PAINT_MODE_VERTEX_GPENCIL);
       BKE_paint_ensure_from_paintmode(scene, PAINT_MODE_SCULPT_GPENCIL);
@@ -5048,6 +5035,43 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *bmain)
             mul_v3_fl(fmd->domain->gravity, 9.81f);
           }
         }
+      }
+    }
+  }
+
+  if (!MAIN_VERSION_ATLEAST(bmain, 283, 16)) {
+    /* Init SMAA threshold for grease pencil render. */
+    LISTBASE_FOREACH (Scene *, scene, &bmain->scenes) {
+      scene->grease_pencil_settings.smaa_threshold = 1.0f;
+    }
+  }
+
+  if (!MAIN_VERSION_ATLEAST(bmain, 283, 17)) {
+    /* Reset the cloth mass to 1.0 in brushes with an invalid value. */
+    for (Brush *br = bmain->brushes.first; br; br = br->id.next) {
+      if (br->sculpt_tool == SCULPT_TOOL_CLOTH) {
+        if (br->cloth_mass == 0.0f) {
+          br->cloth_mass = 1.0f;
+        }
+      }
+    }
+  }
+
+  /** Repair files from duplicate brushes added to blend files, see: T76738. */
+  if (!MAIN_VERSION_ATLEAST(bmain, 283, 17) ||
+      ((bmain->versionfile == 290) && !MAIN_VERSION_ATLEAST(bmain, 290, 2))) {
+    short id_codes[] = {ID_BR, ID_PAL};
+    for (int i = 0; i < ARRAY_SIZE(id_codes); i++) {
+      ListBase *lb = which_libbase(bmain, id_codes[i]);
+      BKE_main_id_repair_duplicate_names_listbase(lb);
+    }
+
+    /* Set Brush default color for grease pencil. */
+    LISTBASE_FOREACH (Brush *, brush, &bmain->brushes) {
+      if (brush->gpencil_settings) {
+        brush->rgb[0] = 0.498f;
+        brush->rgb[1] = 1.0f;
+        brush->rgb[2] = 0.498f;
       }
     }
   }

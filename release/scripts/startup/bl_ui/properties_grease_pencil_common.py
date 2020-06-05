@@ -116,9 +116,9 @@ class AnnotationDrawingToolsPanel:
             col.label(text="Data Source:")
             row = col.row(align=True)
             if is_3d_view:
-                row.prop(context.tool_settings, "grease_pencil_source", expand=True)
+                row.prop(context.tool_settings, "annotation_source", expand=True)
             elif is_clip_editor:
-                row.prop(context.space_data, "grease_pencil_source", expand=True)
+                row.prop(context.space_data, "annotation_source", expand=True)
 
         gpencil_stroke_placement_settings(context, col)
 
@@ -448,7 +448,7 @@ class AnnotationDataPanel:
 
         # Owner selector.
         if context.space_data.type == 'CLIP_EDITOR':
-            layout.row().prop(context.space_data, "grease_pencil_source", expand=True)
+            layout.row().prop(context.space_data, "annotation_source", expand=True)
 
         layout.template_ID(gpd_owner, "grease_pencil", new="gpencil.annotation_add", unlink="gpencil.data_unlink")
 
@@ -639,7 +639,7 @@ class GreasePencilMaterialsPanel:
             if is_view3d and brush is not None:
                 gp_settings = brush.gpencil_settings
                 if gp_settings.use_material_pin is False:
-                    if ob.active_material_index >= 0:
+                    if len(ob.material_slots) > 0 and ob.active_material_index >= 0:
                         ma = ob.material_slots[ob.active_material_index].material
                 else:
                     ma = gp_settings.material

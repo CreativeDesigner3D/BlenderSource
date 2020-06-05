@@ -731,7 +731,14 @@ static bool brush_generic_tool_set(bContext *C,
     WM_main_add_notifier(NC_BRUSH | NA_EDITED, brush);
 
     /* Tool System
-     * This is needed for when there is a non-sculpt tool active (transform for e.g.) */
+     * This is needed for when there is a non-sculpt tool active (transform for e.g.).
+     * In case we are toggling (and the brush changed to the toggle_brush), we need to get the
+     * tool_name again. */
+    int tool_result = brush_tool(brush, paint->runtime.tool_offset);
+    ePaintMode paint_mode = BKE_paintmode_get_active_from_context(C);
+    const EnumPropertyItem *items = BKE_paint_get_tool_enum_from_paintmode(paint_mode);
+    RNA_enum_name_from_value(items, tool_result, &tool_name);
+
     char tool_id[MAX_NAME];
     SNPRINTF(tool_id, "builtin_brush.%s", tool_name);
     WM_toolsystem_ref_set_by_id(C, tool_id);
@@ -1140,24 +1147,24 @@ static int stencil_fit_image_aspect_exec(bContext *C, wmOperator *op)
       aspy *= tex->yrepeat;
     }
 
-    orig_area = aspx * aspy;
+    orig_area = fabsf(aspx * aspy);
 
     if (do_mask) {
-      stencil_area = br->mask_stencil_dimension[0] * br->mask_stencil_dimension[1];
+      stencil_area = fabsf(br->mask_stencil_dimension[0] * br->mask_stencil_dimension[1]);
     }
     else {
-      stencil_area = br->stencil_dimension[0] * br->stencil_dimension[1];
+      stencil_area = fabsf(br->stencil_dimension[0] * br->stencil_dimension[1]);
     }
 
     factor = sqrtf(stencil_area / orig_area);
 
     if (do_mask) {
-      br->mask_stencil_dimension[0] = factor * aspx;
-      br->mask_stencil_dimension[1] = factor * aspy;
+      br->mask_stencil_dimension[0] = fabsf(factor * aspx);
+      br->mask_stencil_dimension[1] = fabsf(factor * aspy);
     }
     else {
-      br->stencil_dimension[0] = factor * aspx;
-      br->stencil_dimension[1] = factor * aspy;
+      br->stencil_dimension[0] = fabsf(factor * aspx);
+      br->stencil_dimension[1] = fabsf(factor * aspy);
     }
   }
 

@@ -3330,6 +3330,16 @@ static Mesh *create_liquid_geometry(FluidDomainSettings *mds, Mesh *orgmesh, Obj
   /* Biggest dimension will be used for upscaling. */
   float max_size = MAX3(size[0], size[1], size[2]);
 
+  float co_scale[3];
+  co_scale[0] = max_size / ob->scale[0];
+  co_scale[1] = max_size / ob->scale[1];
+  co_scale[2] = max_size / ob->scale[2];
+
+  float co_offset[3];
+  co_offset[0] = (mds->p0[0] + mds->p1[0]) / 2.0f;
+  co_offset[1] = (mds->p0[1] + mds->p1[1]) / 2.0f;
+  co_offset[2] = (mds->p0[2] + mds->p1[2]) / 2.0f;
+
   /* Normals. */
   normals = MEM_callocN(sizeof(short) * num_normals * 3, "Fluidmesh_tmp_normals");
 
@@ -3353,9 +3363,9 @@ static Mesh *create_liquid_geometry(FluidDomainSettings *mds, Mesh *orgmesh, Obj
       mverts->co[2] *= mds->dx / mds->mesh_scale;
     }
 
-    mverts->co[0] *= max_size / fabsf(ob->scale[0]);
-    mverts->co[1] *= max_size / fabsf(ob->scale[1]);
-    mverts->co[2] *= max_size / fabsf(ob->scale[2]);
+    mul_v3_v3(mverts->co, co_scale);
+    add_v3_v3(mverts->co, co_offset);
+
 #  ifdef DEBUG_PRINT
     /* Debugging: Print coordinates of vertices. */
     printf("mverts->co[0]: %f, mverts->co[1]: %f, mverts->co[2]: %f\n",
@@ -3762,14 +3772,16 @@ static void BKE_fluid_modifier_processDomain(FluidModifierData *mmd,
     MEM_freeN(objs);
   }
 
+  /* TODO (sebbas): Cache reset for when flow / effector object need update flag is set. */
+#  if 0
   /* If the just updated flags now carry the 'outdated' flag, reset the cache here!
    * Plus sanity check: Do not clear cache on file load. */
   if (mds->cache_flag & FLUID_DOMAIN_OUTDATED_DATA &&
       ((mds->flags & FLUID_DOMAIN_FILE_LOAD) == 0)) {
-    mds->cache_flag &= ~FLUID_DOMAIN_OUTDATED_DATA;
     BKE_fluid_cache_free_all(mds, ob);
     BKE_fluid_modifier_reset_ex(mmd, false);
   }
+#  endif
 
   /* Fluid domain init must not fail in order to continue modifier evaluation. */
   if (!mds->fluid && !BKE_fluid_modifier_init(mmd, depsgraph, ob, scene, me)) {
@@ -4889,7 +4901,6 @@ void BKE_fluid_modifier_create_type_data(struct FluidModifierData *mmd)
     mmd->domain->surface_tension = 0.0f;
     mmd->domain->viscosity_base = 1.0f;
     mmd->domain->viscosity_exponent = 6.0f;
-    mmd->domain->domain_size = 0.5f;
 
     /* mesh options */
     mmd->domain->mesh_velocities = NULL;
@@ -5133,7 +5144,6 @@ void BKE_fluid_modifier_copy(const struct FluidModifierData *mmd,
     tmds->surface_tension = mds->surface_tension;
     tmds->viscosity_base = mds->viscosity_base;
     tmds->viscosity_exponent = mds->viscosity_exponent;
-    tmds->domain_size = mds->domain_size;
 
     /* mesh options */
     if (mds->mesh_velocities) {

@@ -1005,7 +1005,7 @@ static void v3d_editvertex_buts(uiLayout *layout, View3D *v3d, Object *ob, float
           }
         }
         BKE_nurb_test_2d(nu);
-        BKE_nurb_handles_test(nu, true); /* test for bezier too */
+        BKE_nurb_handles_test(nu, true, false); /* test for bezier too */
 
         nu = nu->next;
       }
@@ -1577,9 +1577,7 @@ static void view3d_panel_transform(const bContext *C, Panel *panel)
     }
     else {
       View3D *v3d = CTX_wm_view3d(C);
-      Scene *scene = CTX_data_scene(C);
-      const float lim = 10000.0f * max_ff(1.0f, ED_view3d_grid_scale(scene, v3d, NULL));
-      v3d_editvertex_buts(col, v3d, ob, lim);
+      v3d_editvertex_buts(col, v3d, ob, FLT_MAX);
     }
   }
   else if (ob->mode & OB_MODE_POSE) {

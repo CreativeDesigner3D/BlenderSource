@@ -295,6 +295,10 @@ static void build_mesh_leaf_node(PBVH *bvh, PBVHNode *node)
 
   node->face_vert_indices = (const int(*)[3])face_vert_indices;
 
+  if (bvh->respect_hide == false) {
+    has_visible = true;
+  }
+
   for (int i = 0; i < totface; i++) {
     const MLoopTri *lt = &bvh->looptri[node->prim_indices[i]];
     for (int j = 0; j < 3; j++) {
@@ -302,8 +306,10 @@ static void build_mesh_leaf_node(PBVH *bvh, PBVHNode *node)
           bvh, map, &node->face_verts, &node->uniq_verts, bvh->mloop[lt->tri[j]].v);
     }
 
-    if (!paint_is_face_hidden(lt, bvh->verts, bvh->mloop)) {
-      has_visible = true;
+    if (has_visible == false) {
+      if (!paint_is_face_hidden(lt, bvh->verts, bvh->mloop)) {
+        has_visible = true;
+      }
     }
   }
 
@@ -666,7 +672,7 @@ void BKE_pbvh_build_grids(PBVH *bvh,
 PBVH *BKE_pbvh_new(void)
 {
   PBVH *bvh = MEM_callocN(sizeof(PBVH), "pbvh");
-
+  bvh->respect_hide = true;
   return bvh;
 }
 
@@ -1009,7 +1015,6 @@ typedef struct PBVHUpdateData {
 
   float (*vnors)[3];
   int flag;
-  bool show_vcol;
   bool show_sculpt_face_sets;
 } PBVHUpdateData;
 
@@ -1250,12 +1255,10 @@ void pbvh_update_BB_redraw(PBVH *bvh, PBVHNode **nodes, int totnode, int flag)
   BKE_pbvh_parallel_range(0, totnode, &data, pbvh_update_BB_redraw_task_cb, &settings);
 }
 
-static int pbvh_get_buffers_update_flags(PBVH *bvh, bool show_vcol)
+static int pbvh_get_buffers_update_flags(PBVH *UNUSED(bvh))
 {
-  int update_flags = 0;
-  update_flags |= bvh->show_mask ? GPU_PBVH_BUFFERS_SHOW_MASK : 0;
-  update_flags |= show_vcol ? GPU_PBVH_BUFFERS_SHOW_VCOL : 0;
-  update_flags |= bvh->show_face_sets ? GPU_PBVH_BUFFERS_SHOW_SCULPT_FACE_SETS : 0;
+  int update_flags = GPU_PBVH_BUFFERS_SHOW_VCOL | GPU_PBVH_BUFFERS_SHOW_MASK |
+                     GPU_PBVH_BUFFERS_SHOW_SCULPT_FACE_SETS;
   return update_flags;
 }
 
@@ -1277,7 +1280,6 @@ static void pbvh_update_draw_buffer_cb(void *__restrict userdata,
         break;
       case PBVH_FACES:
         node->draw_buffers = GPU_pbvh_mesh_buffers_build(
-            node->face_vert_indices,
             bvh->mpoly,
             bvh->mloop,
             bvh->looptri,
@@ -1295,7 +1297,7 @@ static void pbvh_update_draw_buffer_cb(void *__restrict userdata,
   }
 
   if (node->flag & PBVH_UpdateDrawBuffers) {
-    const int update_flags = pbvh_get_buffers_update_flags(bvh, data->show_vcol);
+    const int update_flags = pbvh_get_buffers_update_flags(bvh);
     switch (bvh->type) {
       case PBVH_GRIDS:
         GPU_pbvh_grid_buffers_update(node->draw_buffers,
@@ -1313,14 +1315,11 @@ static void pbvh_update_draw_buffer_cb(void *__restrict userdata,
       case PBVH_FACES:
         GPU_pbvh_mesh_buffers_update(node->draw_buffers,
                                      bvh->verts,
-                                     node->vert_indices,
-                                     node->uniq_verts + node->face_verts,
                                      CustomData_get_layer(bvh->vdata, CD_PAINT_MASK),
                                      CustomData_get_layer(bvh->ldata, CD_MLOOPCOL),
                                      CustomData_get_layer(bvh->pdata, CD_SCULPT_FACE_SETS),
                                      bvh->face_sets_color_seed,
                                      bvh->face_sets_color_default,
-                                     node->face_vert_indices,
                                      update_flags);
         break;
       case PBVH_BMESH:
@@ -1335,8 +1334,7 @@ static void pbvh_update_draw_buffer_cb(void *__restrict userdata,
   }
 }
 
-static void pbvh_update_draw_buffers(
-    PBVH *bvh, PBVHNode **nodes, int totnode, bool show_vcol, int update_flag)
+static void pbvh_update_draw_buffers(PBVH *bvh, PBVHNode **nodes, int totnode, int update_flag)
 {
   if ((update_flag & PBVH_RebuildDrawBuffers) || ELEM(bvh->type, PBVH_GRIDS, PBVH_BMESH)) {
     /* Free buffers uses OpenGL, so not in parallel. */
@@ -1362,7 +1360,6 @@ static void pbvh_update_draw_buffers(
   PBVHUpdateData data = {
       .bvh = bvh,
       .nodes = nodes,
-      .show_vcol = show_vcol,
   };
 
   PBVHParallelSettings settings;
@@ -2126,7 +2123,7 @@ static bool pbvh_faces_node_raycast(PBVH *bvh,
     const MLoopTri *lt = &bvh->looptri[faces[i]];
     const int *face_verts = node->face_vert_indices[i];
 
-    if (paint_is_face_hidden(lt, vert, mloop)) {
+    if (bvh->respect_hide && paint_is_face_hidden(lt, vert, mloop)) {
       continue;
     }
 
@@ -2155,7 +2152,11 @@ static bool pbvh_faces_node_raycast(PBVH *bvh,
         float location[3] = {0.0f};
         madd_v3_v3v3fl(location, ray_start, ray_normal, *depth);
         for (int j = 0; j < 3; j++) {
-          if (len_squared_v3v3(location, co[j]) < len_squared_v3v3(location, nearest_vertex_co)) {
+          /* Always assign nearest_vertex_co in the first iteration to avoid comparison against
+           * uninitialized values. This stores the closest vertex in the current intersecting
+           * triangle. */
+          if (j == 0 ||
+              len_squared_v3v3(location, co[j]) < len_squared_v3v3(location, nearest_vertex_co)) {
             copy_v3_v3(nearest_vertex_co, co[j]);
             *r_active_vertex_index = mloop[lt->tri[j]].v;
             *r_active_face_index = lt->poly;
@@ -2235,8 +2236,11 @@ static bool pbvh_grids_node_raycast(PBVH *bvh,
             const int y_it[4] = {0, 0, 1, 1};
 
             for (int j = 0; j < 4; j++) {
-              if (len_squared_v3v3(location, co[j]) <
-                  len_squared_v3v3(location, nearest_vertex_co)) {
+              /* Always assign nearest_vertex_co in the first iteration to avoid comparison against
+               * uninitialized values. This stores the closest vertex in the current intersecting
+               * quad. */
+              if (j == 0 || len_squared_v3v3(location, co[j]) <
+                                len_squared_v3v3(location, nearest_vertex_co)) {
                 copy_v3_v3(nearest_vertex_co, co[j]);
 
                 *r_active_vertex_index = gridkey->grid_area * grid_index +
@@ -2428,7 +2432,7 @@ static bool pbvh_faces_node_nearest_to_ray(PBVH *bvh,
     const MLoopTri *lt = &bvh->looptri[faces[i]];
     const int *face_verts = node->face_vert_indices[i];
 
-    if (paint_is_face_hidden(lt, vert, mloop)) {
+    if (bvh->respect_hide && paint_is_face_hidden(lt, vert, mloop)) {
       continue;
     }
 
@@ -2672,7 +2676,6 @@ static bool pbvh_draw_search_cb(PBVHNode *node, void *data_v)
 }
 
 void BKE_pbvh_draw_cb(PBVH *bvh,
-                      bool show_vcol,
                       bool update_only_visible,
                       PBVHFrustumPlanes *update_frustum,
                       PBVHFrustumPlanes *draw_frustum,
@@ -2689,7 +2692,7 @@ void BKE_pbvh_draw_cb(PBVH *bvh,
     BKE_pbvh_search_gather(bvh, update_search_cb, POINTER_FROM_INT(update_flag), &nodes, &totnode);
 
     if (totnode) {
-      pbvh_update_draw_buffers(bvh, nodes, totnode, show_vcol, update_flag);
+      pbvh_update_draw_buffers(bvh, nodes, totnode, update_flag);
     }
 
     MEM_SAFE_FREE(nodes);
@@ -2701,7 +2704,7 @@ void BKE_pbvh_draw_cb(PBVH *bvh,
 
   if (update_only_visible && (data.accum_update_flag & update_flag)) {
     /* Update draw buffers in visible nodes. */
-    pbvh_update_draw_buffers(bvh, nodes, totnode, show_vcol, data.accum_update_flag);
+    pbvh_update_draw_buffers(bvh, nodes, totnode, data.accum_update_flag);
   }
 
   /* Draw. */
@@ -2903,6 +2906,12 @@ void pbvh_vertex_iter_init(PBVH *bvh, PBVHNode *node, PBVHVertexIter *vi, int mo
   vi->fno = NULL;
   vi->mvert = NULL;
 
+  vi->respect_hide = bvh->respect_hide;
+  if (bvh->respect_hide == false) {
+    /* The same value for all vertices. */
+    vi->visible = true;
+  }
+
   BKE_pbvh_node_get_grids(bvh, node, &grid_indices, &totgrid, NULL, &gridsize, &grids);
   BKE_pbvh_node_num_verts(bvh, node, &uniq_verts, &totvert);
   BKE_pbvh_node_get_verts(bvh, node, &vert_indices, &verts);
@@ -3016,4 +3025,9 @@ void BKE_pbvh_subdiv_cgg_set(PBVH *bvh, SubdivCCG *subdiv_ccg)
 void BKE_pbvh_face_sets_set(PBVH *bvh, int *face_sets)
 {
   bvh->face_sets = face_sets;
+}
+
+void BKE_pbvh_respect_hide_set(PBVH *bvh, bool respect_hide)
+{
+  bvh->respect_hide = respect_hide;
 }

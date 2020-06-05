@@ -56,6 +56,7 @@
 
 #include "ED_anim_api.h"
 #include "ED_numinput.h"
+#include "ED_outliner.h"
 #include "ED_screen.h"
 #include "ED_sequencer.h"
 #include "ED_space_api.h"
@@ -254,7 +255,7 @@ void boundbox_seq(Scene *scene, rctf *rect)
     return;
   }
 
-  min[0] = 0.0;
+  min[0] = SFRA;
   max[0] = EFRA + 1;
   min[1] = 0.0;
   max[1] = 8.0;
@@ -3455,8 +3456,6 @@ static int sequencer_copy_exec(bContext *C, wmOperator *op)
   Scene *scene = CTX_data_scene(C);
   Editing *ed = BKE_sequencer_editing_get(scene, false);
 
-  ListBase nseqbase = {NULL, NULL};
-
   BKE_sequencer_free_clipboard();
 
   if (BKE_sequence_base_isolated_sel_check(ed->seqbasep) == false) {
@@ -3465,27 +3464,7 @@ static int sequencer_copy_exec(bContext *C, wmOperator *op)
   }
 
   BKE_sequence_base_dupli_recursive(
-      scene, scene, &nseqbase, ed->seqbasep, SEQ_DUPE_UNIQUE_NAME, LIB_ID_CREATE_NO_USER_REFCOUNT);
-
-  /* Make sure that copied strips have unique names.
-   * Add them temporarily to the end of the original seqbase (bug 25932). */
-  if (nseqbase.first) {
-    Sequence *seq, *first_seq = nseqbase.first;
-    BLI_movelisttolist(ed->seqbasep, &nseqbase);
-
-    for (seq = first_seq; seq; seq = seq->next) {
-      BKE_sequencer_recursive_apply(seq, apply_unique_name_fn, scene);
-    }
-
-    seqbase_clipboard.first = first_seq;
-    seqbase_clipboard.last = ed->seqbasep->last;
-
-    if (first_seq->prev) {
-      first_seq->prev->next = NULL;
-      ed->seqbasep->last = first_seq->prev;
-      first_seq->prev = NULL;
-    }
-  }
+      scene, scene, &seqbase_clipboard, ed->seqbasep, 0, LIB_ID_CREATE_NO_USER_REFCOUNT);
 
   seqbase_clipboard_frame = scene->r.cfra;
 
@@ -3532,28 +3511,19 @@ static int sequencer_paste_exec(bContext *C, wmOperator *UNUSED(op))
    * must happen on the clipboard itself, so that copying does user counting
    * on the actual data-blocks. */
   BKE_sequencer_base_clipboard_pointers_restore(&seqbase_clipboard, bmain);
-  BKE_sequence_base_dupli_recursive(
-      scene, scene, &nseqbase, &seqbase_clipboard, SEQ_DUPE_UNIQUE_NAME, 0);
-  BKE_sequencer_base_clipboard_pointers_store(bmain, &seqbase_clipboard);
-
-  /* Transform pasted strips before adding. */
-  if (ofs) {
-    for (iseq = nseqbase.first; iseq; iseq = iseq->next) {
-      BKE_sequence_translate(scene, iseq, ofs);
-    }
-  }
+  BKE_sequence_base_dupli_recursive(scene, scene, &nseqbase, &seqbase_clipboard, 0, 0);
 
   iseq_first = nseqbase.first;
 
   BLI_movelisttolist(ed->seqbasep, &nseqbase);
 
-  /* Make sure, that pasted strips have unique names. */
   for (iseq = iseq_first; iseq; iseq = iseq->next) {
+    /* Make sure, that pasted strips have unique names. */
     BKE_sequencer_recursive_apply(iseq, apply_unique_name_fn, scene);
-  }
-
-  /* Ensure, that pasted strips don't overlap. */
-  for (iseq = iseq_first; iseq; iseq = iseq->next) {
+    /* Translate after name has been changed, otherwise this will affect animdata of original
+     * strip. */
+    BKE_sequence_translate(scene, iseq, ofs);
+    /* Ensure, that pasted strips don't overlap. */
     if (BKE_sequence_test_overlap(ed->seqbasep, iseq)) {
       BKE_sequence_base_shuffle(ed->seqbasep, iseq, scene);
     }
@@ -3561,6 +3531,7 @@ static int sequencer_paste_exec(bContext *C, wmOperator *UNUSED(op))
 
   DEG_id_tag_update(&scene->id, ID_RECALC_SEQUENCER_STRIPS);
   WM_event_add_notifier(C, NC_SCENE | ND_SEQUENCER, scene);
+  ED_outliner_select_sync_from_sequence_tag(C);
 
   return OPERATOR_FINISHED;
 }

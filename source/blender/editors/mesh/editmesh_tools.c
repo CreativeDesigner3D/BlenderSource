@@ -69,6 +69,7 @@
 
 #include "ED_mesh.h"
 #include "ED_object.h"
+#include "ED_outliner.h"
 #include "ED_screen.h"
 #include "ED_transform.h"
 #include "ED_uvedit.h"
@@ -4404,6 +4405,7 @@ static int edbm_separate_exec(bContext *C, wmOperator *op)
     /* delay depsgraph recalc until all objects are duplicated */
     DEG_relations_tag_update(bmain);
     WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, NULL);
+    ED_outliner_select_sync_from_object_tag(C);
 
     return OPERATOR_FINISHED;
   }
@@ -4630,6 +4632,9 @@ static bool edbm_fill_grid_prepare(BMesh *bm, int offset, int *span_p, const boo
       v_act = v_act_link->data;
       BLI_listbase_rotate_first(verts, v_act_link);
     }
+
+    /* Run again to update the edge order from the rotated vertex list. */
+    BM_edgeloop_edges_get(el_store, edges);
 
     if (span_calc) {
       /* calculate the span by finding the next corner in 'verts'
@@ -7076,36 +7081,16 @@ void MESH_OT_wireframe(wmOperatorType *ot)
 
 static int edbm_offset_edgeloop_exec(bContext *C, wmOperator *op)
 {
-  bool mode_change = false;
   const bool use_cap_endpoint = RNA_boolean_get(op->ptr, "use_cap_endpoint");
-  int ret = OPERATOR_CANCELLED;
-
-  {
-    Object *obedit = CTX_data_edit_object(C);
-    BMEditMesh *em = BKE_editmesh_from_object(obedit);
-    if (em->selectmode == SCE_SELECT_FACE) {
-      EDBM_selectmode_to_scene(C);
-      mode_change = true;
-    }
-  }
-
+  bool changed_multi = false;
+  Scene *scene = CTX_data_scene(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
-  uint objects_len = 0;
-  Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(
-      view_layer, CTX_wm_view3d(C), &objects_len);
-  for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
-    Object *obedit = objects[ob_index];
+  uint bases_len = 0;
+  Base **bases = BKE_view_layer_array_from_bases_in_edit_mode_unique_data(
+      view_layer, CTX_wm_view3d(C), &bases_len);
+  for (uint base_index = 0; base_index < bases_len; base_index++) {
+    Object *obedit = bases[base_index]->object;
     BMEditMesh *em = BKE_editmesh_from_object(obedit);
-
-    /** If in face-only select mode, switch to edge select mode so that
-     * an edge-only selection is not inconsistent state.
-     *
-     * We need to run this for all objects, even when nothing is selected.
-     * This way we keep them in sync. */
-    if (mode_change) {
-      em->selectmode = SCE_SELECT_EDGE;
-      EDBM_selectmode_set(em);
-    }
 
     if (em->bm->totedgesel == 0) {
       continue;
@@ -7126,16 +7111,26 @@ static int edbm_offset_edgeloop_exec(bContext *C, wmOperator *op)
     BMO_slot_buffer_hflag_enable(
         em->bm, bmop.slots_out, "edges.out", BM_EDGE, BM_ELEM_SELECT, true);
 
-    if (!EDBM_op_finish(em, &bmop, op, true)) {
-      continue;
-    }
-    else {
+    if (EDBM_op_finish(em, &bmop, op, true)) {
       EDBM_update_generic(obedit->data, true, true);
-      ret = OPERATOR_FINISHED;
+      changed_multi = true;
     }
   }
-  MEM_freeN(objects);
-  return ret;
+
+  if (changed_multi) {
+    /** If in face-only select mode, switch to edge select mode so that
+     * an edge-only selection is not inconsistent state.
+     *
+     * We need to run this for all objects, even when nothing is selected.
+     * This way we keep them in sync. */
+    if (scene->toolsettings->selectmode == SCE_SELECT_FACE) {
+      EDBM_selectmode_disable_multi_ex(scene, bases, bases_len, SCE_SELECT_FACE, SCE_SELECT_EDGE);
+    }
+  }
+
+  MEM_freeN(bases);
+
+  return changed_multi ? OPERATOR_FINISHED : OPERATOR_CANCELLED;
 }
 
 void MESH_OT_offset_edge_loops(wmOperatorType *ot)
@@ -8317,6 +8312,8 @@ static void normals_merge(BMesh *bm, BMLoopNorEditDataArray *lnors_ed_arr)
   BM_normals_loops_edges_tag(bm, false);
 
   for (int i = 0; i < lnors_ed_arr->totloop; i++, lnor_ed++) {
+    BLI_assert(BLI_SMALLSTACK_IS_EMPTY(clnors));
+
     if (BM_elem_flag_test(lnor_ed->loop, BM_ELEM_TAG)) {
       continue;
     }
@@ -8359,8 +8356,12 @@ static void normals_split(BMesh *bm)
 
   BM_normals_loops_edges_tag(bm, true);
 
+  BLI_SMALLSTACK_DECLARE(loop_stack, BMLoop *);
+
   const int cd_clnors_offset = CustomData_get_offset(&bm->ldata, CD_CUSTOMLOOPNORMAL);
   BM_ITER_MESH (f, &fiter, bm, BM_FACES_OF_MESH) {
+    BLI_assert(BLI_SMALLSTACK_IS_EMPTY(loop_stack));
+
     l_curr = l_first = BM_FACE_FIRST_LOOP(f);
     do {
       if (BM_elem_flag_test(l_curr->v, BM_ELEM_SELECT) &&
@@ -8382,7 +8383,6 @@ static void normals_split(BMesh *bm)
 
           lfan_pivot = l_curr;
           e_next = lfan_pivot->e;
-          BLI_SMALLSTACK_DECLARE(loops, BMLoop *);
           float avg_normal[3] = {0.0f};
 
           while (true) {
@@ -8394,7 +8394,7 @@ static void normals_split(BMesh *bm)
               e_next = (lfan_pivot->e == e_next) ? lfan_pivot->prev->e : lfan_pivot->e;
             }
 
-            BLI_SMALLSTACK_PUSH(loops, lfan_pivot);
+            BLI_SMALLSTACK_PUSH(loop_stack, lfan_pivot);
             add_v3_v3(avg_normal, lfan_pivot->f->no);
 
             if (!BM_elem_flag_test(e_next, BM_ELEM_TAG) || (e_next == e_org)) {
@@ -8406,7 +8406,7 @@ static void normals_split(BMesh *bm)
             /* If avg normal is nearly 0, set clnor to default value. */
             zero_v3(avg_normal);
           }
-          while ((l = BLI_SMALLSTACK_POP(loops))) {
+          while ((l = BLI_SMALLSTACK_POP(loop_stack))) {
             const int l_index = BM_elem_index_get(l);
             short *clnors = BM_ELEM_CD_GET_VOID_P(l, cd_clnors_offset);
             BKE_lnor_space_custom_normal_to_data(
@@ -8548,7 +8548,13 @@ static int edbm_average_normals_exec(bContext *C, wmOperator *op)
   const float absweight = (float)RNA_int_get(op->ptr, "weight");
   const float threshold = RNA_float_get(op->ptr, "threshold");
 
+  HeapSimple *loop_weight = BLI_heapsimple_new();
+  BLI_SMALLSTACK_DECLARE(loop_stack, BMLoop *);
+
   for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
+    BLI_assert(BLI_SMALLSTACK_IS_EMPTY(loop_stack));
+    BLI_assert(BLI_heapsimple_is_empty(loop_weight));
+
     Object *obedit = objects[ob_index];
     BMEditMesh *em = BKE_editmesh_from_object(obedit);
     BMesh *bm = em->bm;
@@ -8574,8 +8580,6 @@ static int edbm_average_normals_exec(bContext *C, wmOperator *op)
     }
 
     BM_normals_loops_edges_tag(bm, true);
-
-    HeapSimple *loop_weight = BLI_heapsimple_new();
 
     BM_ITER_MESH (f, &fiter, bm, BM_FACES_OF_MESH) {
       l_curr = l_first = BM_FACE_FIRST_LOOP(f);
@@ -8626,7 +8630,6 @@ static int edbm_average_normals_exec(bContext *C, wmOperator *op)
               lfan_pivot = lfan_pivot_next;
             }
 
-            BLI_SMALLSTACK_DECLARE(loops, BMLoop *);
             float wnor[3], avg_normal[3] = {0.0f}, count = 0;
             float val = BLI_heapsimple_top_value(loop_weight);
 
@@ -8637,7 +8640,7 @@ static int edbm_average_normals_exec(bContext *C, wmOperator *op)
                 val = cur_val;
               }
               l = BLI_heapsimple_pop_min(loop_weight);
-              BLI_SMALLSTACK_PUSH(loops, l);
+              BLI_SMALLSTACK_PUSH(loop_stack, l);
 
               const float n_weight = pow(weight, count);
 
@@ -8658,7 +8661,7 @@ static int edbm_average_normals_exec(bContext *C, wmOperator *op)
               /* If avg normal is nearly 0, set clnor to default value. */
               zero_v3(avg_normal);
             }
-            while ((l = BLI_SMALLSTACK_POP(loops))) {
+            while ((l = BLI_SMALLSTACK_POP(loop_stack))) {
               const int l_index = BM_elem_index_get(l);
               short *clnors = BM_ELEM_CD_GET_VOID_P(l, cd_clnors_offset);
               BKE_lnor_space_custom_normal_to_data(
@@ -8669,9 +8672,10 @@ static int edbm_average_normals_exec(bContext *C, wmOperator *op)
       } while ((l_curr = l_curr->next) != l_first);
     }
 
-    BLI_heapsimple_free(loop_weight, NULL);
     EDBM_update_generic(obedit->data, true, false);
   }
+
+  BLI_heapsimple_free(loop_weight, NULL);
 
   MEM_freeN(objects);
   return OPERATOR_FINISHED;
