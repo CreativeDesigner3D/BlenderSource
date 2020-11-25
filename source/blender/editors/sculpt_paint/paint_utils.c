@@ -55,9 +55,10 @@
 #include "RNA_access.h"
 #include "RNA_define.h"
 
-#include "GPU_glew.h"
+#include "GPU_framebuffer.h"
 #include "GPU_matrix.h"
 #include "GPU_state.h"
+#include "GPU_texture.h"
 
 #include "IMB_colormanagement.h"
 #include "IMB_imbuf.h"
@@ -65,6 +66,7 @@
 
 #include "RE_render_ext.h"
 
+#include "ED_image.h"
 #include "ED_screen.h"
 #include "ED_view3d.h"
 
@@ -95,7 +97,7 @@ bool paint_convert_bb_to_rect(rcti *rect,
 
   /* return zero if the bounding box has non-positive volume */
   if (bb_min[0] > bb_max[0] || bb_min[1] > bb_max[1] || bb_min[2] > bb_max[2]) {
-    return 0;
+    return false;
   }
 
   ED_view3d_ob_project_mat_get(rv3d, ob, projection_mat);
@@ -166,10 +168,11 @@ float paint_calc_object_space_radius(ViewContext *vc, const float center[3], flo
 
 float paint_get_tex_pixel(const MTex *mtex, float u, float v, struct ImagePool *pool, int thread)
 {
-  float intensity, rgba[4];
-  float co[3] = {u, v, 0.0f};
+  float intensity;
+  float rgba_dummy[4];
+  const float co[3] = {u, v, 0.0f};
 
-  externtex(mtex, co, &intensity, rgba, rgba + 1, rgba + 2, rgba + 3, thread, pool, false, false);
+  RE_texture_evaluate(mtex, co, thread, pool, false, false, &intensity, rgba_dummy);
 
   return intensity;
 }
@@ -183,12 +186,11 @@ void paint_get_tex_pixel_col(const MTex *mtex,
                              bool convert_to_linear,
                              struct ColorSpace *colorspace)
 {
-  float co[3] = {u, v, 0.0f};
-  int hasrgb;
+  const float co[3] = {u, v, 0.0f};
   float intensity;
 
-  hasrgb = externtex(
-      mtex, co, &intensity, rgba, rgba + 1, rgba + 2, rgba + 3, thread, pool, false, false);
+  const bool hasrgb = RE_texture_evaluate(mtex, co, thread, pool, false, false, &intensity, rgba);
+
   if (!hasrgb) {
     rgba[0] = intensity;
     rgba[1] = intensity;
@@ -237,7 +239,7 @@ void paint_stroke_operator_properties(wmOperatorType *ot)
 
 /* 3D Paint */
 
-static void imapaint_project(float matrix[4][4], const float co[3], float pco[4])
+static void imapaint_project(const float matrix[4][4], const float co[3], float pco[4])
 {
   copy_v3_v3(pco, co);
   pco[3] = 1.0f;
@@ -246,7 +248,7 @@ static void imapaint_project(float matrix[4][4], const float co[3], float pco[4]
 }
 
 static void imapaint_tri_weights(float matrix[4][4],
-                                 const GLint view[4],
+                                 const int view[4],
                                  const float v1[3],
                                  const float v2[3],
                                  const float v3[3],
@@ -300,7 +302,7 @@ static void imapaint_pick_uv(
   int i, findex;
   float p[2], w[3], absw, minabsw;
   float matrix[4][4], proj[4][4];
-  GLint view[4];
+  int view[4];
   const eImagePaintMode mode = scene->toolsettings->imapaint.mode;
 
   const MLoopTri *lt = BKE_mesh_runtime_looptri_ensure(me_eval);
@@ -457,8 +459,6 @@ void paint_sample_color(
   Palette *palette = BKE_paint_palette(paint);
   PaletteColor *color = NULL;
   Brush *br = BKE_paint_brush(BKE_paint_get_active_from_context(C));
-  uint col;
-  const uchar *cp;
 
   CLAMP(x, 0, region->winx);
   CLAMP(y, 0, region->winy);
@@ -473,12 +473,14 @@ void paint_sample_color(
     palette->active_color = BLI_listbase_count(&palette->colors) - 1;
   }
 
-  if (CTX_wm_view3d(C) && texpaint_proj) {
+  SpaceImage *sima = CTX_wm_space_image(C);
+  const View3D *v3d = CTX_wm_view3d(C);
+
+  if (v3d && texpaint_proj) {
     /* first try getting a color directly from the mesh faces if possible */
     ViewLayer *view_layer = CTX_data_view_layer(C);
     Object *ob = OBACT(view_layer);
     Object *ob_eval = DEG_get_evaluated_object(depsgraph, ob);
-    bool sample_success = false;
     ImagePaintSettings *imapaint = &scene->toolsettings->imapaint;
     bool use_material = (imapaint->mode == IMAGEPAINT_MODE_MATERIAL);
 
@@ -538,8 +540,6 @@ void paint_sample_color(
 
             ImBuf *ibuf = BKE_image_acquire_ibuf(image, &iuser, NULL);
             if (ibuf && (ibuf->rect || ibuf->rect_float)) {
-              sample_success = true;
-
               u = u * ibuf->x;
               v = v * ibuf->y;
 
@@ -567,6 +567,8 @@ void paint_sample_color(
                   BKE_brush_color_set(scene, br, rgba_f);
                 }
               }
+              BKE_image_release_ibuf(image, ibuf, NULL);
+              return;
             }
 
             BKE_image_release_ibuf(image, ibuf, NULL);
@@ -574,32 +576,39 @@ void paint_sample_color(
         }
       }
     }
+  }
+  else if (sima != NULL) {
+    /* Sample from the active image buffer. The sampled color is in
+     * Linear Scene Reference Space. */
+    float rgba_f[3];
+    bool is_data;
+    if (ED_space_image_color_sample(sima, region, (int[2]){x, y}, rgba_f, &is_data)) {
+      if (!is_data) {
+        linearrgb_to_srgb_v3_v3(rgba_f, rgba_f);
+      }
 
-    if (!sample_success) {
-      glReadBuffer(GL_FRONT);
-      glReadPixels(
-          x + region->winrct.xmin, y + region->winrct.ymin, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &col);
-      glReadBuffer(GL_BACK);
-    }
-    else {
+      if (use_palette) {
+        copy_v3_v3(color->rgb, rgba_f);
+      }
+      else {
+        BKE_brush_color_set(scene, br, rgba_f);
+      }
       return;
     }
   }
-  else {
-    glReadBuffer(GL_FRONT);
-    glReadPixels(
-        x + region->winrct.xmin, y + region->winrct.ymin, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &col);
-    glReadBuffer(GL_BACK);
-  }
-  cp = (uchar *)&col;
 
-  if (use_palette) {
-    rgb_uchar_to_float(color->rgb, cp);
-  }
-  else {
-    float rgba_f[3];
-    rgb_uchar_to_float(rgba_f, cp);
-    BKE_brush_color_set(scene, br, rgba_f);
+  /* No sample found; sample directly from the GPU front buffer. */
+  {
+    float rgba_f[4];
+    GPU_frontbuffer_read_pixels(
+        x + region->winrct.xmin, y + region->winrct.ymin, 1, 1, 4, GPU_DATA_FLOAT, &rgba_f);
+
+    if (use_palette) {
+      copy_v3_v3(color->rgb, rgba_f);
+    }
+    else {
+      BKE_brush_color_set(scene, br, rgba_f);
+    }
   }
 }
 

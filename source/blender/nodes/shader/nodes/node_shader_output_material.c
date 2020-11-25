@@ -45,9 +45,29 @@ static int node_shader_gpu_output_material(GPUMaterial *mat,
                                            GPUNodeStack *in,
                                            GPUNodeStack *out)
 {
-  GPUNodeLink *outlink;
+  GPUNodeLink *outlink, *alpha_threshold_link, *shadow_threshold_link;
+  Material *ma = GPU_material_get_material(mat);
 
-  GPU_stack_link(mat, node, "node_output_material", in, out, &outlink);
+  static float no_alpha_threshold = -1.0f;
+  if (ma) {
+    alpha_threshold_link = GPU_uniform((ma->blend_method == MA_BM_CLIP) ? &ma->alpha_threshold :
+                                                                          &no_alpha_threshold);
+    shadow_threshold_link = GPU_uniform((ma->blend_shadow == MA_BS_CLIP) ? &ma->alpha_threshold :
+                                                                           &no_alpha_threshold);
+  }
+  else {
+    alpha_threshold_link = GPU_uniform(&no_alpha_threshold);
+    shadow_threshold_link = GPU_uniform(&no_alpha_threshold);
+  }
+
+  GPU_stack_link(mat,
+                 node,
+                 "node_output_material",
+                 in,
+                 out,
+                 alpha_threshold_link,
+                 shadow_threshold_link,
+                 &outlink);
   GPU_material_output_link(mat, outlink);
 
   return true;

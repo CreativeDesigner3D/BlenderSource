@@ -279,7 +279,7 @@ static int pose_calculate_paths_invoke(bContext *C, wmOperator *op, const wmEven
   }
 
   /* show popup dialog to allow editing of range... */
-  // FIXME: hardcoded dimensions here are just arbitrary
+  /* FIXME: hard-coded dimensions here are just arbitrary. */
   return WM_operator_props_dialog_popup(C, op, 200);
 }
 
@@ -742,7 +742,6 @@ static int pose_armature_layers_showall_exec(bContext *C, wmOperator *op)
   int maxLayers = (RNA_boolean_get(op->ptr, "all")) ? 32 : 16;
   /* hardcoded for now - we can only have 32 armature layers, so this should be fine... */
   bool layers[32] = {false};
-  int i;
 
   /* sanity checking */
   if (arm == NULL) {
@@ -755,7 +754,7 @@ static int pose_armature_layers_showall_exec(bContext *C, wmOperator *op)
    */
   RNA_id_pointer_create(&arm->id, &ptr);
 
-  for (i = 0; i < maxLayers; i++) {
+  for (int i = 0; i < maxLayers; i++) {
     layers[i] = 1;
   }
 
@@ -898,6 +897,20 @@ static int pose_bone_layers_exec(bContext *C, wmOperator *op)
   RNA_boolean_get_array(op->ptr, "layers", layers);
 
   Object *prev_ob = NULL;
+
+  /* Make sure that the pose bone data is up to date.
+   * (May not always be the case after undo/redo e.g.).
+   */
+  struct Main *bmain = CTX_data_main(C);
+  wmWindow *win = CTX_wm_window(C);
+  View3D *v3d = CTX_wm_view3d(C); /* This may be NULL in a lot of cases. */
+  ViewLayer *view_layer = WM_window_get_active_view_layer(win);
+
+  FOREACH_OBJECT_IN_MODE_BEGIN (view_layer, v3d, OB_ARMATURE, OB_MODE_POSE, ob_iter) {
+    bArmature *arm = ob_iter->data;
+    BKE_pose_ensure(bmain, ob_iter, arm, true);
+  }
+  FOREACH_OBJECT_IN_MODE_END;
 
   /* set layers of pchans based on the values set in the operator props */
   CTX_DATA_BEGIN_WITH_ID (C, bPoseChannel *, pchan, selected_pose_bones, Object *, ob) {

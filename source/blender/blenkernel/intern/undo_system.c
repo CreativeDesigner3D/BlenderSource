@@ -476,9 +476,8 @@ UndoStep *BKE_undosys_step_push_init_with_type(UndoStack *ustack,
     undosys_stack_validate(ustack, false);
     return us;
   }
-  else {
-    return NULL;
-  }
+
+  return NULL;
 }
 
 UndoStep *BKE_undosys_step_push_init(UndoStack *ustack, bContext *C, const char *name)
@@ -507,9 +506,7 @@ bool BKE_undosys_step_push_with_type(UndoStack *ustack,
 
   /* Might not be final place for this to be called - probably only want to call it from some
    * undo handlers, not all of them? */
-  if (BKE_lib_override_library_is_enabled()) {
-    BKE_lib_override_library_main_operations_create(G_MAIN, false);
-  }
+  BKE_lib_override_library_main_operations_create(G_MAIN, false);
 
   /* Remove all undos after (also when 'ustack->step_active == NULL'). */
   while (ustack->steps.last != ustack->step_active) {
@@ -581,6 +578,12 @@ bool BKE_undosys_step_push_with_type(UndoStack *ustack,
 #endif
       ustack->step_active = us;
     }
+  }
+
+  if (ustack->group_level > 0) {
+    /* Temporarily set skip for the active step.
+     * This is an invalid state which must be corrected once the last group ends. */
+    ustack->step_active->skip = true;
   }
 
   undosys_stack_validate(ustack, true);
@@ -846,6 +849,45 @@ void BKE_undosys_type_free_all(void)
   UndoType *ut;
   while ((ut = BLI_pophead(&g_undo_types))) {
     MEM_freeN(ut);
+  }
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Undo Stack Grouping
+ *
+ * This enables skip while group-level is set.
+ * In general it's not allowed that #UndoStack.step_active have 'skip' enabled.
+ *
+ * This rule is relaxed for grouping, however it's important each call to
+ * #BKE_undosys_stack_group_begin has a matching #BKE_undosys_stack_group_end.
+ *
+ * - Levels are used so nesting is supported, where the last call to #BKE_undosys_stack_group_end
+ *   will set the active undo step that should not be skipped.
+ *
+ * - Correct begin/end is checked by an assert since any errors here will cause undo
+ *   to consider all steps part of one large group.
+ *
+ * - Calls to begin/end with no undo steps being pushed is supported and does nothing.
+ *
+ * \{ */
+
+void BKE_undosys_stack_group_begin(UndoStack *ustack)
+{
+  BLI_assert(ustack->group_level >= 0);
+  ustack->group_level += 1;
+}
+
+void BKE_undosys_stack_group_end(UndoStack *ustack)
+{
+  ustack->group_level -= 1;
+  BLI_assert(ustack->group_level >= 0);
+
+  if (ustack->group_level == 0) {
+    if (LIKELY(ustack->step_active != NULL)) {
+      ustack->step_active->skip = false;
+    }
   }
 }
 

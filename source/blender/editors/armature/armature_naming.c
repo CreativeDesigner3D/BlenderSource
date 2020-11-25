@@ -81,13 +81,13 @@ static bool editbone_unique_check(void *arg, const char *name)
 }
 
 /* If bone is already in list, pass it as param to ignore it. */
-void ED_armature_ebone_unique_name(ListBase *edbo, char *name, EditBone *bone)
+void ED_armature_ebone_unique_name(ListBase *ebones, char *name, EditBone *bone)
 {
   struct {
     ListBase *lb;
     void *bone;
   } data;
-  data.lb = edbo;
+  data.lb = ebones;
   data.bone = bone;
 
   BLI_uniquename_cb(editbone_unique_check, &data, DATA_("Bone"), '.', name, sizeof(bone->name));
@@ -265,7 +265,7 @@ void ED_armature_bone_rename(Main *bmain,
         }
       }
 
-      if (modifiers_usesArmature(ob, arm)) {
+      if (BKE_modifiers_uses_armature(ob, arm)) {
         bDeformGroup *dg = BKE_object_defgroup_find_name(ob, oldname);
         if (dg) {
           BLI_strncpy(dg->name, newname, MAXBONENAME);

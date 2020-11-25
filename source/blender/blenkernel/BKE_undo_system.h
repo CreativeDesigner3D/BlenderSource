@@ -13,8 +13,7 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
-#ifndef __BKE_UNDO_SYSTEM_H__
-#define __BKE_UNDO_SYSTEM_H__
+#pragma once
 
 /** \file
  * \ingroup bke
@@ -71,6 +70,12 @@ typedef struct UndoStack {
    * That is done once end is called.
    */
   struct UndoStep *step_init;
+
+  /**
+   * Keep track of nested group begin/end calls,
+   * within which all but the last undo-step is marked for skipping.
+   */
+  int group_level;
 } UndoStack;
 
 typedef struct UndoStep {
@@ -120,7 +125,9 @@ typedef struct UndoType {
 
   /**
    * \note When freeing all steps,
-   * free from the last since #MemFileUndoType will merge with the next undo type in the list. */
+   * free from the last since #BKE_UNDOSYS_TYPE_MEMFILE
+   * will merge with the next undo type in the list.
+   */
   void (*step_free)(UndoStep *us);
 
   void (*step_foreach_ID_ref)(UndoStep *us,
@@ -154,6 +161,9 @@ UndoStep *BKE_undosys_stack_init_or_active_with_type(UndoStack *ustack, const Un
 void BKE_undosys_stack_limit_steps_and_memory(UndoStack *ustack, int steps, size_t memory_limit);
 #define BKE_undosys_stack_limit_steps_and_memory_defaults(ustack) \
   BKE_undosys_stack_limit_steps_and_memory(ustack, U.undosteps, (size_t)U.undomemory * 1024 * 1024)
+
+void BKE_undosys_stack_group_begin(UndoStack *ustack);
+void BKE_undosys_stack_group_end(UndoStack *ustack);
 
 /* Only some UndoType's require init. */
 UndoStep *BKE_undosys_step_push_init_with_type(UndoStack *ustack,
@@ -210,5 +220,3 @@ void BKE_undosys_print(UndoStack *ustack);
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* __BKE_UNDO_SYSTEM_H__ */

@@ -78,7 +78,7 @@
 
 void selectend_nurb(Object *obedit, enum eEndPoint_Types selfirst, bool doswap, bool selstatus);
 static void adduplicateflagNurb(
-    Object *obedit, View3D *v3d, ListBase *newnurb, const short flag, const bool split);
+    Object *obedit, View3D *v3d, ListBase *newnurb, const uint8_t flag, const bool split);
 static bool curve_delete_segments(Object *obedit, View3D *v3d, const bool split);
 static bool curve_delete_vertices(Object *obedit, View3D *v3d);
 
@@ -569,14 +569,14 @@ GHash *ED_curve_keyindex_hash_duplicate(GHash *keyindex)
 static void key_to_bezt(float *key, BezTriple *basebezt, BezTriple *bezt)
 {
   memcpy(bezt, basebezt, sizeof(BezTriple));
-  memcpy(bezt->vec, key, sizeof(float) * 9);
+  memcpy(bezt->vec, key, sizeof(float[9]));
   bezt->tilt = key[9];
   bezt->radius = key[10];
 }
 
 static void bezt_to_key(BezTriple *bezt, float *key)
 {
-  memcpy(key, bezt->vec, sizeof(float) * 9);
+  memcpy(key, bezt->vec, sizeof(float[9]));
   key[9] = bezt->tilt;
   key[10] = bezt->radius;
 }
@@ -691,7 +691,7 @@ static void calc_shapeKeys(Object *obedit, ListBase *newnurbs)
           nu = nu->next;
         }
 
-        ofs = MEM_callocN(sizeof(float) * 3 * totvec, "currkey->data");
+        ofs = MEM_callocN(sizeof(float[3]) * totvec, "currkey->data");
         nu = editnurb->nurbs.first;
         i = 0;
         while (nu) {
@@ -936,13 +936,13 @@ static void fcurve_path_rename(AnimData *adt,
     nextfcu = fcu->next;
     if (STREQLEN(fcu->rna_path, orig_rna_path, len)) {
       char *spath, *suffix = fcu->rna_path + len;
-      nfcu = copy_fcurve(fcu);
+      nfcu = BKE_fcurve_copy(fcu);
       spath = nfcu->rna_path;
       nfcu->rna_path = BLI_sprintfN("%s%s", rna_path, suffix);
 
-      /* copy_fcurve() sets nfcu->grp to NULL. To maintain the groups, we need to keep the pointer.
-       * As a result, the group's 'channels' pointers will be wrong, which is fixed by calling
-       * `action_groups_reconstruct(action)` later, after all fcurves have been renamed. */
+      /* BKE_fcurve_copy() sets nfcu->grp to NULL. To maintain the groups, we need to keep the
+       * pointer. As a result, the group's 'channels' pointers will be wrong, which is fixed by
+       * calling `action_groups_reconstruct(action)` later, after all fcurves have been renamed. */
       nfcu->grp = fcu->grp;
       BLI_addtail(curves, nfcu);
 
@@ -956,7 +956,7 @@ static void fcurve_path_rename(AnimData *adt,
         BLI_remlink(&adt->drivers, fcu);
       }
 
-      free_fcurve(fcu);
+      BKE_fcurve_free(fcu);
 
       MEM_freeN(spath);
     }
@@ -972,7 +972,7 @@ static void fcurve_remove(AnimData *adt, ListBase *orig_curves, FCurve *fcu)
     action_groups_remove_channel(adt->action, fcu);
   }
 
-  free_fcurve(fcu);
+  BKE_fcurve_free(fcu);
 }
 
 static void curve_rename_fcurves(Curve *cu, ListBase *orig_curves)
@@ -1137,14 +1137,14 @@ int ED_curve_updateAnimPaths(Main *bmain, Curve *cu)
 /** \name Edit Mode Conversion (Make & Load)
  * \{ */
 
-static int *initialize_index_map(Object *obedit, int *r_old_totvert)
+static int *init_index_map(Object *obedit, int *r_old_totvert)
 {
   Curve *curve = (Curve *)obedit->data;
   EditNurb *editnurb = curve->editnurb;
   Nurb *nu;
   CVKeyIndex *keyIndex;
   int *old_to_new_map;
-  int old_totvert, i;
+  int old_totvert;
   int vertex_index;
 
   for (nu = curve->nurb.first, old_totvert = 0; nu != NULL; nu = nu->next) {
@@ -1157,7 +1157,7 @@ static int *initialize_index_map(Object *obedit, int *r_old_totvert)
   }
 
   old_to_new_map = MEM_mallocN(old_totvert * sizeof(int), "curve old to new index map");
-  for (i = 0; i < old_totvert; i++) {
+  for (int i = 0; i < old_totvert; i++) {
     old_to_new_map[i] = -1;
   }
 
@@ -1225,7 +1225,7 @@ static void remap_hooks_and_vertex_parents(Main *bmain, Object *obedit)
     if ((object->parent) && (object->parent->data == curve) &&
         ELEM(object->partype, PARVERT1, PARVERT3)) {
       if (old_to_new_map == NULL) {
-        old_to_new_map = initialize_index_map(obedit, &old_totvert);
+        old_to_new_map = init_index_map(obedit, &old_totvert);
       }
 
       if (object->par1 < old_totvert) {
@@ -1254,7 +1254,7 @@ static void remap_hooks_and_vertex_parents(Main *bmain, Object *obedit)
           int i, j;
 
           if (old_to_new_map == NULL) {
-            old_to_new_map = initialize_index_map(obedit, &old_totvert);
+            old_to_new_map = init_index_map(obedit, &old_totvert);
           }
 
           for (i = j = 0; i < hmd->totindex; i++) {
@@ -1349,7 +1349,7 @@ void ED_curve_editnurb_make(Object *obedit)
     nu = cu->nurb.first;
     while (nu) {
       newnu = BKE_nurb_duplicate(nu);
-      BKE_nurb_test_2d(newnu);  // after join, or any other creation of curve
+      BKE_nurb_test_2d(newnu); /* after join, or any other creation of curve */
       BLI_addtail(&editnurb->nurbs, newnu);
       nu = nu->next;
     }
@@ -1432,13 +1432,13 @@ static int separate_exec(bContext *C, wmOperator *op)
     /* 2. Duplicate the object and data. */
 
     /* Take into account user preferences for duplicating actions. */
-    short dupflag = (U.dupflag & USER_DUP_ACT);
+    const eDupli_ID_Flags dupflag = (U.dupflag & USER_DUP_ACT);
 
     newbase = ED_object_add_duplicate(bmain, scene, view_layer, oldbase, dupflag);
     DEG_relations_tag_update(bmain);
 
     newob = newbase->object;
-    newcu = newob->data = BKE_curve_copy(bmain, oldcu);
+    newcu = newob->data = BKE_id_copy(bmain, &oldcu->id);
     newcu->editnurb = NULL;
     id_us_min(&oldcu->id); /* Because new curve is a copy: reduce user count. */
 
@@ -1600,7 +1600,7 @@ void CURVE_OT_split(wmOperatorType *ot)
 /** \name Flag Utility Functions
  * \{ */
 
-static bool isNurbselUV(const Nurb *nu, int flag, int *r_u, int *r_v)
+static bool isNurbselUV(const Nurb *nu, uint8_t flag, int *r_u, int *r_v)
 {
   /* return (u != -1): 1 row in u-direction selected. U has value between 0-pntsv
    * return (v != -1): 1 column in v-direction selected. V has value between 0-pntsu
@@ -1716,7 +1716,10 @@ static bool isNurbselV(Nurb *nu, int *u, int flag)
   return 1;
 }
 
-static void rotateflagNurb(ListBase *editnurb, short flag, const float cent[3], float rotmat[3][3])
+static void rotateflagNurb(ListBase *editnurb,
+                           short flag,
+                           const float cent[3],
+                           const float rotmat[3][3])
 {
   /* all verts with (flag & 'flag') rotate */
   Nurb *nu;
@@ -1740,7 +1743,7 @@ static void rotateflagNurb(ListBase *editnurb, short flag, const float cent[3], 
   }
 }
 
-void ed_editnurb_translate_flag(ListBase *editnurb, short flag, const float vec[3])
+void ed_editnurb_translate_flag(ListBase *editnurb, uint8_t flag, const float vec[3])
 {
   /* all verts with ('flag' & flag) translate */
   Nurb *nu;
@@ -2049,7 +2052,7 @@ static void ed_curve_delete_selected(Object *obedit, View3D *v3d)
 }
 
 /* only for OB_SURF */
-bool ed_editnurb_extrude_flag(EditNurb *editnurb, const short flag)
+bool ed_editnurb_extrude_flag(EditNurb *editnurb, const uint8_t flag)
 {
   Nurb *nu;
   BPoint *bp, *bpn, *newbp;
@@ -2169,19 +2172,29 @@ bool ed_editnurb_extrude_flag(EditNurb *editnurb, const short flag)
   return ok;
 }
 
+static void calc_duplicate_actnurb(const ListBase *editnurb, const ListBase *newnurb, Curve *cu)
+{
+  cu->actnu = BLI_listbase_count(editnurb) + BLI_listbase_count(newnurb);
+}
+
 static bool calc_duplicate_actvert(
     const ListBase *editnurb, const ListBase *newnurb, Curve *cu, int start, int end, int vert)
 {
+  if (cu->actvert == -1) {
+    calc_duplicate_actnurb(editnurb, newnurb, cu);
+    return true;
+  }
+
   if ((start <= cu->actvert) && (end > cu->actvert)) {
+    calc_duplicate_actnurb(editnurb, newnurb, cu);
     cu->actvert = vert;
-    cu->actnu = BLI_listbase_count(editnurb) + BLI_listbase_count(newnurb);
     return true;
   }
   return false;
 }
 
 static void adduplicateflagNurb(
-    Object *obedit, View3D *v3d, ListBase *newnurb, const short flag, const bool split)
+    Object *obedit, View3D *v3d, ListBase *newnurb, const uint8_t flag, const bool split)
 {
   ListBase *editnurb = object_editcurve_get(obedit);
   Nurb *nu, *newnu;
@@ -2424,26 +2437,31 @@ static void adduplicateflagNurb(
                 }
 
                 if (cu->actnu == i) {
-                  for (b = 0, diffa = 0; b < newv; b++, diffa += nu->pntsu - newu) {
-                    starta = b * nu->pntsu + a;
-                    if (calc_duplicate_actvert(editnurb,
-                                               newnurb,
-                                               cu,
-                                               cu->actvert,
-                                               starta,
-                                               cu->actvert % nu->pntsu + newu +
-                                                   b * newnu->pntsu)) {
-                      /* actvert in cyclicu selection */
-                      break;
-                    }
-                    else if (calc_duplicate_actvert(editnurb,
-                                                    newnurb,
-                                                    cu,
-                                                    starta,
-                                                    starta + newu,
-                                                    cu->actvert - starta + b * newnu->pntsu)) {
-                      /* actvert in 'current' iteration selection */
-                      break;
+                  if (cu->actvert == -1) {
+                    calc_duplicate_actnurb(editnurb, newnurb, cu);
+                  }
+                  else {
+                    for (b = 0, diffa = 0; b < newv; b++, diffa += nu->pntsu - newu) {
+                      starta = b * nu->pntsu + a;
+                      if (calc_duplicate_actvert(editnurb,
+                                                 newnurb,
+                                                 cu,
+                                                 cu->actvert,
+                                                 starta,
+                                                 cu->actvert % nu->pntsu + newu +
+                                                     b * newnu->pntsu)) {
+                        /* actvert in cyclicu selection */
+                        break;
+                      }
+                      if (calc_duplicate_actvert(editnurb,
+                                                 newnurb,
+                                                 cu,
+                                                 starta,
+                                                 starta + newu,
+                                                 cu->actvert - starta + b * newnu->pntsu)) {
+                        /* actvert in 'current' iteration selection */
+                        break;
+                      }
                     }
                   }
                 }
@@ -2471,16 +2489,21 @@ static void adduplicateflagNurb(
 
               /* general case if not handled by cyclicu or cyclicv */
               if (cu->actnu == i) {
-                for (b = 0, diffa = 0; b < newv; b++, diffa += nu->pntsu - newu) {
-                  starta = b * nu->pntsu + a;
-                  if (calc_duplicate_actvert(editnurb,
-                                             newnurb,
-                                             cu,
-                                             starta,
-                                             starta + newu,
-                                             cu->actvert - (a / nu->pntsu * nu->pntsu + diffa +
-                                                            (starta % nu->pntsu)))) {
-                    break;
+                if (cu->actvert == -1) {
+                  calc_duplicate_actnurb(editnurb, newnurb, cu);
+                }
+                else {
+                  for (b = 0, diffa = 0; b < newv; b++, diffa += nu->pntsu - newu) {
+                    starta = b * nu->pntsu + a;
+                    if (calc_duplicate_actvert(editnurb,
+                                               newnurb,
+                                               cu,
+                                               starta,
+                                               starta + newu,
+                                               cu->actvert - (a / nu->pntsu * nu->pntsu + diffa +
+                                                              (starta % nu->pntsu)))) {
+                      break;
+                    }
                   }
                 }
               }
@@ -2507,15 +2530,20 @@ static void adduplicateflagNurb(
 
             /* check for actvert in the unused cyclicuv selection */
             if (cu->actnu == i) {
-              for (b = 0, diffa = 0; b < newv; b++, diffa += nu->pntsu - newu) {
-                starta = b * nu->pntsu;
-                if (calc_duplicate_actvert(editnurb,
-                                           newnurb,
-                                           cu,
-                                           starta,
-                                           starta + newu,
-                                           cu->actvert - (diffa + (starta % nu->pntsu)))) {
-                  break;
+              if (cu->actvert == -1) {
+                calc_duplicate_actnurb(editnurb, newnurb, cu);
+              }
+              else {
+                for (b = 0, diffa = 0; b < newv; b++, diffa += nu->pntsu - newu) {
+                  starta = b * nu->pntsu;
+                  if (calc_duplicate_actvert(editnurb,
+                                             newnurb,
+                                             cu,
+                                             starta,
+                                             starta + newu,
+                                             cu->actvert - (diffa + (starta % nu->pntsu)))) {
+                    break;
+                  }
                 }
               }
             }
@@ -2776,19 +2804,15 @@ static void smooth_single_bezt(BezTriple *bezt,
                                const BezTriple *bezt_orig_next,
                                float factor)
 {
-  int i;
-
   BLI_assert(IN_RANGE_INCL(factor, 0.0f, 1.0f));
 
-  for (i = 0; i < 3; i++) {
-    float val_old, val_new, offset;
-
+  for (int i = 0; i < 3; i++) {
     /* get single dimension pos of the mid handle */
-    val_old = bezt->vec[1][i];
+    float val_old = bezt->vec[1][i];
 
     /* get the weights of the previous/next mid handles and calc offset */
-    val_new = (bezt_orig_prev->vec[1][i] * 0.5f) + (bezt_orig_next->vec[1][i] * 0.5f);
-    offset = (val_old * (1.0f - factor)) + (val_new * factor) - val_old;
+    float val_new = (bezt_orig_prev->vec[1][i] * 0.5f) + (bezt_orig_next->vec[1][i] * 0.5f);
+    float offset = (val_old * (1.0f - factor)) + (val_new * factor) - val_old;
 
     /* offset midpoint and 2 handles */
     bezt->vec[1][i] += offset;
@@ -2805,11 +2829,9 @@ static void smooth_single_bp(BPoint *bp,
                              const BPoint *bp_orig_next,
                              float factor)
 {
-  int i;
-
   BLI_assert(IN_RANGE_INCL(factor, 0.0f, 1.0f));
 
-  for (i = 0; i < 3; i++) {
+  for (int i = 0; i < 3; i++) {
     float val_old, val_new, offset;
 
     val_old = bp->vec[i];
@@ -3444,7 +3466,7 @@ static void subdividenurb(Object *obedit, View3D *v3d, int number_cuts)
   BezTriple *bezt, *beztnew, *beztn;
   BPoint *bp, *prevbp, *bpnew, *bpn;
   float vec[15];
-  int a, b, sel, amount, *usel, *vsel, i;
+  int a, b, sel, amount, *usel, *vsel;
   float factor;
 
   // printf("*** subdivideNurb: entering subdivide\n");
@@ -3495,9 +3517,9 @@ static void subdividenurb(Object *obedit, View3D *v3d, int number_cuts)
               BEZT_ISSEL_ANY_HIDDENHANDLES(v3d, nextbezt)) {
             float prevvec[3][3];
 
-            memcpy(prevvec, bezt->vec, sizeof(float) * 9);
+            memcpy(prevvec, bezt->vec, sizeof(float[9]));
 
-            for (i = 0; i < number_cuts; i++) {
+            for (int i = 0; i < number_cuts; i++) {
               factor = 1.0f / (number_cuts + 1 - i);
 
               memcpy(beztn, nextbezt, sizeof(BezTriple));
@@ -3527,7 +3549,7 @@ static void subdividenurb(Object *obedit, View3D *v3d, int number_cuts)
               beztn->radius = (bezt->radius + nextbezt->radius) / 2;
               beztn->weight = (bezt->weight + nextbezt->weight) / 2;
 
-              memcpy(prevvec, beztn->vec, sizeof(float) * 9);
+              memcpy(prevvec, beztn->vec, sizeof(float[9]));
               beztn++;
             }
           }
@@ -3587,7 +3609,7 @@ static void subdividenurb(Object *obedit, View3D *v3d, int number_cuts)
 
           if ((bp->f1 & SELECT) && (nextbp->f1 & SELECT)) {
             // printf("*** subdivideNurb: insert 'linear' point\n");
-            for (i = 0; i < number_cuts; i++) {
+            for (int i = 0; i < number_cuts; i++) {
               factor = (float)(i + 1) / (number_cuts + 1);
 
               memcpy(bpn, nextbp, sizeof(BPoint));
@@ -3618,9 +3640,8 @@ static void subdividenurb(Object *obedit, View3D *v3d, int number_cuts)
        * degree of the functions used to build the NURB. The
        * expression
        *
-       *     degree = #knots - #controlpoints + 1 (J Walter piece)
-       *     degree = #knots - #controlpoints     (Blender
-       *                                           implementation)
+       *     `degree = knots - controlpoints + 1` (J Walter piece)
+       *     `degree = knots - controlpoints` (Blender implementation)
        *       ( this is confusing.... what is true? Another concern
        *       is that the JW piece allows the curve to become
        *       explicitly 1st order derivative discontinuous, while
@@ -3629,12 +3650,12 @@ static void subdividenurb(Object *obedit, View3D *v3d, int number_cuts)
        * is an invariant for a single NURB curve. Raising the degree
        * of the NURB is done elsewhere; the degree is assumed
        * constant during this operation. Degree is a property shared
-       * by all controlpoints in a curve (even though it is stored
+       * by all control-points in a curve (even though it is stored
        * per control point - this can be misleading).
        * Adding a knot is done by searching for the place in the
        * knot vector where a certain knot value must be inserted, or
        * by picking an appropriate knot value between two existing
-       * ones. The number of controlpoints that is influenced by the
+       * ones. The number of control-points that is influenced by the
        * insertion depends on the order of the curve. A certain
        * minimum number of knots is needed to form high-order
        * curves, as can be seen from the equation above. In Blender,
@@ -3690,7 +3711,7 @@ static void subdividenurb(Object *obedit, View3D *v3d, int number_cuts)
             bp++;
             if (b < nu->pntsu - 1) {
               prevbp = bp - 1;
-              for (i = 0; i < number_cuts; i++) {
+              for (int i = 0; i < number_cuts; i++) {
                 factor = (float)(i + 1) / (number_cuts + 1);
                 *bpn = *bp;
                 interp_v4_v4v4(bpn->vec, prevbp->vec, bp->vec, factor);
@@ -3708,7 +3729,7 @@ static void subdividenurb(Object *obedit, View3D *v3d, int number_cuts)
 
           for (b = 0; b < (number_cuts + 1) * nu->pntsu - number_cuts; b++) {
             BPoint *tmp = bpn;
-            for (i = 0; i < number_cuts; i++) {
+            for (int i = 0; i < number_cuts; i++) {
               factor = (float)(i + 1) / (number_cuts + 1);
               *tmp = *bp;
               interp_v4_v4v4(tmp->vec, prevbp->vec, bp->vec, factor);
@@ -3750,7 +3771,7 @@ static void subdividenurb(Object *obedit, View3D *v3d, int number_cuts)
               bp++;
             }
             if ((a < nu->pntsv - 1) && vsel[a] == nu->pntsu && vsel[a + 1] == nu->pntsu) {
-              for (i = 0; i < number_cuts; i++) {
+              for (int i = 0; i < number_cuts; i++) {
                 factor = (float)(i + 1) / (number_cuts + 1);
                 prevbp = bp - nu->pntsu;
                 for (b = 0; b < nu->pntsu; b++) {
@@ -3806,7 +3827,7 @@ static void subdividenurb(Object *obedit, View3D *v3d, int number_cuts)
                    * handle at most 3rd order curves? I miss
                    * some symmetry here...
                    */
-                  for (i = 0; i < number_cuts; i++) {
+                  for (int i = 0; i < number_cuts; i++) {
                     factor = (float)(i + 1) / (number_cuts + 1);
                     prevbp = bp - 1;
                     *bpn = *prevbp;
@@ -4085,7 +4106,7 @@ static int curve_normals_make_consistent_exec(bContext *C, wmOperator *op)
 void CURVE_OT_normals_make_consistent(wmOperatorType *ot)
 {
   /* identifiers */
-  ot->name = "Recalc Normals";
+  ot->name = "Recalculate Handles";
   ot->description = "Recalculate the direction of selected handles";
   ot->idname = "CURVE_OT_normals_make_consistent";
 
@@ -4544,15 +4565,13 @@ static int make_segment_exec(bContext *C, wmOperator *op)
         if (nu_select_num > 1) {
           break;
         }
-        else {
-          /* only 1 selected, not first or last, a little complex, but intuitive */
-          if (nu->pntsv == 1) {
-            if ((nu->bp->f1 & SELECT) || (nu->bp[nu->pntsu - 1].f1 & SELECT)) {
-              /* pass */
-            }
-            else {
-              break;
-            }
+        /* only 1 selected, not first or last, a little complex, but intuitive */
+        if (nu->pntsv == 1) {
+          if ((nu->bp->f1 & SELECT) || (nu->bp[nu->pntsu - 1].f1 & SELECT)) {
+            /* pass */
+          }
+          else {
+            break;
           }
         }
       }
@@ -4923,7 +4942,7 @@ bool ED_curve_editnurb_select_pick(
       }
     }
     else {
-      BKE_nurbList_flag_set(editnurb, 0);
+      BKE_nurbList_flag_set(editnurb, SELECT, false);
 
       if (bezt) {
 
@@ -5500,6 +5519,7 @@ static int ed_editcurve_addvert(Curve *cu,
 
       if (nu) {
         nurb_new = BKE_nurb_copy(nu, 1, 1);
+        memcpy(nurb_new->bezt, nu->bezt, sizeof(BezTriple));
       }
       else {
         nurb_new = MEM_callocN(sizeof(Nurb), "BLI_editcurve_addvert new_bezt_nurb 2");
@@ -5593,9 +5613,7 @@ static int add_vertex_exec(bContext *C, wmOperator *op)
 
     return OPERATOR_FINISHED;
   }
-  else {
-    return OPERATOR_CANCELLED;
-  }
+  return OPERATOR_CANCELLED;
 }
 
 static int add_vertex_invoke(bContext *C, wmOperator *op, const wmEvent *event)
@@ -5635,7 +5653,7 @@ static int add_vertex_invoke(bContext *C, wmOperator *op, const wmEvent *event)
       const float mval[2] = {UNPACK2(event->mval)};
 
       struct SnapObjectContext *snap_context = ED_transform_snap_object_context_create_view3d(
-          vc.bmain, vc.scene, 0, vc.region, vc.v3d);
+          vc.scene, 0, vc.region, vc.v3d);
 
       ED_transform_snap_object_project_view3d(
           snap_context,
@@ -6517,9 +6535,7 @@ static int curve_delete_exec(bContext *C, wmOperator *op)
   if (changed_multi) {
     return OPERATOR_FINISHED;
   }
-  else {
-    return OPERATOR_CANCELLED;
-  }
+  return OPERATOR_CANCELLED;
 }
 
 static const EnumPropertyItem curve_delete_type_items[] = {
@@ -6895,7 +6911,7 @@ void CURVE_OT_shade_flat(wmOperatorType *ot)
  * This is used externally, by #OBJECT_OT_join.
  * TODO: shape keys - as with meshes.
  */
-int join_curve_exec(bContext *C, wmOperator *op)
+int ED_curve_join_objects_exec(bContext *C, wmOperator *op)
 {
   Main *bmain = CTX_data_main(C);
   Scene *scene = CTX_data_scene(C);
@@ -6925,8 +6941,9 @@ int join_curve_exec(bContext *C, wmOperator *op)
 
   BLI_listbase_clear(&tempbase);
 
-  /* trasnform all selected curves inverse in obact */
-  invert_m4_m4(imat, ob_active->obmat);
+  /* Inverse transform for all selected curves in this object,
+   * See #object_join_exec for detailed comment on why the safe version is used. */
+  invert_m4_m4_safe_ortho(imat, ob_active->obmat);
 
   CTX_DATA_BEGIN (C, Object *, ob_iter, selected_editable_objects) {
     if (ob_iter->type == ob_active->type) {
@@ -6984,12 +7001,13 @@ int join_curve_exec(bContext *C, wmOperator *op)
     BKE_curve_curve_dimension_update(cu);
   }
 
-  DEG_relations_tag_update(bmain);  // because we removed object(s), call before editmode!
+  DEG_relations_tag_update(bmain); /* because we removed object(s), call before editmode! */
 
   DEG_id_tag_update(&ob_active->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
   DEG_id_tag_update(&scene->id, ID_RECALC_SELECT);
 
   WM_event_add_notifier(C, NC_SCENE | ND_OB_ACTIVE, scene);
+  WM_event_add_notifier(C, NC_SCENE | ND_LAYER_CONTENT, scene);
 
   return OPERATOR_FINISHED;
 }

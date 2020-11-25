@@ -21,8 +21,7 @@
  * \ingroup spview3d
  */
 
-#ifndef __VIEW3D_INTERN_H__
-#define __VIEW3D_INTERN_H__
+#pragma once
 
 #include "ED_view3d.h"
 
@@ -171,10 +170,16 @@ bool ED_view3d_boundbox_clip_ex(const RegionView3D *rv3d,
                                 float obmat[4][4]);
 bool ED_view3d_boundbox_clip(RegionView3D *rv3d, const struct BoundBox *bb);
 
+/**
+ * Parameters for setting the new view-port state.
+ *
+ * Each of the struct members may be NULL to signify they aren't to be adjusted.
+ */
 typedef struct V3D_SmoothParams {
   struct Object *camera_old, *camera;
   const float *ofs, *quat, *dist, *lens;
-  /* alternate rotation center (ofs = must be NULL) */
+
+  /** Alternate rotation center, when set `ofs` must be NULL. */
   const float *dyn_ofs;
 } V3D_SmoothParams;
 
@@ -213,6 +218,7 @@ void viewrotate_modal_keymap(struct wmKeyConfig *keyconf);
 void viewmove_modal_keymap(struct wmKeyConfig *keyconf);
 void viewzoom_modal_keymap(struct wmKeyConfig *keyconf);
 void viewdolly_modal_keymap(struct wmKeyConfig *keyconf);
+void viewplace_modal_keymap(struct wmKeyConfig *keyconf);
 
 /* view3d_buttons.c */
 void VIEW3D_OT_object_mode_pie_or_toggle(struct wmOperatorType *ot);
@@ -243,6 +249,9 @@ void VIEW3D_OT_snap_cursor_to_center(struct wmOperatorType *ot);
 void VIEW3D_OT_snap_cursor_to_selected(struct wmOperatorType *ot);
 void VIEW3D_OT_snap_cursor_to_active(struct wmOperatorType *ot);
 
+/* view3d_placement.c */
+void VIEW3D_OT_interactive_add(struct wmOperatorType *ot);
+
 /* space_view3d.c */
 extern const char *view3d_context_dir[]; /* doc access */
 
@@ -268,8 +277,10 @@ void VIEW3D_OT_ruler_remove(struct wmOperatorType *ot);
 
 void VIEW3D_GT_navigate_rotate(struct wmGizmoType *gzt);
 
+void VIEW3D_GGT_placement(struct wmGizmoGroupType *gzgt);
+
 /* workaround for trivial but noticeable camera bug caused by imprecision
- * between view border calculation in 2D/3D space, workaround for bug [#28037].
+ * between view border calculation in 2D/3D space, workaround for bug T28037.
  * without this define we get the old behavior which is to try and align them
  * both which _mostly_ works fine, but when the camera moves beyond ~1000 in
  * any direction it starts to fail */
@@ -278,5 +289,3 @@ void VIEW3D_GT_navigate_rotate(struct wmGizmoType *gzt);
 extern uchar view3d_camera_border_hack_col[3];
 extern bool view3d_camera_border_hack_test;
 #endif
-
-#endif /* __VIEW3D_INTERN_H__ */

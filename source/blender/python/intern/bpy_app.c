@@ -50,7 +50,6 @@
 #include "BKE_appdir.h"
 #include "BKE_blender_version.h"
 #include "BKE_global.h"
-#include "BKE_lib_override.h"
 
 #include "DNA_ID.h"
 
@@ -127,17 +126,7 @@ static PyStructSequence_Field app_info_fields[] = {
 };
 
 PyDoc_STRVAR(bpy_app_doc,
-             "This module contains application values that remain unchanged during runtime.\n"
-             "\n"
-             "Submodules:\n"
-             "\n"
-             ".. toctree::\n"
-             "   :maxdepth: 1\n"
-             "\n"
-             "   bpy.app.handlers.rst\n"
-             "   bpy.app.icons.rst\n"
-             "   bpy.app.timers.rst\n"
-             "   bpy.app.translations.rst\n");
+             "This module contains application values that remain unchanged during runtime.");
 
 static PyStructSequence_Desc app_info_desc = {
     "bpy.app",       /* name */
@@ -171,7 +160,7 @@ static PyObject *make_app_info(void)
   SetObjItem(PyBool_FromLong(G.factory_startup));
 
   /* build info, use bytes since we can't assume _any_ encoding:
-   * see patch [#30154] for issue */
+   * see patch T30154 for issue */
 #ifdef BUILD_DATE
   SetBytesItem(build_date);
   SetBytesItem(build_time);
@@ -303,36 +292,13 @@ static int bpy_app_global_flag_set__only_disable(PyObject *UNUSED(self),
   return bpy_app_global_flag_set(NULL, value, closure);
 }
 
-#define BROKEN_BINARY_PATH_PYTHON_HACK
-
 PyDoc_STRVAR(bpy_app_binary_path_python_doc,
-             "String, the path to the python executable (read-only)");
-static PyObject *bpy_app_binary_path_python_get(PyObject *self, void *UNUSED(closure))
+             "String, the path to the python executable (read-only). "
+             "Deprecated! Use ``sys.executable`` instead.");
+static PyObject *bpy_app_binary_path_python_get(PyObject *UNUSED(self), void *UNUSED(closure))
 {
-  /* refcount is held in BlenderAppType.tp_dict */
-  static PyObject *ret = NULL;
-
-  if (ret == NULL) {
-    /* only run once */
-    char fullpath[1024];
-    BKE_appdir_program_python_search(
-        fullpath, sizeof(fullpath), PY_MAJOR_VERSION, PY_MINOR_VERSION);
-    ret = PyC_UnicodeFromByte(fullpath);
-#ifdef BROKEN_BINARY_PATH_PYTHON_HACK
-    Py_INCREF(ret);
-    UNUSED_VARS(self);
-#else
-    PyDict_SetItem(
-        BlenderAppType.tp_dict,
-        /* XXX BAAAADDDDDD! self is not a PyDescr at all! it's bpy.app!!! */ PyDescr_NAME(self),
-        ret);
-#endif
-  }
-  else {
-    Py_INCREF(ret);
-  }
-
-  return ret;
+  PyErr_Warn(PyExc_RuntimeWarning, "Use 'sys.executable' instead of 'binary_path_python'!");
+  return Py_INCREF_RET(PySys_GetObject("executable"));
 }
 
 PyDoc_STRVAR(bpy_app_debug_value_doc,
@@ -344,7 +310,7 @@ static PyObject *bpy_app_debug_value_get(PyObject *UNUSED(self), void *UNUSED(cl
 
 static int bpy_app_debug_value_set(PyObject *UNUSED(self), PyObject *value, void *UNUSED(closure))
 {
-  short param = PyC_Long_AsI16(value);
+  const short param = PyC_Long_AsI16(value);
 
   if (param == -1 && PyErr_Occurred()) {
     PyC_Err_SetString_Prefix(PyExc_TypeError,
@@ -384,35 +350,12 @@ PyDoc_STRVAR(bpy_app_preview_render_size_doc,
              "Reference size for icon/preview renders (read-only)");
 static PyObject *bpy_app_preview_render_size_get(PyObject *UNUSED(self), void *closure)
 {
-  return PyLong_FromLong((long)UI_preview_render_size(POINTER_AS_INT(closure)));
+  return PyLong_FromLong((long)UI_icon_preview_to_render_size(POINTER_AS_INT(closure)));
 }
 
 static PyObject *bpy_app_autoexec_fail_message_get(PyObject *UNUSED(self), void *UNUSED(closure))
 {
   return PyC_UnicodeFromByte(G.autoexec_fail);
-}
-
-PyDoc_STRVAR(bpy_app_use_override_library_doc,
-             "Boolean, whether library override is exposed in UI or not.");
-static PyObject *bpy_app_use_override_library_get(PyObject *UNUSED(self), void *UNUSED(closure))
-{
-  return PyBool_FromLong((long)BKE_lib_override_library_is_enabled());
-}
-
-static int bpy_app_use_override_library_set(PyObject *UNUSED(self),
-                                            PyObject *value,
-                                            void *UNUSED(closure))
-{
-  const int param = PyC_Long_AsBool(value);
-
-  if (param == -1 && PyErr_Occurred()) {
-    PyErr_SetString(PyExc_TypeError, "bpy.app.use_override_library must be a boolean");
-    return -1;
-  }
-
-  BKE_lib_override_library_enable((const bool)param);
-
-  return 0;
 }
 
 static PyGetSetDef bpy_app_getsets[] = {
@@ -485,11 +428,6 @@ static PyGetSetDef bpy_app_getsets[] = {
      (void *)G_DEBUG_GPU_MEM},
     {"debug_io", bpy_app_debug_get, bpy_app_debug_set, bpy_app_debug_doc, (void *)G_DEBUG_IO},
 
-    {"use_override_library",
-     bpy_app_use_override_library_get,
-     bpy_app_use_override_library_set,
-     bpy_app_use_override_library_doc,
-     NULL},
     {"use_event_simulate",
      bpy_app_global_flag_get,
      bpy_app_global_flag_set__only_disable,
@@ -561,7 +499,7 @@ PyObject *BPY_app_struct(void)
   BlenderAppType.tp_init = NULL;
   BlenderAppType.tp_new = NULL;
   BlenderAppType.tp_hash = (hashfunc)
-      _Py_HashPointer; /* without this we can't do set(sys.modules) [#29635] */
+      _Py_HashPointer; /* without this we can't do set(sys.modules) T29635. */
 
   /* kindof a hack ontop of PyStructSequence */
   py_struct_seq_getset_init();

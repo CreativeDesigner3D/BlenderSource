@@ -37,7 +37,8 @@
 #include "intern/depsgraph.h"
 #include "intern/depsgraph_relation.h"
 
-namespace DEG {
+namespace blender {
+namespace deg {
 
 namespace {
 
@@ -68,7 +69,7 @@ struct CyclesSolverState {
   {
     BLI_stack_free(traversal_stack);
     if (num_cycles != 0) {
-      /* printf("Detected %d dependency cycles\n", num_cycles); */
+      printf("Detected %d dependency cycles\n", num_cycles);
     }
   }
   Depsgraph *graph;
@@ -76,22 +77,22 @@ struct CyclesSolverState {
   int num_cycles;
 };
 
-BLI_INLINE void set_node_visited_state(Node *node, eCyclicCheckVisitedState state)
+inline void set_node_visited_state(Node *node, eCyclicCheckVisitedState state)
 {
   node->custom_flags = (node->custom_flags & ~0x3) | (int)state;
 }
 
-BLI_INLINE eCyclicCheckVisitedState get_node_visited_state(Node *node)
+inline eCyclicCheckVisitedState get_node_visited_state(Node *node)
 {
   return (eCyclicCheckVisitedState)(node->custom_flags & 0x3);
 }
 
-BLI_INLINE void set_node_num_visited_children(Node *node, int num_children)
+inline void set_node_num_visited_children(Node *node, int num_children)
 {
   node->custom_flags = (node->custom_flags & 0x3) | (num_children << 2);
 }
 
-BLI_INLINE int get_node_num_visited_children(Node *node)
+inline int get_node_num_visited_children(Node *node)
 {
   return node->custom_flags >> 2;
 }
@@ -192,7 +193,7 @@ void solve_cycles(CyclesSolverState *state)
                          current->via_relation->name + "'\n";
             current = current->from;
           }
-          /* printf("Dependency cycle detected:\n%s", cycle_str.c_str()); */
+          printf("Dependency cycle detected:\n%s", cycle_str.c_str());
           Relation *sacrificial_relation = select_relation_to_murder(rel, entry);
           sacrificial_relation->flag |= RELATION_FLAG_CYCLIC;
           ++state->num_cycles;
@@ -234,4 +235,5 @@ void deg_graph_detect_cycles(Depsgraph *graph)
   }
 }
 
-}  // namespace DEG
+}  // namespace deg
+}  // namespace blender

@@ -21,8 +21,7 @@
  * \ingroup DNA
  */
 
-#ifndef __DNA_MESHDATA_TYPES_H__
-#define __DNA_MESHDATA_TYPES_H__
+#pragma once
 
 #include "DNA_customdata_types.h"
 #include "DNA_listBase.h"
@@ -309,7 +308,7 @@ typedef enum eMVertSkinFlag {
    */
   MVERT_SKIN_ROOT = 1,
 
-  /** Marks a branch vertex (vertex with more than two connected edges), so that it's neighbors
+  /** Marks a branch vertex (vertex with more than two connected edges), so that its neighbors
    * are directly hulled together, rather than the default of generating intermediate frames.
    */
   MVERT_SKIN_LOOSE = 2,
@@ -343,6 +342,10 @@ enum {
 typedef struct MLoopCol {
   unsigned char r, g, b, a;
 } MLoopCol;
+
+typedef struct MPropCol {
+  float color[4];
+} MPropCol;
 
 /** Multi-Resolution loop data. */
 typedef struct MDisps {
@@ -566,5 +569,3 @@ typedef struct Multires {
 /* End multi-res structs. */
 
 /** \} */
-
-#endif /* __DNA_MESHDATA_TYPES_H__ */

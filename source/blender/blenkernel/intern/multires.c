@@ -10,7 +10,7 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software  Foundation,
+ * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
  * The Original Code is Copyright (C) 2007 by Nicholas Bishop
@@ -175,7 +175,7 @@ static BLI_bitmap *multires_mdisps_upsample_hidden(BLI_bitmap *lo_hidden,
   return subd;
 }
 
-static BLI_bitmap *multires_mdisps_downsample_hidden(BLI_bitmap *old_hidden,
+static BLI_bitmap *multires_mdisps_downsample_hidden(const BLI_bitmap *old_hidden,
                                                      int old_level,
                                                      int new_level)
 {
@@ -241,7 +241,7 @@ static void multires_mdisps_subdivide_hidden(MDisps *md, int new_level)
   md->hidden = subd;
 }
 
-static MDisps *multires_mdisps_initialize_hidden(Mesh *me, int level)
+static MDisps *multires_mdisps_init_hidden(Mesh *me, int level)
 {
   MDisps *mdisps = CustomData_add_layer(&me->ldata, CD_MDISPS, CD_CALLOC, NULL, me->totloop);
   int gridsize = BKE_ccg_gridsize(level);
@@ -289,8 +289,8 @@ Mesh *BKE_multires_create_mesh(struct Depsgraph *depsgraph,
       .flag = MOD_APPLY_USECACHE | MOD_APPLY_IGNORE_SIMPLIFY,
   };
 
-  const ModifierTypeInfo *mti = modifierType_getInfo(mmd->modifier.type);
-  Mesh *result = mti->applyModifier(&mmd->modifier, &modifier_ctx, deformed_mesh);
+  const ModifierTypeInfo *mti = BKE_modifier_get_info(mmd->modifier.type);
+  Mesh *result = mti->modifyMesh(&mmd->modifier, &modifier_ctx, deformed_mesh);
 
   if (result == deformed_mesh) {
     result = BKE_mesh_copy_for_eval(deformed_mesh, true);
@@ -318,8 +318,8 @@ float (*BKE_multires_create_deformed_base_mesh_vert_coords(struct Depsgraph *dep
   const int required_mode = use_render ? eModifierMode_Render : eModifierMode_Realtime;
 
   VirtualModifierData virtual_modifier_data;
-  ModifierData *first_md = modifiers_getVirtualModifierList(&object_for_eval,
-                                                            &virtual_modifier_data);
+  ModifierData *first_md = BKE_modifiers_get_virtual_modifierlist(&object_for_eval,
+                                                                  &virtual_modifier_data);
 
   Mesh *base_mesh = object->data;
 
@@ -327,13 +327,13 @@ float (*BKE_multires_create_deformed_base_mesh_vert_coords(struct Depsgraph *dep
   float(*deformed_verts)[3] = BKE_mesh_vert_coords_alloc(base_mesh, &num_deformed_verts);
 
   for (ModifierData *md = first_md; md != NULL; md = md->next) {
-    const ModifierTypeInfo *mti = modifierType_getInfo(md->type);
+    const ModifierTypeInfo *mti = BKE_modifier_get_info(md->type);
 
     if (md == &mmd->modifier) {
       break;
     }
 
-    if (!modifier_isEnabled(scene_eval, md, required_mode)) {
+    if (!BKE_modifier_is_enabled(scene_eval, md, required_mode)) {
       continue;
     }
 
@@ -341,7 +341,8 @@ float (*BKE_multires_create_deformed_base_mesh_vert_coords(struct Depsgraph *dep
       break;
     }
 
-    modwrap_deformVerts(md, &mesh_eval_context, base_mesh, deformed_verts, num_deformed_verts);
+    BKE_modifier_deform_verts(
+        md, &mesh_eval_context, base_mesh, deformed_verts, num_deformed_verts);
   }
 
   if (r_num_deformed_verts != NULL) {
@@ -356,7 +357,7 @@ MultiresModifierData *find_multires_modifier_before(Scene *scene, ModifierData *
 
   for (md = lastmd; md; md = md->prev) {
     if (md->type == eModifierType_Multires) {
-      if (modifier_isEnabled(scene, md, eModifierMode_Realtime)) {
+      if (BKE_modifier_is_enabled(scene, md, eModifierMode_Realtime)) {
         return (MultiresModifierData *)md;
       }
     }
@@ -380,7 +381,7 @@ MultiresModifierData *get_multires_modifier(Scene *scene, Object *ob, bool use_f
         firstmmd = (MultiresModifierData *)md;
       }
 
-      if (modifier_isEnabled(scene, md, eModifierMode_Realtime)) {
+      if (BKE_modifier_is_enabled(scene, md, eModifierMode_Realtime)) {
         mmd = (MultiresModifierData *)md;
         break;
       }
@@ -406,15 +407,14 @@ int multires_get_level(const Scene *scene,
     return (scene != NULL) ? get_render_subsurf_level(&scene->r, mmd->renderlvl, true) :
                              mmd->renderlvl;
   }
-  else if (ob->mode == OB_MODE_SCULPT) {
-    return BKE_multires_sculpt_level_get(mmd);
+  if (ob->mode == OB_MODE_SCULPT) {
+    return mmd->sculptlvl;
   }
-  else if (ignore_simplify) {
+  if (ignore_simplify) {
     return mmd->lvl;
   }
-  else {
-    return (scene != NULL) ? get_render_subsurf_level(&scene->r, mmd->lvl, false) : mmd->lvl;
-  }
+
+  return (scene != NULL) ? get_render_subsurf_level(&scene->r, mmd->lvl, false) : mmd->lvl;
 }
 
 void multires_set_tot_level(Object *ob, MultiresModifierData *mmd, int lvl)
@@ -552,7 +552,7 @@ static int get_levels_from_disps(Object *ob)
         if (md->totdisp == lvl_totdisp) {
           break;
         }
-        else if (md->totdisp < lvl_totdisp) {
+        if (md->totdisp < lvl_totdisp) {
           totlvl--;
         }
         else {
@@ -608,7 +608,7 @@ static void multires_reallocate_mdisps(int totloop, MDisps *mdisps, int lvl)
   /* reallocate displacements to be filled in */
   for (i = 0; i < totloop; i++) {
     int totdisp = multires_grid_tot[lvl];
-    float(*disps)[3] = MEM_calloc_arrayN(totdisp, 3 * sizeof(float), "multires disps");
+    float(*disps)[3] = MEM_calloc_arrayN(totdisp, sizeof(float[3]), "multires disps");
 
     if (mdisps[i].disps) {
       MEM_freeN(mdisps[i].disps);
@@ -726,7 +726,7 @@ static void multires_del_higher(MultiresModifierData *mmd, Object *ob, int lvl)
           float(*disps)[3], (*ndisps)[3], (*hdisps)[3];
           int totdisp = multires_grid_tot[lvl];
 
-          disps = MEM_calloc_arrayN(totdisp, 3 * sizeof(float), "multires disps");
+          disps = MEM_calloc_arrayN(totdisp, sizeof(float[3]), "multires disps");
 
           if (mdisp->disps != NULL) {
             ndisps = disps;
@@ -867,7 +867,7 @@ static void multires_subdivide_legacy(
 
   mdisps = CustomData_get_layer(&me->ldata, CD_MDISPS);
   if (!mdisps) {
-    mdisps = multires_mdisps_initialize_hidden(me, totlvl);
+    mdisps = multires_mdisps_init_hidden(me, totlvl);
   }
 
   if (mdisps->disps && !updateblock && lvl != 0) {
@@ -1540,7 +1540,7 @@ static void old_mdisps_convert(MFace *mface, MDisps *mdisp)
   int x, y, S;
   float(*disps)[3], (*out)[3], u = 0.0f, v = 0.0f; /* Quite gcc barking. */
 
-  disps = MEM_calloc_arrayN(newtotdisp, 3 * sizeof(float), "multires disps");
+  disps = MEM_calloc_arrayN(newtotdisp, sizeof(float[3]), "multires disps");
 
   out = disps;
   for (S = 0; S < nvert; S++) {
@@ -1600,7 +1600,7 @@ void multires_load_old_250(Mesh *me)
 
       for (j = 0; j < nvert; j++, k++) {
         mdisps2[k].disps = MEM_calloc_arrayN(
-            totdisp, 3 * sizeof(float), "multires disp in conversion");
+            totdisp, sizeof(float[3]), "multires disp in conversion");
         mdisps2[k].totdisp = totdisp;
         mdisps2[k].level = mdisps[i].level;
         memcpy(mdisps2[k].disps, mdisps[i].disps + totdisp * j, totdisp);
@@ -1672,7 +1672,7 @@ static void create_old_vert_face_map(ListBase **map,
   IndexNode *node = NULL;
 
   (*map) = MEM_calloc_arrayN(totvert, sizeof(ListBase), "vert face map");
-  (*mem) = MEM_calloc_arrayN(totface, 4 * sizeof(IndexNode), "vert face map mem");
+  (*mem) = MEM_calloc_arrayN(totface, sizeof(IndexNode[4]), "vert face map mem");
   node = *mem;
 
   /* Find the users */
@@ -1694,7 +1694,7 @@ static void create_old_vert_edge_map(ListBase **map,
   IndexNode *node = NULL;
 
   (*map) = MEM_calloc_arrayN(totvert, sizeof(ListBase), "vert edge map");
-  (*mem) = MEM_calloc_arrayN(totedge, 2 * sizeof(IndexNode), "vert edge map mem");
+  (*mem) = MEM_calloc_arrayN(totedge, sizeof(IndexNode[2]), "vert edge map mem");
   node = *mem;
 
   /* Find the users */
@@ -2193,10 +2193,10 @@ void multires_load_old(Object *ob, Mesh *me)
 
   /* Add a multires modifier to the object */
   md = ob->modifiers.first;
-  while (md && modifierType_getInfo(md->type)->type == eModifierTypeType_OnlyDeform) {
+  while (md && BKE_modifier_get_info(md->type)->type == eModifierTypeType_OnlyDeform) {
     md = md->next;
   }
-  mmd = (MultiresModifierData *)modifier_new(eModifierType_Multires);
+  mmd = (MultiresModifierData *)BKE_modifier_new(eModifierType_Multires);
   BLI_insertlinkbefore(&ob->modifiers, md, mmd);
 
   for (i = 0; i < me->mr->level_count - 1; i++) {
@@ -2234,7 +2234,14 @@ void multiresModifier_sync_levels_ex(Object *ob_dst,
   }
 
   if (mmd_src->totlvl > mmd_dst->totlvl) {
-    multiresModifier_subdivide_to_level(ob_dst, mmd_dst, mmd_src->totlvl);
+    if (mmd_dst->simple) {
+      multiresModifier_subdivide_to_level(
+          ob_dst, mmd_dst, mmd_src->totlvl, MULTIRES_SUBDIVIDE_SIMPLE);
+    }
+    else {
+      multiresModifier_subdivide_to_level(
+          ob_dst, mmd_dst, mmd_src->totlvl, MULTIRES_SUBDIVIDE_CATMULL_CLARK);
+    }
   }
   else {
     multires_del_higher(mmd_dst, ob_dst, mmd_src->totlvl);
@@ -2369,7 +2376,7 @@ void multires_topology_changed(Mesh *me)
     if (!mdisp->totdisp || !mdisp->disps) {
       if (grid) {
         mdisp->totdisp = grid;
-        mdisp->disps = MEM_calloc_arrayN(3 * sizeof(float), mdisp->totdisp, "mdisp topology");
+        mdisp->disps = MEM_calloc_arrayN(sizeof(float[3]), mdisp->totdisp, "mdisp topology");
       }
 
       continue;
@@ -2515,13 +2522,4 @@ int mdisp_rot_face_to_crn(struct MVert *UNUSED(mvert),
   }
 
   return S;
-}
-
-/* This is a workaround for T58473.
- * Force sculpting on the highest level for until the root of the issue is solved.
- *
- * When that issue is solved simple replace call of this function with mmd->sculptlvl. */
-int BKE_multires_sculpt_level_get(const struct MultiresModifierData *mmd)
-{
-  return mmd->totlvl;
 }

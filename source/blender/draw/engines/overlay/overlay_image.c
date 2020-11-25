@@ -57,17 +57,20 @@ void OVERLAY_image_cache_init(OVERLAY_Data *vedata)
 
   state = DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_GREATER | DRW_STATE_BLEND_ALPHA_PREMUL;
   DRW_PASS_CREATE(psl->image_background_ps, state);
+  state = DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND_ALPHA_UNDER_PREMUL;
+  DRW_PASS_CREATE(psl->image_background_scene_ps, state);
 
   state = DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS;
   DRW_PASS_CREATE(psl->image_empties_ps, state | pd->clipping_state);
 
-  state = DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_LESS_EQUAL | DRW_STATE_BLEND_ALPHA;
+  state = DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_LESS_EQUAL | DRW_STATE_BLEND_ALPHA_PREMUL;
   DRW_PASS_CREATE(psl->image_empties_back_ps, state | pd->clipping_state);
   DRW_PASS_CREATE(psl->image_empties_blend_ps, state | pd->clipping_state);
 
-  state = DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND_ALPHA;
+  state = DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND_ALPHA_PREMUL;
   DRW_PASS_CREATE(psl->image_empties_front_ps, state);
   DRW_PASS_CREATE(psl->image_foreground_ps, state);
+  DRW_PASS_CREATE(psl->image_foreground_scene_ps, state);
 }
 
 static void overlay_image_calc_aspect(Image *ima, const int size[2], float r_image_aspect[2])
@@ -109,13 +112,12 @@ static eStereoViews camera_background_images_stereo_eye(const Scene *scene, cons
   if ((scene->r.scemode & R_MULTIVIEW) == 0) {
     return STEREO_LEFT_ID;
   }
-  else if (v3d->stereo3d_camera != STEREO_3D_ID) {
+  if (v3d->stereo3d_camera != STEREO_3D_ID) {
     /* show only left or right camera */
     return v3d->stereo3d_camera;
   }
-  else {
-    return v3d->multiview_eye;
-  }
+
+  return v3d->multiview_eye;
 }
 
 static void camera_background_images_stereo_setup(const Scene *scene,
@@ -137,7 +139,8 @@ static struct GPUTexture *image_camera_background_texture_get(CameraBGImage *bgp
                                                               const DRWContextState *draw_ctx,
                                                               OVERLAY_PrivateData *pd,
                                                               float *r_aspect,
-                                                              bool *r_use_alpha_premult)
+                                                              bool *r_use_alpha_premult,
+                                                              bool *r_use_view_transform)
 {
   void *lock;
   Image *image = bgpic->ima;
@@ -149,6 +152,7 @@ static struct GPUTexture *image_camera_background_texture_get(CameraBGImage *bgp
   int width, height;
   int ctime = (int)DEG_get_ctime(draw_ctx->depsgraph);
   *r_use_alpha_premult = false;
+  *r_use_view_transform = false;
 
   switch (bgpic->source) {
     case CAM_BGIMG_SOURCE_IMAGE:
@@ -156,15 +160,15 @@ static struct GPUTexture *image_camera_background_texture_get(CameraBGImage *bgp
         return NULL;
       }
       *r_use_alpha_premult = (image->alpha_mode == IMA_ALPHA_PREMUL);
+      *r_use_view_transform = (image->flag & IMA_VIEW_AS_RENDER) != 0;
 
       BKE_image_user_frame_calc(image, iuser, ctime);
       if (image->source == IMA_SRC_SEQUENCE && !(iuser->flag & IMA_USER_FRAME_IN_RANGE)) {
         /* Frame is out of range, dont show. */
         return NULL;
       }
-      else {
-        camera_background_images_stereo_setup(scene, draw_ctx->v3d, image, iuser);
-      }
+
+      camera_background_images_stereo_setup(scene, draw_ctx->v3d, image, iuser);
 
       iuser->scene = draw_ctx->scene;
       ImBuf *ibuf = BKE_image_acquire_ibuf(image, iuser, &lock);
@@ -175,7 +179,7 @@ static struct GPUTexture *image_camera_background_texture_get(CameraBGImage *bgp
       }
       width = ibuf->x;
       height = ibuf->y;
-      tex = GPU_texture_from_blender(image, iuser, ibuf, GL_TEXTURE_2D);
+      tex = BKE_image_get_gpu_texture(image, iuser, ibuf);
       BKE_image_release_ibuf(image, ibuf, lock);
       iuser->scene = NULL;
 
@@ -185,7 +189,6 @@ static struct GPUTexture *image_camera_background_texture_get(CameraBGImage *bgp
 
       aspect_x = bgpic->ima->aspx;
       aspect_y = bgpic->ima->aspy;
-
       break;
 
     case CAM_BGIMG_SOURCE_MOVIE:
@@ -203,13 +206,14 @@ static struct GPUTexture *image_camera_background_texture_get(CameraBGImage *bgp
       }
 
       BKE_movieclip_user_set_frame(&bgpic->cuser, ctime);
-      tex = GPU_texture_from_movieclip(clip, &bgpic->cuser, GL_TEXTURE_2D);
+      tex = BKE_movieclip_get_gpu_texture(clip, &bgpic->cuser);
       if (tex == NULL) {
         return NULL;
       }
 
       aspect_x = clip->aspx;
       aspect_y = clip->aspy;
+      *r_use_view_transform = true;
 
       BKE_movieclip_get_size(clip, &bgpic->cuser, &width, &height);
 
@@ -232,7 +236,7 @@ static void OVERLAY_image_free_movieclips_textures(OVERLAY_Data *data)
   LinkData *link;
   while ((link = BLI_pophead(&data->stl->pd->bg_movie_clips))) {
     MovieClip *clip = (MovieClip *)link->data;
-    GPU_free_texture_movieclip(clip);
+    BKE_movieclip_free_gputexture(clip);
     MEM_freeN(link);
   }
 }
@@ -330,21 +334,27 @@ void OVERLAY_image_camera_cache_populate(OVERLAY_Data *vedata, Object *ob)
 
     float aspect = 1.0;
     bool use_alpha_premult;
+    bool use_view_transform = false;
     float mat[4][4];
 
     /* retrieve the image we want to show, continue to next when no image could be found */
     GPUTexture *tex = image_camera_background_texture_get(
-        bgpic, draw_ctx, pd, &aspect, &use_alpha_premult);
+        bgpic, draw_ctx, pd, &aspect, &use_alpha_premult, &use_view_transform);
 
     if (tex) {
       image_camera_background_matrix_get(cam, bgpic, draw_ctx, aspect, mat);
 
       mul_m4_m4m4(mat, modelmat, mat);
       const bool is_foreground = (bgpic->flag & CAM_BGIMG_FLAG_FOREGROUND) != 0;
+      /* Alpha is clamped just below 1.0 to fix background images to intefere with foreground
+       * images. Without this a background image with 1.0 will be rendered on top of a transparent
+       * foreground image due to the differnet blending modes they use. */
+      const float color_premult_alpha[4] = {1.0f, 1.0f, 1.0f, MIN2(bgpic->alpha, 0.999999)};
 
-      float color_premult_alpha[4] = {bgpic->alpha, bgpic->alpha, bgpic->alpha, bgpic->alpha};
-
-      DRWPass *pass = is_foreground ? psl->image_foreground_ps : psl->image_background_ps;
+      DRWPass *pass = is_foreground ? (use_view_transform ? psl->image_foreground_scene_ps :
+                                                            psl->image_foreground_ps) :
+                                      (use_view_transform ? psl->image_background_scene_ps :
+                                                            psl->image_background_ps);
 
       GPUShader *sh = OVERLAY_shader_image();
       DRWShadingGroup *grp = DRW_shgroup_create(sh, pass);
@@ -383,7 +393,7 @@ void OVERLAY_image_empty_cache_populate(OVERLAY_Data *vedata, Object *ob)
     if (ima != NULL) {
       ImageUser iuser = *ob->iuser;
       camera_background_images_stereo_setup(draw_ctx->scene, draw_ctx->v3d, ima, &iuser);
-      tex = GPU_texture_from_blender(ima, &iuser, NULL, GL_TEXTURE_2D);
+      tex = BKE_image_get_gpu_texture(ima, &iuser, NULL);
       if (tex) {
         size[0] = GPU_texture_orig_width(tex);
         size[1] = GPU_texture_orig_height(tex);
@@ -405,7 +415,7 @@ void OVERLAY_image_empty_cache_populate(OVERLAY_Data *vedata, Object *ob)
   /* Use the actual depth if we are doing depth tests to determine the distance to the object */
   char depth_mode = DRW_state_is_depth() ? OB_EMPTY_IMAGE_DEPTH_DEFAULT : ob->empty_image_depth;
   DRWPass *pass = NULL;
-  if ((ob->dtx & OB_DRAWXRAY) != 0) {
+  if ((ob->dtx & OB_DRAW_IN_FRONT) != 0) {
     /* Object In Front overrides image empty depth mode. */
     pass = psl->image_empties_front_ps;
   }
@@ -449,6 +459,22 @@ void OVERLAY_image_cache_finish(OVERLAY_Data *vedata)
   DRW_pass_sort_shgroup_z(psl->image_empties_blend_ps);
   DRW_pass_sort_shgroup_z(psl->image_empties_front_ps);
   DRW_pass_sort_shgroup_z(psl->image_empties_back_ps);
+}
+
+/* This function draws images that needs the view transform applied.
+ * It draws these images directly into the scene color buffer. */
+void OVERLAY_image_scene_background_draw(OVERLAY_Data *vedata)
+{
+  OVERLAY_PassList *psl = vedata->psl;
+
+  if (DRW_state_is_fbo() && (!DRW_pass_is_empty(psl->image_background_scene_ps) ||
+                             !DRW_pass_is_empty(psl->image_foreground_scene_ps))) {
+    const DefaultFramebufferList *dfbl = DRW_viewport_framebuffer_list_get();
+    GPU_framebuffer_bind(dfbl->default_fb);
+
+    DRW_draw_pass(psl->image_background_scene_ps);
+    DRW_draw_pass(psl->image_foreground_scene_ps);
+  }
 }
 
 void OVERLAY_image_background_draw(OVERLAY_Data *vedata)

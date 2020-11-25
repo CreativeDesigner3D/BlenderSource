@@ -1,3 +1,4 @@
+#pragma BLENDER_REQUIRE(common_colormanagement_lib.glsl)
 
 uniform sampler2D imgTexture;
 uniform bool imgPremultiplied;
@@ -26,4 +27,7 @@ void main()
       fragColor.a = 1.0;
     }
   }
+
+  /* Pre-multiplied blending. */
+  fragColor.rgb *= fragColor.a;
 }

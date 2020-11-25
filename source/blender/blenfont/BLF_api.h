@@ -21,8 +21,7 @@
  * \ingroup blf
  */
 
-#ifndef __BLF_API_H__
-#define __BLF_API_H__
+#pragma once
 
 #include "BLI_compiler_attrs.h"
 #include "BLI_sys_types.h"
@@ -43,8 +42,7 @@ int BLF_init(void);
 void BLF_exit(void);
 void BLF_default_dpi(int dpi);
 void BLF_default_set(int fontid);
-int BLF_default(void);      /* get default font ID so we can pass it to other functions */
-void BLF_batch_reset(void); /* call when changing opengl context. */
+int BLF_default(void); /* get default font ID so we can pass it to other functions */
 
 void BLF_cache_clear(void);
 
@@ -117,9 +115,11 @@ void BLF_draw_ascii(int fontid, const char *str, size_t len) ATTR_NONNULL(2);
 int BLF_draw_mono(int fontid, const char *str, size_t len, int cwidth) ATTR_NONNULL(2);
 
 typedef bool (*BLF_GlyphBoundsFn)(const char *str,
-                                  const size_t str_ofs,
-                                  const struct rcti *glyph_bounds,
+                                  const size_t str_step_ofs,
+                                  const struct rcti *glyph_step_bounds,
                                   const int glyph_advance_x,
+                                  const struct rctf *glyph_bounds,
+                                  const int glyph_bearing[2],
                                   void *user_data);
 
 void BLF_boundbox_foreach_glyph_ex(int fontid,
@@ -277,6 +277,8 @@ void BLF_state_print(int fontid);
 #define BLF_HINTING_NONE (1 << 8)
 #define BLF_HINTING_SLIGHT (1 << 9)
 #define BLF_HINTING_FULL (1 << 10)
+#define BLF_BOLD (1 << 11)
+#define BLF_ITALIC (1 << 12)
 
 #define BLF_DRAW_STR_DUMMY_MAX 1024
 
@@ -301,5 +303,3 @@ struct ResultBLF {
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* __BLF_API_H__ */

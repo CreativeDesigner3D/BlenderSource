@@ -18,8 +18,7 @@
  * \ingroup editors
  */
 
-#ifndef __ED_UNDO_H__
-#define __ED_UNDO_H__
+#pragma once
 
 #include "BLI_compiler_attrs.h"
 
@@ -37,6 +36,9 @@ struct wmOperator;
 struct wmOperatorType;
 
 /* undo.c */
+bool ED_undo_is_state_valid(struct bContext *C);
+void ED_undo_group_begin(struct bContext *C);
+void ED_undo_group_end(struct bContext *C);
 void ED_undo_push(struct bContext *C, const char *str);
 void ED_undo_push_op(struct bContext *C, struct wmOperator *op);
 void ED_undo_grouped_push(struct bContext *C, const char *str);
@@ -89,5 +91,3 @@ struct MemFile *ED_undosys_stack_memfile_get_active(struct UndoStack *ustack);
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* __ED_UNDO_H__ */
