@@ -3,7 +3,6 @@
    linking to external resources instead of including content in-line.
    See 'release/text/readme.html' for the end user read-me.
 
-
 Blender
 =======
 
@@ -15,8 +14,17 @@ motion tracking and video editing.
    :scale: 50 %
    :align: center
 
+PyClone
+=======
 
-Project Pages
+PyClone is a custom build of Blender that enables drag and drop to be accessed from the Blender PythonAPI.
+
+PyClone Project Pages
+-------------
+
+- `Main Website <https://creativedesigner3d.com/>`__
+
+Blender Project Pages
 -------------
 
 - `Main Website <http://www.blender.org>`__
