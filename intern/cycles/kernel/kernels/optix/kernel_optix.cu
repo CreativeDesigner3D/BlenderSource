@@ -45,13 +45,12 @@ template<bool always = false> ccl_device_forceinline uint get_object_id()
   uint object = optixGetInstanceId();
 #endif
   // Choose between always returning object ID or only for instances
-  if (always)
-    // Can just remove the high bit since instance always contains object ID
-    return object & 0x7FFFFF;
-  // Set to OBJECT_NONE if this is not an instanced object
-  else if (object & 0x800000)
-    object = OBJECT_NONE;
-  return object;
+  if (always || (object & 1) == 0)
+    // Can just remove the low bit since instance always contains object ID
+    return object >> 1;
+  else
+    // Set to OBJECT_NONE if this is not an instanced object
+    return OBJECT_NONE;
 }
 
 extern "C" __global__ void __raygen__kernel_optix_path_trace()
@@ -118,12 +117,18 @@ extern "C" __global__ void __anyhit__kernel_optix_local_hit()
     return optixIgnoreIntersection();
   }
 
+  const uint max_hits = optixGetPayload_5();
+  if (max_hits == 0) {
+    // Special case for when no hit information is requested, just report that something was hit
+    optixSetPayload_5(true);
+    return optixTerminateRay();
+  }
+
   int hit = 0;
   uint *const lcg_state = get_payload_ptr_0<uint>();
   LocalIntersection *const local_isect = get_payload_ptr_2<LocalIntersection>();
 
   if (lcg_state) {
-    const uint max_hits = optixGetPayload_5();
     for (int i = min(max_hits, local_isect->num_hits) - 1; i >= 0; --i) {
       if (optixGetRayTmax() == local_isect->hits[i].t) {
         return optixIgnoreIntersection();
@@ -318,12 +323,5 @@ extern "C" __global__ void __intersection__curve_all()
   const uint prim = optixGetPrimitiveIndex();
   const uint type = kernel_tex_fetch(__prim_type, prim);
   optix_intersection_curve(prim, type);
-}
-#endif
-
-#ifdef __KERNEL_DEBUG__
-extern "C" __global__ void __exception__kernel_optix_exception()
-{
-  printf("Unhandled exception occured: code %d!\n", optixGetExceptionCode());
 }
 #endif

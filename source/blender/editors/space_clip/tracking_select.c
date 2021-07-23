@@ -304,6 +304,9 @@ static int mouse_select(bContext *C, const float co[2], const bool extend, const
   track = find_nearest_track(sc, tracksbase, co, &distance_to_track);
   plane_track = find_nearest_plane_track(sc, plane_tracks_base, co, &distance_to_plane_track);
 
+  ClipViewLockState lock_state;
+  ED_clip_view_lock_state_store(C, &lock_state);
+
   /* Do not select beyond some reasonable distance, that is useless and
    * prevents the 'deselect on nothing' behavior. */
   if (distance_to_track > 0.05f) {
@@ -377,10 +380,7 @@ static int mouse_select(bContext *C, const float co[2], const bool extend, const
     ED_mask_deselect_all(C);
   }
 
-  if (!extend) {
-    sc->xlockof = 0.0f;
-    sc->ylockof = 0.0f;
-  }
+  ED_clip_view_lock_state_restore_no_jump(C, &lock_state);
 
   BKE_tracking_dopesheet_tag_update(tracking);
 
@@ -867,14 +867,16 @@ static int select_all_exec(bContext *C, wmOperator *op)
   MovieClip *clip = ED_space_clip_get_clip(sc);
   MovieTracking *tracking = &clip->tracking;
 
-  int action = RNA_enum_get(op->ptr, "action");
+  const int action = RNA_enum_get(op->ptr, "action");
+
+  ClipViewLockState lock_state;
+  ED_clip_view_lock_state_store(C, &lock_state);
 
   bool has_selection = false;
-
   ED_clip_select_all(sc, action, &has_selection);
 
-  if (!has_selection) {
-    sc->flag &= ~SC_LOCK_SELECTION;
+  if (has_selection) {
+    ED_clip_view_lock_state_restore_no_jump(C, &lock_state);
   }
 
   BKE_tracking_dopesheet_tag_update(tracking);
@@ -975,15 +977,15 @@ static int select_grouped_exec(bContext *C, wmOperator *op)
 void CLIP_OT_select_grouped(wmOperatorType *ot)
 {
   static const EnumPropertyItem select_group_items[] = {
-      {0, "KEYFRAMED", 0, "Keyframed tracks", "Select all keyframed tracks"},
-      {1, "ESTIMATED", 0, "Estimated tracks", "Select all estimated tracks"},
-      {2, "TRACKED", 0, "Tracked tracks", "Select all tracked tracks"},
-      {3, "LOCKED", 0, "Locked tracks", "Select all locked tracks"},
-      {4, "DISABLED", 0, "Disabled tracks", "Select all disabled tracks"},
+      {0, "KEYFRAMED", 0, "Keyframed Tracks", "Select all keyframed tracks"},
+      {1, "ESTIMATED", 0, "Estimated Tracks", "Select all estimated tracks"},
+      {2, "TRACKED", 0, "Tracked Tracks", "Select all tracked tracks"},
+      {3, "LOCKED", 0, "Locked Tracks", "Select all locked tracks"},
+      {4, "DISABLED", 0, "Disabled Tracks", "Select all disabled tracks"},
       {5,
        "COLOR",
        0,
-       "Tracks with same color",
+       "Tracks with Same Color",
        "Select all tracks with same color as active track"},
       {6, "FAILED", 0, "Failed Tracks", "Select all tracks which failed to be reconstructed"},
       {0, NULL, 0, NULL, NULL},

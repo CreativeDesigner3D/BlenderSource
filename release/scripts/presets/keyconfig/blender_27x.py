@@ -1,3 +1,28 @@
+#
+# Notes on this key-map:
+#
+# This uses Blender's key-map, running with `legacy=True`.
+#
+# The intention of this key-map is to match Blender 2.7x which had many more key-map items available.
+#
+# There are some differences with the original Blender 2.7x key-map.
+# There is no intention to change these are they are not considered significant
+# enough to make a 1:1 match with the previous Blender version.
+#
+# These include:
+#
+# 3D View
+# =======
+#
+# - Border Render (`Shift-B` -> `Ctrl-B`)
+#   Both `Shift-B` and `Ctrl-B` were used.
+#
+# Time Line/Animation Views
+# =========================
+#
+# - Start Frame/End Frame (`S/E` -> `Ctrl-Home/Ctrl-End`)
+#
+
 import os
 import bpy
 from bpy.props import (
@@ -33,11 +58,11 @@ class Prefs(bpy.types.KeyConfigPreferences):
     )
 
     def draw(self, layout):
-        split = layout.split()
-        col = split.column()
-        col.label(text="Select With:")
-        col.row().prop(self, "select_mouse", expand=True)
-        split.column()
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+
+        col = layout.column()
+        col.row().prop(self, "select_mouse", text="Select with Mouse Button", expand=True)
 
 
 blender_default = bpy.utils.execfile(os.path.join(DIRNAME, "keymap_data", "blender_default.py"))

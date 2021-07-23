@@ -80,7 +80,7 @@
 #  include "DEG_depsgraph.h"
 #  include "DEG_depsgraph_query.h"
 
-#  include "RE_shader_ext.h"
+#  include "RE_texture.h"
 
 #  include "CLG_log.h"
 
@@ -343,32 +343,37 @@ void BKE_fluid_cache_free(FluidDomainSettings *fds, Object *ob, int cache_map)
     flags &= ~(FLUID_DOMAIN_BAKING_DATA | FLUID_DOMAIN_BAKED_DATA | FLUID_DOMAIN_OUTDATED_DATA);
     BLI_path_join(temp_dir, sizeof(temp_dir), fds->cache_directory, FLUID_DOMAIN_DIR_CONFIG, NULL);
     BLI_path_abs(temp_dir, relbase);
-    BLI_delete(temp_dir, true, true); /* BLI_exists(filepath) is implicit */
-
+    if (BLI_exists(temp_dir)) {
+      BLI_delete(temp_dir, true, true);
+    }
     BLI_path_join(temp_dir, sizeof(temp_dir), fds->cache_directory, FLUID_DOMAIN_DIR_DATA, NULL);
     BLI_path_abs(temp_dir, relbase);
-    BLI_delete(temp_dir, true, true); /* BLI_exists(filepath) is implicit */
-
+    if (BLI_exists(temp_dir)) {
+      BLI_delete(temp_dir, true, true);
+    }
     BLI_path_join(temp_dir, sizeof(temp_dir), fds->cache_directory, FLUID_DOMAIN_DIR_SCRIPT, NULL);
     BLI_path_abs(temp_dir, relbase);
-    BLI_delete(temp_dir, true, true); /* BLI_exists(filepath) is implicit */
-
+    if (BLI_exists(temp_dir)) {
+      BLI_delete(temp_dir, true, true);
+    }
     fds->cache_frame_pause_data = 0;
   }
   if (cache_map & FLUID_DOMAIN_OUTDATED_NOISE) {
     flags &= ~(FLUID_DOMAIN_BAKING_NOISE | FLUID_DOMAIN_BAKED_NOISE | FLUID_DOMAIN_OUTDATED_NOISE);
     BLI_path_join(temp_dir, sizeof(temp_dir), fds->cache_directory, FLUID_DOMAIN_DIR_NOISE, NULL);
     BLI_path_abs(temp_dir, relbase);
-    BLI_delete(temp_dir, true, true); /* BLI_exists(filepath) is implicit */
-
+    if (BLI_exists(temp_dir)) {
+      BLI_delete(temp_dir, true, true);
+    }
     fds->cache_frame_pause_noise = 0;
   }
   if (cache_map & FLUID_DOMAIN_OUTDATED_MESH) {
     flags &= ~(FLUID_DOMAIN_BAKING_MESH | FLUID_DOMAIN_BAKED_MESH | FLUID_DOMAIN_OUTDATED_MESH);
     BLI_path_join(temp_dir, sizeof(temp_dir), fds->cache_directory, FLUID_DOMAIN_DIR_MESH, NULL);
     BLI_path_abs(temp_dir, relbase);
-    BLI_delete(temp_dir, true, true); /* BLI_exists(filepath) is implicit */
-
+    if (BLI_exists(temp_dir)) {
+      BLI_delete(temp_dir, true, true);
+    }
     fds->cache_frame_pause_mesh = 0;
   }
   if (cache_map & FLUID_DOMAIN_OUTDATED_PARTICLES) {
@@ -377,17 +382,18 @@ void BKE_fluid_cache_free(FluidDomainSettings *fds, Object *ob, int cache_map)
     BLI_path_join(
         temp_dir, sizeof(temp_dir), fds->cache_directory, FLUID_DOMAIN_DIR_PARTICLES, NULL);
     BLI_path_abs(temp_dir, relbase);
-    BLI_delete(temp_dir, true, true); /* BLI_exists(filepath) is implicit */
-
+    if (BLI_exists(temp_dir)) {
+      BLI_delete(temp_dir, true, true);
+    }
     fds->cache_frame_pause_particles = 0;
   }
-
   if (cache_map & FLUID_DOMAIN_OUTDATED_GUIDE) {
     flags &= ~(FLUID_DOMAIN_BAKING_GUIDE | FLUID_DOMAIN_BAKED_GUIDE | FLUID_DOMAIN_OUTDATED_GUIDE);
     BLI_path_join(temp_dir, sizeof(temp_dir), fds->cache_directory, FLUID_DOMAIN_DIR_GUIDE, NULL);
     BLI_path_abs(temp_dir, relbase);
-    BLI_delete(temp_dir, true, true); /* BLI_exists(filepath) is implicit */
-
+    if (BLI_exists(temp_dir)) {
+      BLI_delete(temp_dir, true, true);
+    }
     fds->cache_frame_pause_guide = 0;
   }
   fds->cache_flag = flags;
@@ -930,7 +936,7 @@ static void update_velocities(FluidEffectorSettings *fes,
     }
     else {
       /* Should never reach this block. */
-      BLI_assert(false);
+      BLI_assert_unreachable();
     }
   }
   else {
@@ -1987,7 +1993,7 @@ static void sample_mesh(FluidFlowSettings *ffs,
       /* Convert xyz velocities flow settings from world to grid space. */
       float convert_vel[3];
       copy_v3_v3(convert_vel, ffs->vel_coord);
-      float time_mult = 1.0 / (25.f * DT_DEFAULT);
+      float time_mult = 1.0 / (25.0f * DT_DEFAULT);
       float size_mult = MAX3(base_res[0], base_res[1], base_res[2]) /
                         MAX3(global_size[0], global_size[1], global_size[2]);
       mul_v3_v3fl(convert_vel, ffs->vel_coord, size_mult * time_mult);
@@ -2304,7 +2310,7 @@ static void adaptive_domain_adjust(
                                 z - fds->res_min[2]);
         max_den = (fuel) ? MAX2(density[index], fuel[index]) : density[index];
 
-        /* check high resolution bounds if max density isnt already high enough */
+        /* Check high resolution bounds if max density isn't already high enough. */
         if (max_den < fds->adapt_threshold && fds->flags & FLUID_DOMAIN_USE_NOISE && fds->fluid) {
           int i, j, k;
           /* high res grid index */
@@ -3219,7 +3225,7 @@ static void update_effectors(
   ListBase *effectors;
   /* make sure smoke flow influence is 0.0f */
   fds->effector_weights->weight[PFIELD_FLUIDFLOW] = 0.0f;
-  effectors = BKE_effectors_create(depsgraph, ob, NULL, fds->effector_weights);
+  effectors = BKE_effectors_create(depsgraph, ob, NULL, fds->effector_weights, false);
 
   if (effectors) {
     /* Precalculate wind forces. */
@@ -3297,7 +3303,7 @@ static Mesh *create_liquid_geometry(FluidDomainSettings *fds, Mesh *orgmesh, Obj
   /* If needed, vertex velocities will be read too. */
   bool use_speedvectors = fds->flags & FLUID_DOMAIN_USE_SPEED_VECTORS;
   FluidDomainVertexVelocity *velarray = NULL;
-  float time_mult = 25.f * DT_DEFAULT;
+  float time_mult = 25.0f * DT_DEFAULT;
 
   if (use_speedvectors) {
     if (fds->mesh_velocities) {
@@ -3646,7 +3652,7 @@ static int manta_step(
   }
 
   /* Total time must not exceed framecount times framelength. Correct tiny errors here. */
-  CLAMP(fds->time_total, fds->time_total, time_total_old + fds->frame_length);
+  CLAMP_MAX(fds->time_total, time_total_old + fds->frame_length);
 
   /* Compute shadow grid for gas simulations. Make sure to skip if bake job was canceled early. */
   if (fds->type == FLUID_DOMAIN_TYPE_GAS && result) {
@@ -3915,7 +3921,7 @@ static void BKE_fluid_modifier_processDomain(FluidModifierData *fmd,
   prev_guide = manta_has_guiding(fds->fluid, fmd, prev_frame, guide_parent);
 
   /* Unused for now. */
-  UNUSED_VARS(has_guide, prev_guide, next_mesh, next_guide);
+  UNUSED_VARS(next_mesh, next_guide);
 
   bool with_gdomain;
   with_gdomain = (fds->guide_source == FLUID_DOMAIN_GUIDE_SRC_DOMAIN);
@@ -3995,8 +4001,11 @@ static void BKE_fluid_modifier_processDomain(FluidModifierData *fmd,
         has_config = manta_read_config(fds->fluid, fmd, mesh_frame);
       }
 
-      /* Update mesh data from file is faster than via Python (manta_read_mesh()). */
-      has_mesh = manta_read_mesh(fds->fluid, fmd, mesh_frame);
+      /* Only load the mesh at the resolution it ways originally simulated at.
+       * The mesh files don't have a header, i.e. the don't store the grid resolution. */
+      if (!manta_needs_realloc(fds->fluid, fmd)) {
+        has_mesh = manta_read_mesh(fds->fluid, fmd, mesh_frame);
+      }
     }
 
     /* Read particles cache. */
@@ -4066,6 +4075,9 @@ static void BKE_fluid_modifier_processDomain(FluidModifierData *fmd,
       break;
     case FLUID_DOMAIN_CACHE_REPLAY:
     default:
+      if (with_guide) {
+        baking_guide = !has_guide && (is_startframe || prev_guide);
+      }
       baking_data = !has_data && (is_startframe || prev_data);
       if (with_smoke && with_noise) {
         baking_noise = !has_noise && (is_startframe || prev_noise);
@@ -4434,7 +4446,7 @@ float BKE_fluid_get_velocity_at(struct Object *ob, float position[3], float velo
 
   if (fmd && (fmd->type & MOD_FLUID_TYPE_DOMAIN) && fmd->domain && fmd->domain->fluid) {
     FluidDomainSettings *fds = fmd->domain;
-    float time_mult = 25.f * DT_DEFAULT;
+    float time_mult = 25.0f * DT_DEFAULT;
     float size_mult = MAX3(fds->global_size[0], fds->global_size[1], fds->global_size[2]) /
                       MAX3(fds->base_res[0], fds->base_res[1], fds->base_res[2]);
     float vel_mag;
@@ -4553,7 +4565,7 @@ void BKE_fluid_particle_system_destroy(struct Object *ob, const int particle_typ
     if (psys->part->type == particle_type) {
       /* clear modifier */
       pfmd = psys_get_modifier(ob, psys);
-      BLI_remlink(&ob->modifiers, pfmd);
+      BKE_modifier_remove_from_list(ob, (ModifierData *)pfmd);
       BKE_modifier_free((ModifierData *)pfmd);
 
       /* clear particle system */
@@ -4701,9 +4713,11 @@ void BKE_fluid_fields_sanitize(FluidDomainSettings *settings)
   const char data_depth = settings->openvdb_data_depth;
 
   if (settings->type == FLUID_DOMAIN_TYPE_GAS) {
-    if (coba_field == FLUID_DOMAIN_FIELD_PHI || coba_field == FLUID_DOMAIN_FIELD_PHI_IN ||
-        coba_field == FLUID_DOMAIN_FIELD_PHI_OUT ||
-        coba_field == FLUID_DOMAIN_FIELD_PHI_OBSTACLE) {
+    if (ELEM(coba_field,
+             FLUID_DOMAIN_FIELD_PHI,
+             FLUID_DOMAIN_FIELD_PHI_IN,
+             FLUID_DOMAIN_FIELD_PHI_OUT,
+             FLUID_DOMAIN_FIELD_PHI_OBSTACLE)) {
       /* Defaulted to density for gas domain. */
       settings->coba_field = FLUID_DOMAIN_FIELD_DENSITY;
     }
@@ -4714,10 +4728,14 @@ void BKE_fluid_fields_sanitize(FluidDomainSettings *settings)
     }
   }
   else if (settings->type == FLUID_DOMAIN_TYPE_LIQUID) {
-    if (coba_field == FLUID_DOMAIN_FIELD_COLOR_R || coba_field == FLUID_DOMAIN_FIELD_COLOR_G ||
-        coba_field == FLUID_DOMAIN_FIELD_COLOR_B || coba_field == FLUID_DOMAIN_FIELD_DENSITY ||
-        coba_field == FLUID_DOMAIN_FIELD_FLAME || coba_field == FLUID_DOMAIN_FIELD_FUEL ||
-        coba_field == FLUID_DOMAIN_FIELD_HEAT) {
+    if (ELEM(coba_field,
+             FLUID_DOMAIN_FIELD_COLOR_R,
+             FLUID_DOMAIN_FIELD_COLOR_G,
+             FLUID_DOMAIN_FIELD_COLOR_B,
+             FLUID_DOMAIN_FIELD_DENSITY,
+             FLUID_DOMAIN_FIELD_FLAME,
+             FLUID_DOMAIN_FIELD_FUEL,
+             FLUID_DOMAIN_FIELD_HEAT)) {
       /* Defaulted to phi for liquid domain. */
       settings->coba_field = FLUID_DOMAIN_FIELD_PHI;
     }
@@ -4997,6 +5015,10 @@ void BKE_fluid_modifier_copy(const struct FluidModifierData *fmd,
     tfds->fractions_threshold = fds->fractions_threshold;
     tfds->fractions_distance = fds->fractions_distance;
     tfds->sys_particle_maximum = fds->sys_particle_maximum;
+    tfds->simulation_method = fds->simulation_method;
+
+    /* viscosity options */
+    tfds->viscosity_value = fds->viscosity_value;
 
     /* diffusion options*/
     tfds->surface_tension = fds->surface_tension;
@@ -5117,6 +5139,9 @@ void BKE_fluid_modifier_copy(const struct FluidModifierData *fmd,
     FluidFlowSettings *tffs = tfmd->flow;
     FluidFlowSettings *ffs = fmd->flow;
 
+    /* NOTE: This is dangerous, as it will generate invalid data in case we are copying between
+     * different objects. Extra external code has to be called then to ensure proper remapping of
+     * that pointer. See e.g. `BKE_object_copy_particlesystems` or `BKE_object_copy_modifier`. */
     tffs->psys = ffs->psys;
     tffs->noise_texture = ffs->noise_texture;
 

@@ -525,8 +525,8 @@ void ARMATURE_OT_flip_names(wmOperatorType *ot)
                   "do_strip_numbers",
                   false,
                   "Strip Numbers",
-                  "Try to remove right-most dot-number from flipped names "
-                  "(WARNING: may result in incoherent naming in some cases)");
+                  "Try to remove right-most dot-number from flipped names.\n"
+                  "Warning: May result in incoherent naming in some cases");
 }
 
 /** \} */
@@ -606,7 +606,7 @@ void ARMATURE_OT_autoside_names(wmOperatorType *ot)
   };
 
   /* identifiers */
-  ot->name = "AutoName by Axis";
+  ot->name = "Auto-Name by Axis";
   ot->idname = "ARMATURE_OT_autoside_names";
   ot->description =
       "Automatically renames the selected bones according to which side of the target axis they "

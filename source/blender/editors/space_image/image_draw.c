@@ -68,6 +68,7 @@
 #include "ED_mask.h"
 #include "ED_render.h"
 #include "ED_screen.h"
+#include "ED_util.h"
 
 #include "UI_interface.h"
 #include "UI_resources.h"
@@ -82,7 +83,6 @@ static void draw_render_info(
     const bContext *C, Scene *scene, Image *ima, ARegion *region, float zoomx, float zoomy)
 {
   Render *re = RE_GetSceneRender(scene);
-  RenderData *rd = RE_engine_get_render_data(re);
   Scene *stats_scene = ED_render_job_get_scene(C);
   if (stats_scene == NULL) {
     stats_scene = CTX_data_scene(C);
@@ -111,6 +111,7 @@ static void draw_render_info(
       GPU_matrix_translate_2f(x, y);
       GPU_matrix_scale_2f(zoomx, zoomy);
 
+      RenderData *rd = RE_engine_get_render_data(re);
       if (rd->mode & R_BORDER) {
         /* TODO: round or floor instead of casting to int */
         GPU_matrix_translate_2f((int)(-rd->border.xmin * rd->xsch * rd->size * 0.01f),
@@ -466,7 +467,7 @@ static void sima_draw_zbuf_pixels(
 {
   const float red[4] = {1.0f, 0.0f, 0.0f, 0.0f};
 
-  /* Slowwww */
+  /* Very slow! */
   float *rectf = MEM_mallocN(rectx * recty * sizeof(float), "temp");
   for (int a = rectx * recty - 1; a >= 0; a--) {
     /* zbuffer values are signed, so we need to shift color range */
@@ -874,7 +875,7 @@ void draw_image_main(const bContext *C, ARegion *region)
 
   if (show_stereo3d) {
     if (show_multilayer) {
-      /* update multiindex and pass for the current eye */
+      /* Update multi-index and pass for the current eye. */
       BKE_image_multilayer_index(ima->rr, &sima->iuser);
     }
     else {

@@ -397,7 +397,7 @@ static void drw_mesh_weight_state_extract(Object *ob,
       wstate->flags |= DRW_MESH_WEIGHT_STATE_MULTIPAINT |
                        (ts->auto_normalize ? DRW_MESH_WEIGHT_STATE_AUTO_NORMALIZE : 0);
 
-      if (me->symmetry & ME_SYMMETRY_X) {
+      if (ME_USING_MIRROR_X_VERTEX_GROUPS(me)) {
         BKE_object_defgroup_mirror_selection(ob,
                                              wstate->defgroup_len,
                                              wstate->defgroup_sel,
@@ -405,7 +405,7 @@ static void drw_mesh_weight_state_extract(Object *ob,
                                              &wstate->defgroup_sel_count);
       }
     }
-    /* With only one selected bone Multipaint reverts to regular mode. */
+    /* With only one selected bone Multi-paint reverts to regular mode. */
     else {
       wstate->defgroup_sel_count = 0;
       MEM_SAFE_FREE(wstate->defgroup_sel);
@@ -557,12 +557,18 @@ static void mesh_batch_cache_discard_surface_batches(MeshBatchCache *cache)
 static void mesh_batch_cache_discard_shaded_tri(MeshBatchCache *cache)
 {
   FOREACH_MESH_BUFFER_CACHE (cache, mbufcache) {
-    GPU_VERTBUF_DISCARD_SAFE(mbufcache->vbo.pos_nor);
     GPU_VERTBUF_DISCARD_SAFE(mbufcache->vbo.uv);
     GPU_VERTBUF_DISCARD_SAFE(mbufcache->vbo.tan);
     GPU_VERTBUF_DISCARD_SAFE(mbufcache->vbo.vcol);
     GPU_VERTBUF_DISCARD_SAFE(mbufcache->vbo.orco);
   }
+  /* Discard batches using vbo.uv. */
+  GPU_BATCH_DISCARD_SAFE(cache->batch.edituv_faces);
+  GPU_BATCH_DISCARD_SAFE(cache->batch.edituv_faces_stretch_area);
+  GPU_BATCH_DISCARD_SAFE(cache->batch.edituv_faces_stretch_angle);
+  GPU_BATCH_DISCARD_SAFE(cache->batch.edituv_edges);
+  GPU_BATCH_DISCARD_SAFE(cache->batch.edituv_verts);
+
   mesh_batch_cache_discard_surface_batches(cache);
   mesh_cd_layers_type_clear(&cache->cd_used);
 }
@@ -570,8 +576,8 @@ static void mesh_batch_cache_discard_shaded_tri(MeshBatchCache *cache)
 static void mesh_batch_cache_discard_uvedit(MeshBatchCache *cache)
 {
   FOREACH_MESH_BUFFER_CACHE (cache, mbufcache) {
-    GPU_VERTBUF_DISCARD_SAFE(mbufcache->vbo.stretch_angle);
-    GPU_VERTBUF_DISCARD_SAFE(mbufcache->vbo.stretch_area);
+    GPU_VERTBUF_DISCARD_SAFE(mbufcache->vbo.edituv_stretch_angle);
+    GPU_VERTBUF_DISCARD_SAFE(mbufcache->vbo.edituv_stretch_area);
     GPU_VERTBUF_DISCARD_SAFE(mbufcache->vbo.uv);
     GPU_VERTBUF_DISCARD_SAFE(mbufcache->vbo.edituv_data);
     GPU_VERTBUF_DISCARD_SAFE(mbufcache->vbo.fdots_uv);
@@ -659,8 +665,17 @@ void DRW_mesh_batch_cache_dirty_tag(Mesh *me, eMeshBatchDirtyMode mode)
         GPU_VERTBUF_DISCARD_SAFE(mbufcache->vbo.lnor);
       }
       GPU_BATCH_DISCARD_SAFE(cache->batch.surface);
+      /* Discard batches using vbo.pos_nor. */
       GPU_BATCH_DISCARD_SAFE(cache->batch.wire_loops);
       GPU_BATCH_DISCARD_SAFE(cache->batch.wire_edges);
+      GPU_BATCH_DISCARD_SAFE(cache->batch.all_verts);
+      GPU_BATCH_DISCARD_SAFE(cache->batch.all_edges);
+      GPU_BATCH_DISCARD_SAFE(cache->batch.loose_edges);
+      GPU_BATCH_DISCARD_SAFE(cache->batch.edge_detection);
+      GPU_BATCH_DISCARD_SAFE(cache->batch.surface_weights);
+      GPU_BATCH_DISCARD_SAFE(cache->batch.edit_mesh_analysis);
+      /* Discard batches using vbo.lnor. */
+      GPU_BATCH_DISCARD_SAFE(cache->batch.edit_lnor);
       mesh_batch_cache_discard_surface_batches(cache);
       cache->batch_ready &= ~(MBC_SURFACE | MBC_WIRE_EDGES | MBC_WIRE_LOOPS);
       break;
@@ -1203,7 +1218,12 @@ void DRW_mesh_batch_cache_create_requested(struct TaskGraph *task_graph,
    * In this case the custom-data layers used wont always match in `me->runtime.batch_cache`.
    * If we want to display regular mesh data, we should have a separate cache for the edit-mesh.
    * See T77359. */
-  const bool is_editmode = (me->edit_mesh != NULL) /* && DRW_object_is_in_edit_mode(ob) */;
+  const bool is_editmode = (me->edit_mesh != NULL) &&
+                           /* In rare cases we have the edit-mode data but not the generated cache.
+                            * This can happen when switching an objects data to a mesh which
+                            * happens to be in edit-mode in another scene, see: T82952. */
+                           (me->edit_mesh->mesh_eval_final !=
+                            NULL) /* && DRW_object_is_in_edit_mode(ob) */;
 
   /* This could be set for paint mode too, currently it's only used for edit-mode. */
   const bool is_mode_active = is_editmode && DRW_object_is_in_edit_mode(ob);
@@ -1492,13 +1512,13 @@ void DRW_mesh_batch_cache_create_requested(struct TaskGraph *task_graph,
     DRW_ibo_request(cache->batch.edituv_faces_stretch_area, &mbufcache->ibo.edituv_tris);
     DRW_vbo_request(cache->batch.edituv_faces_stretch_area, &mbufcache->vbo.uv);
     DRW_vbo_request(cache->batch.edituv_faces_stretch_area, &mbufcache->vbo.edituv_data);
-    DRW_vbo_request(cache->batch.edituv_faces_stretch_area, &mbufcache->vbo.stretch_area);
+    DRW_vbo_request(cache->batch.edituv_faces_stretch_area, &mbufcache->vbo.edituv_stretch_area);
   }
   if (DRW_batch_requested(cache->batch.edituv_faces_stretch_angle, GPU_PRIM_TRIS)) {
     DRW_ibo_request(cache->batch.edituv_faces_stretch_angle, &mbufcache->ibo.edituv_tris);
     DRW_vbo_request(cache->batch.edituv_faces_stretch_angle, &mbufcache->vbo.uv);
     DRW_vbo_request(cache->batch.edituv_faces_stretch_angle, &mbufcache->vbo.edituv_data);
-    DRW_vbo_request(cache->batch.edituv_faces_stretch_angle, &mbufcache->vbo.stretch_angle);
+    DRW_vbo_request(cache->batch.edituv_faces_stretch_angle, &mbufcache->vbo.edituv_stretch_angle);
   }
   if (DRW_batch_requested(cache->batch.edituv_edges, GPU_PRIM_LINES)) {
     DRW_ibo_request(cache->batch.edituv_edges, &mbufcache->ibo.edituv_lines);
@@ -1517,8 +1537,7 @@ void DRW_mesh_batch_cache_create_requested(struct TaskGraph *task_graph,
   }
 
   /* Meh loose Scene const correctness here. */
-  const bool use_subsurf_fdots = scene ? BKE_modifiers_uses_subsurf_facedots((Scene *)scene, ob) :
-                                         false;
+  const bool use_subsurf_fdots = scene ? BKE_modifiers_uses_subsurf_facedots(scene, ob) : false;
 
   if (do_uvcage) {
     mesh_buffer_cache_create_requested(task_graph,

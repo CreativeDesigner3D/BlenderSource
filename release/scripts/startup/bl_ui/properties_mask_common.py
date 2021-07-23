@@ -26,7 +26,7 @@ from bpy.app.translations import contexts as i18n_contexts
 
 
 # Use by both image & clip context menus.
-def draw_mask_context_menu(layout, context):
+def draw_mask_context_menu(layout, _context):
     layout.operator_menu_enum("mask.handle_type_set", "type")
     layout.operator("mask.switch_direction")
     layout.operator("mask.cyclic_toggle")
@@ -37,7 +37,7 @@ def draw_mask_context_menu(layout, context):
 
     layout.separator()
 
-    layout.operator("mask.shape_key_rekey", text="Re-key Shape Points")
+    layout.operator("mask.shape_key_rekey", text="Re-Key Shape Points")
     layout.operator("mask.feather_weight_clear")
     layout.operator("mask.shape_key_feather_reset", text="Reset Feather Animation")
 

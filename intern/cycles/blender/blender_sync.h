@@ -50,6 +50,7 @@ class ViewLayer;
 class Shader;
 class ShaderGraph;
 class ShaderNode;
+class TaskPool;
 
 class BlenderSync {
  public:
@@ -73,7 +74,8 @@ class BlenderSync {
                  int height,
                  void **python_thread_state);
   void sync_view_layer(BL::SpaceView3D &b_v3d, BL::ViewLayer &b_view_layer);
-  vector<Pass> sync_render_passes(BL::RenderLayer &b_render_layer,
+  vector<Pass> sync_render_passes(BL::Scene &b_scene,
+                                  BL::RenderLayer &b_render_layer,
                                   BL::ViewLayer &b_view_layer,
                                   bool adaptive_sampling,
                                   const DenoiseParams &denoising);
@@ -133,6 +135,7 @@ class BlenderSync {
   void sync_view();
 
   /* Shader */
+  array<Node *> find_used_shaders(BL::Object &b_ob);
   void sync_world(BL::Depsgraph &b_depsgraph, BL::SpaceView3D &b_v3d, bool update_all);
   void sync_shaders(BL::Depsgraph &b_depsgraph, BL::SpaceView3D &b_v3d);
   void sync_nodes(Shader *shader, BL::ShaderNodeTree &b_ntree);
@@ -145,23 +148,21 @@ class BlenderSync {
                       bool use_particle_hair,
                       bool show_lights,
                       BlenderObjectCulling &culling,
-                      bool *use_portal);
+                      bool *use_portal,
+                      TaskPool *geom_task_pool);
+  void sync_object_motion_init(BL::Object &b_parent, BL::Object &b_ob, Object *object);
+
+  bool sync_object_attributes(BL::DepsgraphObjectInstance &b_instance, Object *object);
 
   /* Volume */
-  void sync_volume(BL::Object &b_ob, Volume *volume, const vector<Shader *> &used_shaders);
+  void sync_volume(BL::Object &b_ob, Volume *volume);
 
   /* Mesh */
-  void sync_mesh(BL::Depsgraph b_depsgraph,
-                 BL::Object b_ob,
-                 Mesh *mesh,
-                 const vector<Shader *> &used_shaders);
+  void sync_mesh(BL::Depsgraph b_depsgraph, BL::Object b_ob, Mesh *mesh);
   void sync_mesh_motion(BL::Depsgraph b_depsgraph, BL::Object b_ob, Mesh *mesh, int motion_step);
 
   /* Hair */
-  void sync_hair(BL::Depsgraph b_depsgraph,
-                 BL::Object b_ob,
-                 Hair *hair,
-                 const vector<Shader *> &used_shaders);
+  void sync_hair(BL::Depsgraph b_depsgraph, BL::Object b_ob, Hair *hair);
   void sync_hair_motion(BL::Depsgraph b_depsgraph, BL::Object b_ob, Hair *hair, int motion_step);
   void sync_hair(Hair *hair, BL::Object &b_ob, bool motion, int motion_step = 0);
   void sync_particle_hair(
@@ -177,12 +178,15 @@ class BlenderSync {
                           BL::Object &b_ob,
                           BL::Object &b_ob_instance,
                           bool object_updated,
-                          bool use_particle_hair);
+                          bool use_particle_hair,
+                          TaskPool *task_pool);
+
   void sync_geometry_motion(BL::Depsgraph &b_depsgraph,
                             BL::Object &b_ob,
                             Object *object,
                             float motion_time,
-                            bool use_particle_hair);
+                            bool use_particle_hair,
+                            TaskPool *task_pool);
 
   /* Light */
   void sync_light(BL::Object &b_parent,
@@ -206,7 +210,7 @@ class BlenderSync {
   void free_data_after_sync(BL::Depsgraph &b_depsgraph);
 
   /* util */
-  void find_shader(BL::ID &id, vector<Shader *> &used_shaders, Shader *default_shader);
+  void find_shader(BL::ID &id, array<Node *> &used_shaders, Shader *default_shader);
   bool BKE_object_is_modified(BL::Object &b_ob);
   bool object_is_geometry(BL::Object &b_ob);
   bool object_is_light(BL::Object &b_ob);

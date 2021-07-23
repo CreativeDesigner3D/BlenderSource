@@ -423,11 +423,11 @@ static void calc_tangent_ortho(float ts[3][3])
   cross_v3_v3v3(ts[1], ts[2], v_tan_a);
   mul_v3_fl(ts[1], dot_v3v3(ts[1], v_tan_b) < 0.0f ? -1.0f : 1.0f);
 
-  /* orthognalise tangent */
+  /* Orthogonalize tangent. */
   mul_v3_v3fl(t_vec_a, ts[2], dot_v3v3(ts[2], v_tan_a));
   sub_v3_v3v3(ts[0], v_tan_a, t_vec_a);
 
-  /* orthognalise bitangent */
+  /* Orthogonalize bi-tangent. */
   mul_v3_v3fl(t_vec_a, ts[2], dot_v3v3(ts[2], ts[1]));
   mul_v3_v3fl(t_vec_b, ts[0], dot_v3v3(ts[0], ts[1]) / dot_v3v3(v_tan_a, v_tan_a));
   sub_v3_v3(ts[1], t_vec_a);
@@ -615,7 +615,7 @@ static void correctivesmooth_modifier_do(ModifierData *md,
       csmd_orig->bind_coords_num = csmd->bind_coords_num;
     }
     else {
-      BKE_modifier_set_error(md, "Attempt to bind from inactive dependency graph");
+      BKE_modifier_set_error(ob, md, "Attempt to bind from inactive dependency graph");
     }
   }
 
@@ -625,7 +625,7 @@ static void correctivesmooth_modifier_do(ModifierData *md,
   }
 
   if ((csmd->rest_source == MOD_CORRECTIVESMOOTH_RESTSOURCE_BIND) && (csmd->bind_coords == NULL)) {
-    BKE_modifier_set_error(md, "Bind data required");
+    BKE_modifier_set_error(ob, md, "Bind data required");
     goto error;
   }
 
@@ -633,14 +633,14 @@ static void correctivesmooth_modifier_do(ModifierData *md,
   if (csmd->rest_source == MOD_CORRECTIVESMOOTH_RESTSOURCE_BIND) {
     if (csmd->bind_coords_num != numVerts) {
       BKE_modifier_set_error(
-          md, "Bind vertex count mismatch: %u to %u", csmd->bind_coords_num, numVerts);
+          ob, md, "Bind vertex count mismatch: %u to %u", csmd->bind_coords_num, numVerts);
       goto error;
     }
   }
   else {
     /* MOD_CORRECTIVESMOOTH_RESTSOURCE_ORCO */
     if (ob->type != OB_MESH) {
-      BKE_modifier_set_error(md, "Object is not a mesh");
+      BKE_modifier_set_error(ob, md, "Object is not a mesh");
       goto error;
     }
     else {
@@ -648,7 +648,7 @@ static void correctivesmooth_modifier_do(ModifierData *md,
 
       if (me_numVerts != numVerts) {
         BKE_modifier_set_error(
-            md, "Original vertex count mismatch: %u to %u", me_numVerts, numVerts);
+            ob, md, "Original vertex count mismatch: %u to %u", me_numVerts, numVerts);
         goto error;
       }
     }
@@ -851,7 +851,7 @@ ModifierTypeInfo modifierType_CorrectiveSmooth = {
     /* deformMatricesEM */ NULL,
     /* modifyMesh */ NULL,
     /* modifyHair */ NULL,
-    /* modifyPointCloud */ NULL,
+    /* modifyGeometrySet */ NULL,
     /* modifyVolume */ NULL,
 
     /* initData */ initData,

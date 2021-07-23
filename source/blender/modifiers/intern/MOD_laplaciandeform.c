@@ -666,8 +666,7 @@ static void LaplacianDeformModifier_do(
     sysdif = isSystemDifferent(lmd, ob, mesh, numVerts);
     sys = lmd->cache_system;
     if (sysdif) {
-      if (sysdif == LAPDEFORM_SYSTEM_ONLY_CHANGE_ANCHORS ||
-          sysdif == LAPDEFORM_SYSTEM_ONLY_CHANGE_GROUP) {
+      if (ELEM(sysdif, LAPDEFORM_SYSTEM_ONLY_CHANGE_ANCHORS, LAPDEFORM_SYSTEM_ONLY_CHANGE_GROUP)) {
         filevertexCos = MEM_malloc_arrayN(numVerts, sizeof(float[3]), "TempModDeformCoordinates");
         memcpy(filevertexCos, lmd->vertexco, sizeof(float[3]) * numVerts);
         MEM_SAFE_FREE(lmd->vertexco);
@@ -684,14 +683,15 @@ static void LaplacianDeformModifier_do(
       else {
         if (sysdif == LAPDEFORM_SYSTEM_CHANGE_VERTEXES) {
           BKE_modifier_set_error(
-              &lmd->modifier, "Vertices changed from %d to %d", lmd->total_verts, numVerts);
+              ob, &lmd->modifier, "Vertices changed from %d to %d", lmd->total_verts, numVerts);
         }
         else if (sysdif == LAPDEFORM_SYSTEM_CHANGE_EDGES) {
           BKE_modifier_set_error(
-              &lmd->modifier, "Edges changed from %d to %d", sys->total_edges, mesh->totedge);
+              ob, &lmd->modifier, "Edges changed from %d to %d", sys->total_edges, mesh->totedge);
         }
         else if (sysdif == LAPDEFORM_SYSTEM_CHANGE_NOT_VALID_GROUP) {
-          BKE_modifier_set_error(&lmd->modifier,
+          BKE_modifier_set_error(ob,
+                                 &lmd->modifier,
                                  "Vertex group '%s' is not valid, or maybe empty",
                                  sys->anchor_grp_name);
         }
@@ -704,8 +704,10 @@ static void LaplacianDeformModifier_do(
   }
   else {
     if (!isValidVertexGroup(lmd, ob, mesh)) {
-      BKE_modifier_set_error(
-          &lmd->modifier, "Vertex group '%s' is not valid, or maybe empty", lmd->anchor_grp_name);
+      BKE_modifier_set_error(ob,
+                             &lmd->modifier,
+                             "Vertex group '%s' is not valid, or maybe empty",
+                             lmd->anchor_grp_name);
       lmd->flag &= ~MOD_LAPLACIANDEFORM_BIND;
     }
     else if (lmd->total_verts > 0 && lmd->total_verts == numVerts) {
@@ -725,7 +727,7 @@ static void LaplacianDeformModifier_do(
     }
   }
   if (sys && sys->is_matrix_computed && !sys->has_solution) {
-    BKE_modifier_set_error(&lmd->modifier, "The system did not find a solution");
+    BKE_modifier_set_error(ob, &lmd->modifier, "The system did not find a solution");
   }
 }
 
@@ -886,7 +888,7 @@ ModifierTypeInfo modifierType_LaplacianDeform = {
     /* deformMatricesEM */ NULL,
     /* modifyMesh */ NULL,
     /* modifyHair */ NULL,
-    /* modifyPointCloud */ NULL,
+    /* modifyGeometrySet */ NULL,
     /* modifyVolume */ NULL,
 
     /* initData */ initData,

@@ -119,6 +119,43 @@ static void cloth_brush_simulation_location_get(SculptSession *ss,
   copy_v3_v3(r_location, ss->cache->location);
 }
 
+PBVHNode **SCULPT_cloth_brush_affected_nodes_gather(SculptSession *ss,
+                                                    Brush *brush,
+                                                    int *r_totnode)
+{
+  BLI_assert(ss->cache);
+  BLI_assert(brush->sculpt_tool == SCULPT_TOOL_CLOTH);
+  PBVHNode **nodes = NULL;
+
+  switch (brush->cloth_simulation_area_type) {
+    case BRUSH_CLOTH_SIMULATION_AREA_LOCAL: {
+      SculptSearchSphereData data = {
+          .ss = ss,
+          .radius_squared = square_f(ss->cache->initial_radius * (1.0 + brush->cloth_sim_limit)),
+          .original = false,
+          .ignore_fully_ineffective = false,
+          .center = ss->cache->initial_location,
+      };
+      BKE_pbvh_search_gather(ss->pbvh, SCULPT_search_sphere_cb, &data, &nodes, r_totnode);
+    } break;
+    case BRUSH_CLOTH_SIMULATION_AREA_GLOBAL:
+      BKE_pbvh_search_gather(ss->pbvh, NULL, NULL, &nodes, r_totnode);
+      break;
+    case BRUSH_CLOTH_SIMULATION_AREA_DYNAMIC: {
+      SculptSearchSphereData data = {
+          .ss = ss,
+          .radius_squared = square_f(ss->cache->radius * (1.0 + brush->cloth_sim_limit)),
+          .original = false,
+          .ignore_fully_ineffective = false,
+          .center = ss->cache->location,
+      };
+      BKE_pbvh_search_gather(ss->pbvh, SCULPT_search_sphere_cb, &data, &nodes, r_totnode);
+    } break;
+  }
+
+  return nodes;
+}
+
 static float cloth_brush_simulation_falloff_get(const Brush *brush,
                                                 const float radius,
                                                 const float location[3],
@@ -139,14 +176,14 @@ static float cloth_brush_simulation_falloff_get(const Brush *brush,
   const float falloff = radius + (radius * brush->cloth_sim_limit * brush->cloth_sim_falloff);
 
   if (distance > limit) {
-    /* Outiside the limits. */
+    /* Outside the limits. */
     return 0.0f;
   }
   if (distance < falloff) {
     /* Before the falloff area. */
     return 1.0f;
   }
-  /* Do a smoothstep transition inside the falloff area. */
+  /* Do a smooth-step transition inside the falloff area. */
   float p = 1.0f - ((distance - falloff) / (limit - falloff));
   return 3.0f * p * p - 2.0f * p * p * p;
 }
@@ -214,7 +251,7 @@ static void cloth_brush_add_length_constraint(SculptSession *ss,
   /* Reallocation if the array capacity is exceeded. */
   cloth_brush_reallocate_constraints(cloth_sim);
 
-  /* Add the constraint to the GSet to avoid creating it again. */
+  /* Add the constraint to the #GSet to avoid creating it again. */
   BLI_edgeset_add(cloth_sim->created_length_constraints, v1, v2);
 }
 
@@ -326,19 +363,21 @@ static void do_cloth_brush_build_constraints_task_cb_ex(
    * positions. */
   const bool cloth_is_deform_brush = ss->cache != NULL && brush != NULL &&
                                      SCULPT_is_cloth_deform_brush(brush);
+
+  const bool use_falloff_plane = brush->cloth_force_falloff_type ==
+                                 BRUSH_CLOTH_FORCE_FALLOFF_PLANE;
   float radius_squared = 0.0f;
   if (cloth_is_deform_brush) {
     radius_squared = ss->cache->initial_radius * ss->cache->initial_radius;
   }
 
-  /* Only limit the contraint creation to a radius when the simulation is local. */
+  /* Only limit the constraint creation to a radius when the simulation is local. */
   const float cloth_sim_radius_squared = brush->cloth_simulation_area_type ==
                                                  BRUSH_CLOTH_SIMULATION_AREA_LOCAL ?
                                              data->cloth_sim_radius * data->cloth_sim_radius :
                                              FLT_MAX;
 
-  BKE_pbvh_vertex_iter_begin(ss->pbvh, node, vd, PBVH_ITER_UNIQUE)
-  {
+  BKE_pbvh_vertex_iter_begin (ss->pbvh, node, vd, PBVH_ITER_UNIQUE) {
     const float len_squared = len_squared_v3v3(vd.co, data->cloth_sim_initial_location);
     if (len_squared < cloth_sim_radius_squared) {
 
@@ -380,12 +419,21 @@ static void do_cloth_brush_build_constraints_task_cb_ex(
     if (brush && brush->sculpt_tool == SCULPT_TOOL_CLOTH) {
       /* The cloth brush works by applying forces in most of its modes, but some of them require
        * deformation coordinates to make the simulation stable. */
-      if (brush->cloth_deform_type == BRUSH_CLOTH_DEFORM_GRAB && len_squared < radius_squared) {
-        /* When the grab brush brush is used as part of the cloth brush, deformation constraints
-         * are created with different strengths and only inside the radius of the brush. */
-        const float fade = BKE_brush_curve_strength(brush, sqrtf(len_squared), ss->cache->radius);
-        cloth_brush_add_deformation_constraint(
-            data->cloth_sim, node_index, vd.index, fade * CLOTH_DEFORMATION_GRAB_STRENGTH);
+      if (brush->cloth_deform_type == BRUSH_CLOTH_DEFORM_GRAB) {
+        if (use_falloff_plane) {
+          /* With plane falloff the strength of the constraints is set when applying the
+           * deformation forces. */
+          cloth_brush_add_deformation_constraint(
+              data->cloth_sim, node_index, vd.index, CLOTH_DEFORMATION_GRAB_STRENGTH);
+        }
+        else if (len_squared < radius_squared) {
+          /* With radial falloff deformation constraints are created with different strengths and
+           * only inside the radius of the brush. */
+          const float fade = BKE_brush_curve_strength(
+              brush, sqrtf(len_squared), ss->cache->radius);
+          cloth_brush_add_deformation_constraint(
+              data->cloth_sim, node_index, vd.index, fade * CLOTH_DEFORMATION_GRAB_STRENGTH);
+        }
       }
       else if (brush->cloth_deform_type == BRUSH_CLOTH_DEFORM_SNAKE_HOOK) {
         /* Cloth Snake Hook creates deformation constraint with fixed strength because the strength
@@ -436,9 +484,8 @@ static void do_cloth_brush_apply_forces_task_cb_ex(void *__restrict userdata,
   const float *grab_delta = data->grab_delta;
   float(*imat)[4] = data->mat;
 
-  const bool use_falloff_plane = !SCULPT_is_cloth_deform_brush(brush) &&
-                                 brush->cloth_force_falloff_type ==
-                                     BRUSH_CLOTH_FORCE_FALLOFF_PLANE;
+  const bool use_falloff_plane = brush->cloth_force_falloff_type ==
+                                 BRUSH_CLOTH_FORCE_FALLOFF_PLANE;
 
   PBVHVertexIter vd;
   const float bstrength = ss->cache->bstrength;
@@ -448,7 +495,7 @@ static void do_cloth_brush_apply_forces_task_cb_ex(void *__restrict userdata,
       ss, &test, data->brush->falloff_shape);
   const int thread_id = BLI_task_parallel_thread_id(tls);
 
-  /* For Pich Perpendicular Deform Type. */
+  /* For Pinch Perpendicular Deform Type. */
   float x_object_space[3];
   float z_object_space[3];
   if (brush->cloth_deform_type == BRUSH_CLOTH_DEFORM_PINCH_PERPENDICULAR) {
@@ -470,14 +517,7 @@ static void do_cloth_brush_apply_forces_task_cb_ex(void *__restrict userdata,
     madd_v3_v3fl(gravity, ss->cache->gravity_direction, -data->sd->gravity_factor);
   }
 
-  /* Original data for deform brushes. */
-  SculptOrigVertData orig_data;
-  if (SCULPT_is_cloth_deform_brush(brush)) {
-    SCULPT_orig_vert_data_init(&orig_data, data->ob, data->nodes[n]);
-  }
-
-  BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
-  {
+  BKE_pbvh_vertex_iter_begin (ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE) {
     float force[3];
     float sim_location[3];
     cloth_brush_simulation_location_get(ss, brush, sim_location);
@@ -486,8 +526,7 @@ static void do_cloth_brush_apply_forces_task_cb_ex(void *__restrict userdata,
 
     float current_vertex_location[3];
     if (brush->cloth_deform_type == BRUSH_CLOTH_DEFORM_GRAB) {
-      SCULPT_orig_vert_data_update(&orig_data, &vd);
-      copy_v3_v3(current_vertex_location, orig_data.co);
+      copy_v3_v3(current_vertex_location, ss->cache->cloth_sim->init_pos[vd.index]);
     }
     else {
       copy_v3_v3(current_vertex_location, vd.co);
@@ -499,91 +538,98 @@ static void do_cloth_brush_apply_forces_task_cb_ex(void *__restrict userdata,
     cloth_brush_apply_force_to_vertex(ss, ss->cache->cloth_sim, vertex_gravity, vd.index);
 
     /* When using the plane falloff mode the falloff is not constrained by the brush radius. */
-    if (sculpt_brush_test_sq_fn(&test, current_vertex_location) || use_falloff_plane) {
-
-      float dist = sqrtf(test.dist);
-
-      if (use_falloff_plane) {
-        dist = dist_to_plane_v3(vd.co, deform_plane);
-      }
-
-      const float fade = sim_factor * bstrength *
-                         SCULPT_brush_strength_factor(ss,
-                                                      brush,
-                                                      current_vertex_location,
-                                                      dist,
-                                                      vd.no,
-                                                      vd.fno,
-                                                      vd.mask ? *vd.mask : 0.0f,
-                                                      vd.index,
-                                                      thread_id);
-
-      float brush_disp[3];
-      float normal[3];
-      if (vd.no) {
-        normal_short_to_float_v3(normal, vd.no);
-      }
-      else {
-        copy_v3_v3(normal, vd.fno);
-      }
-
-      switch (brush->cloth_deform_type) {
-        case BRUSH_CLOTH_DEFORM_DRAG:
-          sub_v3_v3v3(brush_disp, ss->cache->location, ss->cache->last_location);
-          normalize_v3(brush_disp);
-          mul_v3_v3fl(force, brush_disp, fade);
-          break;
-        case BRUSH_CLOTH_DEFORM_PUSH:
-          /* Invert the fade to push inwards. */
-          mul_v3_v3fl(force, offset, -fade);
-          break;
-        case BRUSH_CLOTH_DEFORM_GRAB:
-          madd_v3_v3v3fl(cloth_sim->deformation_pos[vd.index],
-                         orig_data.co,
-                         ss->cache->grab_delta_symmetry,
-                         fade);
-          zero_v3(force);
-          break;
-        case BRUSH_CLOTH_DEFORM_SNAKE_HOOK:
-          copy_v3_v3(cloth_sim->deformation_pos[vd.index], cloth_sim->pos[vd.index]);
-          madd_v3_v3fl(cloth_sim->deformation_pos[vd.index], ss->cache->grab_delta_symmetry, fade);
-          cloth_sim->deformation_strength[vd.index] = fade;
-          zero_v3(force);
-          break;
-        case BRUSH_CLOTH_DEFORM_PINCH_POINT:
-          if (use_falloff_plane) {
-            float distance = dist_signed_to_plane_v3(vd.co, deform_plane);
-            copy_v3_v3(brush_disp, plane_normal);
-            mul_v3_fl(brush_disp, -distance);
-          }
-          else {
-            sub_v3_v3v3(brush_disp, ss->cache->location, vd.co);
-          }
-          normalize_v3(brush_disp);
-          mul_v3_v3fl(force, brush_disp, fade);
-          break;
-        case BRUSH_CLOTH_DEFORM_PINCH_PERPENDICULAR: {
-          float disp_center[3];
-          float x_disp[3];
-          float z_disp[3];
-          sub_v3_v3v3(disp_center, ss->cache->location, vd.co);
-          normalize_v3(disp_center);
-          mul_v3_v3fl(x_disp, x_object_space, dot_v3v3(disp_center, x_object_space));
-          mul_v3_v3fl(z_disp, z_object_space, dot_v3v3(disp_center, z_object_space));
-          add_v3_v3v3(disp_center, x_disp, z_disp);
-          mul_v3_v3fl(force, disp_center, fade);
-        } break;
-        case BRUSH_CLOTH_DEFORM_INFLATE:
-          mul_v3_v3fl(force, normal, fade);
-          break;
-        case BRUSH_CLOTH_DEFORM_EXPAND:
-          cloth_sim->length_constraint_tweak[vd.index] += fade * 0.1f;
-          zero_v3(force);
-          break;
-      }
-
-      cloth_brush_apply_force_to_vertex(ss, ss->cache->cloth_sim, force, vd.index);
+    if (!sculpt_brush_test_sq_fn(&test, current_vertex_location) && !use_falloff_plane) {
+      continue;
     }
+
+    float dist = sqrtf(test.dist);
+
+    if (use_falloff_plane) {
+      dist = dist_to_plane_v3(current_vertex_location, deform_plane);
+    }
+
+    const float fade = sim_factor * bstrength *
+                       SCULPT_brush_strength_factor(ss,
+                                                    brush,
+                                                    current_vertex_location,
+                                                    dist,
+                                                    vd.no,
+                                                    vd.fno,
+                                                    vd.mask ? *vd.mask : 0.0f,
+                                                    vd.index,
+                                                    thread_id);
+
+    float brush_disp[3];
+    float normal[3];
+    if (vd.no) {
+      normal_short_to_float_v3(normal, vd.no);
+    }
+    else {
+      copy_v3_v3(normal, vd.fno);
+    }
+
+    switch (brush->cloth_deform_type) {
+      case BRUSH_CLOTH_DEFORM_DRAG:
+        sub_v3_v3v3(brush_disp, ss->cache->location, ss->cache->last_location);
+        normalize_v3(brush_disp);
+        mul_v3_v3fl(force, brush_disp, fade);
+        break;
+      case BRUSH_CLOTH_DEFORM_PUSH:
+        /* Invert the fade to push inwards. */
+        mul_v3_v3fl(force, offset, -fade);
+        break;
+      case BRUSH_CLOTH_DEFORM_GRAB:
+        madd_v3_v3v3fl(cloth_sim->deformation_pos[vd.index],
+                       cloth_sim->init_pos[vd.index],
+                       ss->cache->grab_delta_symmetry,
+                       fade);
+        if (use_falloff_plane) {
+          cloth_sim->deformation_strength[vd.index] = clamp_f(fade, 0.0f, 1.0f);
+        }
+        else {
+          cloth_sim->deformation_strength[vd.index] = 1.0f;
+        }
+        zero_v3(force);
+        break;
+      case BRUSH_CLOTH_DEFORM_SNAKE_HOOK:
+        copy_v3_v3(cloth_sim->deformation_pos[vd.index], cloth_sim->pos[vd.index]);
+        madd_v3_v3fl(cloth_sim->deformation_pos[vd.index], ss->cache->grab_delta_symmetry, fade);
+        cloth_sim->deformation_strength[vd.index] = fade;
+        zero_v3(force);
+        break;
+      case BRUSH_CLOTH_DEFORM_PINCH_POINT:
+        if (use_falloff_plane) {
+          float distance = dist_signed_to_plane_v3(vd.co, deform_plane);
+          copy_v3_v3(brush_disp, plane_normal);
+          mul_v3_fl(brush_disp, -distance);
+        }
+        else {
+          sub_v3_v3v3(brush_disp, ss->cache->location, vd.co);
+        }
+        normalize_v3(brush_disp);
+        mul_v3_v3fl(force, brush_disp, fade);
+        break;
+      case BRUSH_CLOTH_DEFORM_PINCH_PERPENDICULAR: {
+        float disp_center[3];
+        float x_disp[3];
+        float z_disp[3];
+        sub_v3_v3v3(disp_center, ss->cache->location, vd.co);
+        normalize_v3(disp_center);
+        mul_v3_v3fl(x_disp, x_object_space, dot_v3v3(disp_center, x_object_space));
+        mul_v3_v3fl(z_disp, z_object_space, dot_v3v3(disp_center, z_object_space));
+        add_v3_v3v3(disp_center, x_disp, z_disp);
+        mul_v3_v3fl(force, disp_center, fade);
+      } break;
+      case BRUSH_CLOTH_DEFORM_INFLATE:
+        mul_v3_v3fl(force, normal, fade);
+        break;
+      case BRUSH_CLOTH_DEFORM_EXPAND:
+        cloth_sim->length_constraint_tweak[vd.index] += fade * 0.1f;
+        zero_v3(force);
+        break;
+    }
+
+    cloth_brush_apply_force_to_vertex(ss, ss->cache->cloth_sim, force, vd.index);
   }
   BKE_pbvh_vertex_iter_end;
 }
@@ -597,17 +643,22 @@ static ListBase *cloth_brush_collider_cache_create(Depsgraph *depsgraph)
                              DEG_ITER_OBJECT_FLAG_DUPLI) {
     CollisionModifierData *cmd = (CollisionModifierData *)BKE_modifiers_findby_type(
         ob, eModifierType_Collision);
-    if (cmd && cmd->bvhtree) {
-      if (cache == NULL) {
-        cache = MEM_callocN(sizeof(ListBase), "ColliderCache array");
-      }
-
-      ColliderCache *col = MEM_callocN(sizeof(ColliderCache), "ColliderCache");
-      col->ob = ob;
-      col->collmd = cmd;
-      collision_move_object(cmd, 1.0, 0.0, true);
-      BLI_addtail(cache, col);
+    if (!cmd) {
+      continue;
     }
+
+    if (!cmd->bvhtree) {
+      continue;
+    }
+    if (cache == NULL) {
+      cache = MEM_callocN(sizeof(ListBase), "ColliderCache array");
+    }
+
+    ColliderCache *col = MEM_callocN(sizeof(ColliderCache), "ColliderCache");
+    col->ob = ob;
+    col->collmd = cmd;
+    collision_move_object(cmd, 1.0, 0.0, true);
+    BLI_addtail(cache, col);
   }
   DEG_OBJECT_ITER_END;
   return cache;
@@ -687,26 +738,27 @@ static void cloth_brush_solve_collision(Object *object,
                             &col,
                             raycast_flag);
 
-    if (hit.index != -1) {
-
-      float collision_disp[3];
-      float movement_disp[3];
-      mul_v3_v3fl(collision_disp, hit.no, 0.005f);
-      sub_v3_v3v3(movement_disp, pos_world_space, prev_pos_world_space);
-      float friction_plane[4];
-      float pos_on_friction_plane[3];
-      plane_from_point_normal_v3(friction_plane, hit.co, hit.no);
-      closest_to_plane_v3(pos_on_friction_plane, friction_plane, pos_world_space);
-      sub_v3_v3v3(movement_disp, pos_on_friction_plane, hit.co);
-
-      /* TODO(pablodp606): This can be exposed in a brush/filter property as friction. */
-      mul_v3_fl(movement_disp, 0.35f);
-
-      copy_v3_v3(cloth_sim->pos[i], hit.co);
-      add_v3_v3(cloth_sim->pos[i], movement_disp);
-      add_v3_v3(cloth_sim->pos[i], collision_disp);
-      mul_v3_m4v3(cloth_sim->pos[i], obmat_inv, cloth_sim->pos[i]);
+    if (hit.index == -1) {
+      continue;
     }
+
+    float collision_disp[3];
+    float movement_disp[3];
+    mul_v3_v3fl(collision_disp, hit.no, 0.005f);
+    sub_v3_v3v3(movement_disp, pos_world_space, prev_pos_world_space);
+    float friction_plane[4];
+    float pos_on_friction_plane[3];
+    plane_from_point_normal_v3(friction_plane, hit.co, hit.no);
+    closest_to_plane_v3(pos_on_friction_plane, friction_plane, pos_world_space);
+    sub_v3_v3v3(movement_disp, pos_on_friction_plane, hit.co);
+
+    /* TODO(pablodp606): This can be exposed in a brush/filter property as friction. */
+    mul_v3_fl(movement_disp, 0.35f);
+
+    copy_v3_v3(cloth_sim->pos[i], hit.co);
+    add_v3_v3(cloth_sim->pos[i], movement_disp);
+    add_v3_v3(cloth_sim->pos[i], collision_disp);
+    mul_v3_m4v3(cloth_sim->pos[i], obmat_inv, cloth_sim->pos[i]);
   }
 }
 
@@ -729,46 +781,47 @@ static void do_cloth_brush_solve_simulation_task_cb_ex(
 
   AutomaskingCache *automasking = SCULPT_automasking_active_cache_get(ss);
 
-  BKE_pbvh_vertex_iter_begin(ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE)
-  {
+  BKE_pbvh_vertex_iter_begin (ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE) {
     float sim_location[3];
     cloth_brush_simulation_location_get(ss, brush, sim_location);
     const float sim_factor =
         ss->cache ? cloth_brush_simulation_falloff_get(
                         brush, ss->cache->radius, sim_location, cloth_sim->init_pos[vd.index]) :
                     1.0f;
-    if (sim_factor > 0.0f) {
-      int i = vd.index;
-      float temp[3];
-      copy_v3_v3(temp, cloth_sim->pos[i]);
+    if (sim_factor <= 0.0f) {
+      continue;
+    }
 
-      mul_v3_fl(cloth_sim->acceleration[i], time_step);
+    int i = vd.index;
+    float temp[3];
+    copy_v3_v3(temp, cloth_sim->pos[i]);
 
-      float pos_diff[3];
-      sub_v3_v3v3(pos_diff, cloth_sim->pos[i], cloth_sim->prev_pos[i]);
-      mul_v3_fl(pos_diff, (1.0f - cloth_sim->damping) * sim_factor);
+    mul_v3_fl(cloth_sim->acceleration[i], time_step);
 
-      const float mask_v = (1.0f - (vd.mask ? *vd.mask : 0.0f)) *
-                           SCULPT_automasking_factor_get(automasking, ss, vd.index);
+    float pos_diff[3];
+    sub_v3_v3v3(pos_diff, cloth_sim->pos[i], cloth_sim->prev_pos[i]);
+    mul_v3_fl(pos_diff, (1.0f - cloth_sim->damping) * sim_factor);
 
-      madd_v3_v3fl(cloth_sim->pos[i], pos_diff, mask_v);
-      madd_v3_v3fl(cloth_sim->pos[i], cloth_sim->acceleration[i], mask_v);
+    const float mask_v = (1.0f - (vd.mask ? *vd.mask : 0.0f)) *
+                         SCULPT_automasking_factor_get(automasking, ss, vd.index);
 
-      if (cloth_sim->collider_list != NULL) {
-        cloth_brush_solve_collision(data->ob, cloth_sim, i);
-      }
+    madd_v3_v3fl(cloth_sim->pos[i], pos_diff, mask_v);
+    madd_v3_v3fl(cloth_sim->pos[i], cloth_sim->acceleration[i], mask_v);
 
-      copy_v3_v3(cloth_sim->last_iteration_pos[i], cloth_sim->pos[i]);
+    if (cloth_sim->collider_list != NULL) {
+      cloth_brush_solve_collision(data->ob, cloth_sim, i);
+    }
 
-      copy_v3_v3(cloth_sim->prev_pos[i], temp);
-      copy_v3_v3(cloth_sim->last_iteration_pos[i], cloth_sim->pos[i]);
-      copy_v3_fl(cloth_sim->acceleration[i], 0.0f);
+    copy_v3_v3(cloth_sim->last_iteration_pos[i], cloth_sim->pos[i]);
 
-      copy_v3_v3(vd.co, cloth_sim->pos[vd.index]);
+    copy_v3_v3(cloth_sim->prev_pos[i], temp);
+    copy_v3_v3(cloth_sim->last_iteration_pos[i], cloth_sim->pos[i]);
+    copy_v3_fl(cloth_sim->acceleration[i], 0.0f);
 
-      if (vd.mvert) {
-        vd.mvert->flag |= ME_VERT_PBVH_UPDATE;
-      }
+    copy_v3_v3(vd.co, cloth_sim->pos[vd.index]);
+
+    if (vd.mvert) {
+      vd.mvert->flag |= ME_VERT_PBVH_UPDATE;
     }
   }
   BKE_pbvh_vertex_iter_end;
@@ -920,7 +973,7 @@ static void cloth_brush_apply_brush_foces(Sculpt *sd, Object *ob, PBVHNode **nod
 
   BKE_curvemapping_init(brush->curve);
 
-  /* Init the grab delta. */
+  /* Initialize the grab delta. */
   copy_v3_v3(grab_delta, ss->cache->grab_delta_symmetry);
   normalize_v3(grab_delta);
 
@@ -930,7 +983,7 @@ static void cloth_brush_apply_brush_foces(Sculpt *sd, Object *ob, PBVHNode **nod
     return;
   }
 
-  /* Calcuate push offset. */
+  /* Calculate push offset. */
 
   if (brush->cloth_deform_type == BRUSH_CLOTH_DEFORM_PUSH) {
     mul_v3_v3fl(offset, ss->cache->sculpt_normal_symm, ss->cache->radius);
@@ -944,7 +997,7 @@ static void cloth_brush_apply_brush_foces(Sculpt *sd, Object *ob, PBVHNode **nod
       brush->cloth_force_falloff_type == BRUSH_CLOTH_FORCE_FALLOFF_PLANE) {
     SCULPT_calc_brush_plane(sd, ob, nodes, totnode, area_no, area_co);
 
-    /* Init stroke local space matrix. */
+    /* Initialize stroke local space matrix. */
     cross_v3_v3v3(mat[0], area_no, ss->cache->grab_delta_symmetry);
     mat[0][3] = 0.0f;
     cross_v3_v3v3(mat[1], area_no, mat[0]);
@@ -965,8 +1018,8 @@ static void cloth_brush_apply_brush_foces(Sculpt *sd, Object *ob, PBVHNode **nod
     }
   }
 
-  if (brush->cloth_deform_type == BRUSH_CLOTH_DEFORM_SNAKE_HOOK) {
-    /* Set the deformation strength to 0. Snake hook will initialize the strength in the required
+  if (ELEM(brush->cloth_deform_type, BRUSH_CLOTH_DEFORM_SNAKE_HOOK, BRUSH_CLOTH_DEFORM_GRAB)) {
+    /* Set the deformation strength to 0. Brushes will initialize the strength in the required
      * area. */
     const int totverts = SCULPT_vertex_count_get(ss);
     for (int i = 0; i < totverts; i++) {
@@ -1058,7 +1111,7 @@ void SCULPT_cloth_brush_ensure_nodes_constraints(
     PBVHNode **nodes,
     int totnode,
     SculptClothSimulation *cloth_sim,
-    /* Cannot be const, because it is assigned to a non-const variable.
+    /* Cannot be `const`, because it is assigned to a `non-const` variable.
      * NOLINTNEXTLINE: readability-non-const-parameter. */
     float initial_location[3],
     const float radius)
@@ -1178,7 +1231,7 @@ void SCULPT_do_cloth_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode
       sculpt_cloth_ensure_constraints_in_simulation_area(sd, ob, nodes, totnode);
     }
     /* The first step of a symmetry pass is never simulated as deformation modes need valid delta
-     * for brush tip alignement. */
+     * for brush tip alignment. */
     return;
   }
 
@@ -1253,9 +1306,14 @@ void SCULPT_cloth_plane_falloff_preview_draw(const uint gpuattr,
                                              const float outline_col[3],
                                              float outline_alpha)
 {
-  float local_mat_inv[4][4];
-  invert_m4_m4(local_mat_inv, ss->cache->stroke_local_mat);
-  GPU_matrix_mul(ss->cache->stroke_local_mat);
+  float local_mat[4][4];
+  copy_m4_m4(local_mat, ss->cache->stroke_local_mat);
+
+  if (ss->cache->brush->cloth_deform_type == BRUSH_CLOTH_DEFORM_GRAB) {
+    add_v3_v3v3(local_mat[3], ss->cache->true_location, ss->cache->grab_delta);
+  }
+
+  GPU_matrix_mul(local_mat);
 
   const float dist = ss->cache->radius;
   const float arrow_x = ss->cache->radius * 0.2f;
@@ -1299,7 +1357,7 @@ static EnumPropertyItem prop_cloth_filter_type[] = {
      "SCALE",
      0,
      "Scale",
-     "Scales the mesh as a softbody using the origin of the object as scale"},
+     "Scales the mesh as a soft body using the origin of the object as scale"},
     {0, NULL, 0, NULL, NULL},
 };
 
@@ -1388,8 +1446,7 @@ static void cloth_filter_apply_forces_task_cb(void *__restrict userdata,
   mul_v3_fl(sculpt_gravity, sd->gravity_factor * data->filter_strength);
 
   PBVHVertexIter vd;
-  BKE_pbvh_vertex_iter_begin(ss->pbvh, node, vd, PBVH_ITER_UNIQUE)
-  {
+  BKE_pbvh_vertex_iter_begin (ss->pbvh, node, vd, PBVH_ITER_UNIQUE) {
     float fade = vd.mask ? *vd.mask : 0.0f;
     fade *= SCULPT_automasking_factor_get(ss->filter_cache->automasking, ss, vd.index);
     fade = 1.0f - fade;
@@ -1533,7 +1590,7 @@ static int sculpt_cloth_filter_invoke(bContext *C, wmOperator *op, const wmEvent
   /* Needs mask data to be available as it is used when solving the constraints. */
   BKE_sculpt_update_object_for_edit(depsgraph, ob, true, true, false);
 
-  SCULPT_undo_push_begin("Cloth filter");
+  SCULPT_undo_push_begin(ob, "Cloth filter");
   SCULPT_filter_cache_init(C, ob, sd, SCULPT_UNDO_COORDS);
 
   ss->filter_cache->automasking = SCULPT_automasking_cache_init(sd, NULL, ob);
@@ -1601,15 +1658,15 @@ void SCULPT_OT_cloth_filter(struct wmOperatorType *ot)
                "type",
                prop_cloth_filter_type,
                CLOTH_FILTER_GRAVITY,
-               "Filter type",
+               "Filter Type",
                "Operation that is going to be applied to the mesh");
   RNA_def_float(
-      ot->srna, "strength", 1.0f, -10.0f, 10.0f, "Strength", "Filter Strength", -10.0f, 10.0f);
+      ot->srna, "strength", 1.0f, -10.0f, 10.0f, "Strength", "Filter strength", -10.0f, 10.0f);
   RNA_def_enum_flag(ot->srna,
                     "force_axis",
                     prop_cloth_filter_force_axis_items,
                     CLOTH_FILTER_FORCE_X | CLOTH_FILTER_FORCE_Y | CLOTH_FILTER_FORCE_Z,
-                    "Force axis",
+                    "Force Axis",
                     "Apply the force in the selected axis");
   RNA_def_enum(ot->srna,
                "orientation",

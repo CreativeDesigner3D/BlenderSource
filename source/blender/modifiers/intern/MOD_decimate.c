@@ -113,7 +113,7 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *
   TIMEIT_START(decim);
 #endif
 
-  /* set up front so we dont show invalid info in the UI */
+  /* Set up front so we don't show invalid info in the UI. */
   updateFaceCount(ctx, dmd, mesh->totpoly);
 
   switch (dmd->mode) {
@@ -140,7 +140,7 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *
   }
 
   if (dmd->face_count <= 3) {
-    BKE_modifier_set_error(md, "Modifier requires more than 3 input faces");
+    BKE_modifier_set_error(ctx->object, md, "Modifier requires more than 3 input faces");
     return mesh;
   }
 
@@ -299,7 +299,7 @@ ModifierTypeInfo modifierType_Decimate = {
     /* deformMatricesEM */ NULL,
     /* modifyMesh */ modifyMesh,
     /* modifyHair */ NULL,
-    /* modifyPointCloud */ NULL,
+    /* modifyGeometrySet */ NULL,
     /* modifyVolume */ NULL,
 
     /* initData */ initData,

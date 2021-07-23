@@ -36,11 +36,7 @@ CCL_NAMESPACE_BEGIN
 
 NODE_DEFINE(Volume)
 {
-  NodeType *type = NodeType::add("volume", create, NodeType::NONE, Geometry::node_base_type);
-
-  SOCKET_INT_ARRAY(triangles, "Triangles", array<int>());
-  SOCKET_POINT_ARRAY(verts, "Vertices", array<float3>());
-  SOCKET_INT_ARRAY(shader, "Shader", array<int>());
+  NodeType *type = NodeType::add("volume", create, NodeType::NONE, Mesh::get_node_type());
 
   SOCKET_FLOAT(clipping, "Clipping", 0.001f);
   SOCKET_FLOAT(step_size, "Step Size", 0.0f);
@@ -49,16 +45,16 @@ NODE_DEFINE(Volume)
   return type;
 }
 
-Volume::Volume() : Mesh(node_type, Geometry::VOLUME)
+Volume::Volume() : Mesh(get_node_type(), Geometry::VOLUME)
 {
   clipping = 0.001f;
   step_size = 0.0f;
   object_space = false;
 }
 
-void Volume::clear()
+void Volume::clear(bool preserve_shaders)
 {
-  Mesh::clear(true);
+  Mesh::clear(preserve_shaders, true);
 }
 
 struct QuadData {
@@ -512,17 +508,19 @@ void GeometryManager::create_volume_mesh(Volume *volume, Progress &progress)
   Shader *volume_shader = NULL;
   int pad_size = 0;
 
-  foreach (Shader *shader, volume->used_shaders) {
+  foreach (Node *node, volume->get_used_shaders()) {
+    Shader *shader = static_cast<Shader *>(node);
+
     if (!shader->has_volume) {
       continue;
     }
 
     volume_shader = shader;
 
-    if (shader->volume_interpolation_method == VOLUME_INTERPOLATION_LINEAR) {
+    if (shader->get_volume_interpolation_method() == VOLUME_INTERPOLATION_LINEAR) {
       pad_size = max(1, pad_size);
     }
-    else if (shader->volume_interpolation_method == VOLUME_INTERPOLATION_CUBIC) {
+    else if (shader->get_volume_interpolation_method() == VOLUME_INTERPOLATION_CUBIC) {
       pad_size = max(2, pad_size);
     }
 
@@ -530,8 +528,10 @@ void GeometryManager::create_volume_mesh(Volume *volume, Progress &progress)
   }
 
   /* Clear existing volume mesh, done here in case we early out due to
-   * empty grid or missing volume shader. */
-  volume->clear();
+   * empty grid or missing volume shader.
+   * Also keep the shaders to avoid infinite loops when synchronizing, as this will tag the shaders
+   * as having changed. */
+  volume->clear(true);
   volume->need_update_rebuild = true;
 
   if (!volume_shader) {
@@ -567,20 +567,20 @@ void GeometryManager::create_volume_mesh(Volume *volume, Progress &progress)
 
       if (image_memory->data_elements == 1) {
         grid = openvdb_grid_from_device_texture<openvdb::FloatGrid>(
-            image_memory, volume->clipping, handle.metadata().transform_3d);
+            image_memory, volume->get_clipping(), handle.metadata().transform_3d);
       }
       else if (image_memory->data_elements == 3) {
         grid = openvdb_grid_from_device_texture<openvdb::Vec3fGrid>(
-            image_memory, volume->clipping, handle.metadata().transform_3d);
+            image_memory, volume->get_clipping(), handle.metadata().transform_3d);
       }
       else if (image_memory->data_elements == 4) {
         grid = openvdb_grid_from_device_texture<openvdb::Vec4fGrid>(
-            image_memory, volume->clipping, handle.metadata().transform_3d);
+            image_memory, volume->get_clipping(), handle.metadata().transform_3d);
       }
     }
 
     if (grid) {
-      builder.add_grid(grid, do_clipping, volume->clipping);
+      builder.add_grid(grid, do_clipping, volume->get_clipping());
     }
   }
 #endif
@@ -606,7 +606,8 @@ void GeometryManager::create_volume_mesh(Volume *volume, Progress &progress)
   builder.create_mesh(vertices, indices, face_normals, face_overlap_avoidance);
 
   volume->reserve_mesh(vertices.size(), indices.size() / 3);
-  volume->used_shaders.push_back(volume_shader);
+  volume->used_shaders.clear();
+  volume->used_shaders.push_back_slow(volume_shader);
 
   for (size_t i = 0; i < vertices.size(); ++i) {
     volume->add_vertex(vertices[i]);

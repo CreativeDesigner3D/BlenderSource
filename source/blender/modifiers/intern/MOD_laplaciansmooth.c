@@ -82,7 +82,7 @@ struct BLaplacianSystem {
 typedef struct BLaplacianSystem LaplacianSystem;
 
 static void required_data_mask(Object *ob, ModifierData *md, CustomData_MeshMasks *r_cddata_masks);
-static bool is_disabled(const struct Scene *UNUSED(scene), ModifierData *md, bool useRenderParams);
+static bool is_disabled(const struct Scene *scene, ModifierData *md, bool useRenderParams);
 static float compute_volume(const float center[3],
                             float (*vertexCos)[3],
                             const MPoly *mpoly,
@@ -634,7 +634,7 @@ ModifierTypeInfo modifierType_LaplacianSmooth = {
     /* deformMatricesEM */ NULL,
     /* modifyMesh */ NULL,
     /* modifyHair */ NULL,
-    /* modifyPointCloud */ NULL,
+    /* modifyGeometrySet */ NULL,
     /* modifyVolume */ NULL,
 
     /* initData */ init_data,

@@ -3,6 +3,7 @@
    linking to external resources instead of including content in-line.
    See 'release/text/readme.html' for the end user read-me.
 
+
 Blender
 =======
 
@@ -14,17 +15,8 @@ motion tracking and video editing.
    :scale: 50 %
    :align: center
 
-PyClone
-=======
 
-PyClone is a custom build of Blender that enables drag and drop to be accessed from the Blender PythonAPI.
-
-PyClone Project Pages
--------------
-
-- `Main Website <https://creativedesigner3d.com/>`__
-
-Blender Project Pages
+Project Pages
 -------------
 
 - `Main Website <http://www.blender.org>`__
@@ -43,7 +35,7 @@ Development
 License
 -------
 
-Blender as a whole is licensed under the GNU Public License, Version 3.
+Blender as a whole is licensed under the GNU General Public License, Version 3.
 Individual files may have a different, but compatible license.
 
 See `blender.org/about/license <https://www.blender.org/about/license>`__ for details.

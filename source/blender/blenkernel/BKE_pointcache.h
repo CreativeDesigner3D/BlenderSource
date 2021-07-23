@@ -23,12 +23,10 @@
  * \ingroup bke
  */
 
-#include "DNA_ID.h"
-#include "DNA_boid_types.h"
-#include "DNA_dynamicpaint_types.h"
-#include "DNA_object_force_types.h"
-#include "DNA_pointcache_types.h"
-#include <stdio.h> /* for FILE */
+#include "DNA_boid_types.h"       /* for #BoidData */
+#include "DNA_pointcache_types.h" /* for #BPHYS_TOT_DATA */
+
+#include <stdio.h> /* for #FILE */
 
 #ifdef __cplusplus
 extern "C" {
@@ -79,7 +77,10 @@ extern "C" {
 #define PTCACHE_READ_OLD 3
 
 /* Structs */
+struct BlendDataReader;
+struct BlendWriter;
 struct ClothModifierData;
+struct DynamicPaintSurface;
 struct FluidModifierData;
 struct ListBase;
 struct Main;
@@ -167,7 +168,7 @@ typedef struct PTCacheID {
    * (the cfra parameter is just for using same function pointer with totwrite). */
   int (*totpoint)(void *calldata, int cfra);
   /* report error if number of points does not match */
-  void (*error)(void *calldata, const char *message);
+  void (*error)(const struct ID *owner_id, void *calldata, const char *message);
   /* number of points written for current cache frame */
   int (*totwrite)(void *calldata, int cfra);
 
@@ -375,6 +376,14 @@ void BKE_ptcache_validate(struct PointCache *cache, int framenr);
 
 /* Set correct flags after unsuccessful simulation step */
 void BKE_ptcache_invalidate(struct PointCache *cache);
+
+/********************** .blend File I/O *********************/
+
+void BKE_ptcache_blend_write(struct BlendWriter *writer, struct ListBase *ptcaches);
+void BKE_ptcache_blend_read_data(struct BlendDataReader *reader,
+                                 struct ListBase *ptcaches,
+                                 struct PointCache **ocache,
+                                 int force_disk);
 
 #ifdef __cplusplus
 }

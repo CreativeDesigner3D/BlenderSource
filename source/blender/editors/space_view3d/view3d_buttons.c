@@ -280,10 +280,9 @@ static void v3d_editvertex_buts(uiLayout *layout, View3D *v3d, Object *ob, float
 
     has_meshdata = (tot || totedgedata);
   }
-  else if (ob->type == OB_CURVE || ob->type == OB_SURF) {
+  else if (ELEM(ob->type, OB_CURVE, OB_SURF)) {
     TransformMedian_Curve *median = &median_basis.curve;
     Curve *cu = ob->data;
-    Nurb *nu;
     BPoint *bp;
     BezTriple *bezt;
     int a;
@@ -291,8 +290,7 @@ static void v3d_editvertex_buts(uiLayout *layout, View3D *v3d, Object *ob, float
     StructRNA *seltype = NULL;
     void *selp = NULL;
 
-    nu = nurbs->first;
-    while (nu) {
+    LISTBASE_FOREACH (Nurb *, nu, nurbs) {
       if (nu->type == CU_BEZIER) {
         bezt = nu->bezt;
         a = nu->pntsu;
@@ -343,7 +341,6 @@ static void v3d_editvertex_buts(uiLayout *layout, View3D *v3d, Object *ob, float
           bp++;
         }
       }
-      nu = nu->next;
     }
 
     if (totcurvedata == 1) {
@@ -973,15 +970,13 @@ static void v3d_editvertex_buts(uiLayout *layout, View3D *v3d, Object *ob, float
       const TransformMedian_Curve *median = &median_basis.curve,
                                   *ve_median = &ve_median_basis.curve;
       Curve *cu = ob->data;
-      Nurb *nu;
       BPoint *bp;
       BezTriple *bezt;
       int a;
       ListBase *nurbs = BKE_curve_editNurbs_get(cu);
       const float scale_w = compute_scale_factor(ve_median->weight, median->weight);
 
-      nu = nurbs->first;
-      while (nu) {
+      LISTBASE_FOREACH (Nurb *, nu, nurbs) {
         if (nu->type == CU_BEZIER) {
           for (a = nu->pntsu, bezt = nu->bezt; a--; bezt++) {
             if (bezt->f2 & SELECT) {
@@ -1036,10 +1031,10 @@ static void v3d_editvertex_buts(uiLayout *layout, View3D *v3d, Object *ob, float
             }
           }
         }
-        BKE_nurb_test_2d(nu);
+        if (CU_IS_2D(cu)) {
+          BKE_nurb_project_2d(nu);
+        }
         BKE_nurb_handles_test(nu, true, false); /* test for bezier too */
-
-        nu = nu->next;
       }
     }
     else if ((ob->type == OB_LATTICE) && (apply_vcos || median_basis.lattice.weight)) {
@@ -1582,7 +1577,7 @@ static void do_view3d_region_buttons(bContext *C, void *UNUSED(index), int event
   }
 
   /* default for now */
-  WM_event_add_notifier(C, NC_SPACE | ND_SPACE_VIEW3D, v3d);
+  WM_event_add_notifier(C, NC_SPACE | ND_SPACE_VIEW3D, NULL);
 }
 
 static bool view3d_panel_transform_poll(const bContext *C, PanelType *UNUSED(pt))

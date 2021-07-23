@@ -76,7 +76,8 @@ struct Base **ED_undo_editmode_bases_from_view_layer(struct ViewLayer *view_laye
 struct UndoStack *ED_undo_stack_get(void);
 
 /* helpers */
-void ED_undo_object_set_active_or_warn(struct ViewLayer *view_layer,
+void ED_undo_object_set_active_or_warn(struct Scene *scene,
+                                       struct ViewLayer *view_layer,
                                        struct Object *ob,
                                        const char *info,
                                        struct CLG_LogRef *log);
@@ -87,6 +88,7 @@ void ED_undosys_type_free(void);
 
 /* memfile_undo.c */
 struct MemFile *ED_undosys_stack_memfile_get_active(struct UndoStack *ustack);
+void ED_undosys_stack_memfile_id_changed_tag(struct UndoStack *ustack, struct ID *id);
 
 #ifdef __cplusplus
 }

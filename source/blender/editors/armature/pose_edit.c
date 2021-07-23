@@ -149,7 +149,7 @@ bool ED_object_posemode_exit(bContext *C, Object *ob)
   return ok;
 }
 
-/* if a selected or active bone is protected, throw error (oonly if warn == 1) and return 1 */
+/* if a selected or active bone is protected, throw error (only if warn == 1) and return 1 */
 /* only_selected == 1: the active bone is allowed to be protected */
 #if 0 /* UNUSED 2.5 */
 static bool pose_has_protected_selected(Object *ob, short warn)
@@ -476,9 +476,9 @@ static int pose_clear_paths_exec(bContext *C, wmOperator *op)
 }
 
 /* operator callback/wrapper */
-static int pose_clear_paths_invoke(bContext *C, wmOperator *op, const wmEvent *evt)
+static int pose_clear_paths_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
-  if ((evt->shift) && !RNA_struct_property_is_set(op->ptr, "only_selected")) {
+  if ((event->shift) && !RNA_struct_property_is_set(op->ptr, "only_selected")) {
     RNA_boolean_set(op->ptr, "only_selected", true);
   }
   return pose_clear_paths_exec(C, op);
@@ -593,8 +593,8 @@ void POSE_OT_flip_names(wmOperatorType *ot)
                   "do_strip_numbers",
                   false,
                   "Strip Numbers",
-                  "Try to remove right-most dot-number from flipped names "
-                  "(WARNING: may result in incoherent naming in some cases)");
+                  "Try to remove right-most dot-number from flipped names.\n"
+                  "Warning: May result in incoherent naming in some cases");
 }
 
 /* ------------------ */
@@ -638,7 +638,7 @@ void POSE_OT_autoside_names(wmOperatorType *ot)
   };
 
   /* identifiers */
-  ot->name = "AutoName by Axis";
+  ot->name = "Auto-Name by Axis";
   ot->idname = "POSE_OT_autoside_names";
   ot->description =
       "Automatically renames the selected bones according to which side of the target axis they "

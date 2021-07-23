@@ -24,6 +24,7 @@
 #include "BLI_utildefines.h"
 
 #include "BLI_math.h"
+#include "BLI_simd.h"
 #include "BLI_task.h"
 
 #include "BLT_translation.h"
@@ -60,10 +61,6 @@
 
 #include "MOD_ui_common.h"
 #include "MOD_util.h"
-
-#ifdef __SSE2__
-#  include <emmintrin.h>
-#endif
 
 static void initData(ModifierData *md)
 {
@@ -188,7 +185,7 @@ static float meshdeform_dynamic_bind(MeshDeformModifierData *mmd, float (*dco)[3
   float gridvec[3], dvec[3], ivec[3], wx, wy, wz;
   float weight, cageweight, totweight, *cageco;
   int i, j, a, x, y, z, size;
-#ifdef __SSE2__
+#ifdef BLI_HAVE_SSE2
   __m128 co = _mm_setzero_ps();
 #else
   float co[3] = {0.0f, 0.0f, 0.0f};
@@ -243,7 +240,7 @@ static float meshdeform_dynamic_bind(MeshDeformModifierData *mmd, float (*dco)[3
     for (j = 0; j < cell->totinfluence; j++, inf++) {
       cageco = dco[inf->vertex];
       cageweight = weight * inf->weight;
-#ifdef __SSE2__
+#ifdef BLI_HAVE_SSE2
       {
         __m128 cageweight_r = _mm_set1_ps(cageweight);
         /* This will load one extra element, this is ok because
@@ -261,7 +258,7 @@ static float meshdeform_dynamic_bind(MeshDeformModifierData *mmd, float (*dco)[3
     }
   }
 
-#ifdef __SSE2__
+#ifdef BLI_HAVE_SSE2
   copy_v3_v3(vec, (float *)&co);
 #else
   copy_v3_v3(vec, co);
@@ -373,7 +370,7 @@ static void meshdeformModifier_do(ModifierData *md,
   Object *ob_target = mmd->object;
   cagemesh = BKE_modifier_get_evaluated_mesh_from_evaluated_object(ob_target, false);
   if (cagemesh == NULL) {
-    BKE_modifier_set_error(md, "Cannot get mesh from cage object");
+    BKE_modifier_set_error(ctx->object, md, "Cannot get mesh from cage object");
     return;
   }
 
@@ -388,7 +385,7 @@ static void meshdeformModifier_do(ModifierData *md,
   if (!mmd->bindcagecos) {
     /* progress bar redraw can make this recursive .. */
     if (!DEG_is_active(ctx->depsgraph)) {
-      BKE_modifier_set_error(md, "Attempt to bind from inactive dependency graph");
+      BKE_modifier_set_error(ob, md, "Attempt to bind from inactive dependency graph");
       goto finally;
     }
     if (!recursive_bind_sentinel) {
@@ -405,16 +402,16 @@ static void meshdeformModifier_do(ModifierData *md,
   totcagevert = BKE_mesh_wrapper_vert_len(cagemesh);
 
   if (mmd->totvert != totvert) {
-    BKE_modifier_set_error(md, "Vertices changed from %d to %d", mmd->totvert, totvert);
+    BKE_modifier_set_error(ob, md, "Vertices changed from %d to %d", mmd->totvert, totvert);
     goto finally;
   }
   else if (mmd->totcagevert != totcagevert) {
     BKE_modifier_set_error(
-        md, "Cage vertices changed from %d to %d", mmd->totcagevert, totcagevert);
+        ob, md, "Cage vertices changed from %d to %d", mmd->totcagevert, totcagevert);
     goto finally;
   }
   else if (mmd->bindcagecos == NULL) {
-    BKE_modifier_set_error(md, "Bind data missing");
+    BKE_modifier_set_error(ob, md, "Bind data missing");
     goto finally;
   }
 
@@ -646,7 +643,7 @@ ModifierTypeInfo modifierType_MeshDeform = {
     /* deformMatricesEM */ NULL,
     /* modifyMesh */ NULL,
     /* modifyHair */ NULL,
-    /* modifyPointCloud */ NULL,
+    /* modifyGeometrySet */ NULL,
     /* modifyVolume */ NULL,
 
     /* initData */ initData,
