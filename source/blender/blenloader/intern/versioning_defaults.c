@@ -101,7 +101,7 @@ static bool blo_is_builtin_template(const char *app_template)
 {
   /* For all builtin templates shipped with Blender. */
   return (!app_template ||
-          STR_ELEM(app_template, "2D_Animation", "Sculpting", "VFX", "Video_Editing"));
+          STR_ELEM(app_template, "2D_Animation", "Sculpting", "VFX", "Video_Editing", "PyClone", "Library_Toy_Box", "Library_Home_Builder"));
 }
 
 static void blo_update_defaults_screen(bScreen *screen,

@@ -53,6 +53,7 @@ def git_tag(git_command):
     # Get current tag name.
     try:
         tag = subprocess.check_output([git_command, "describe", "--exact-match"], stderr=subprocess.STDOUT)
+        tag = "v2.93.0"
     except subprocess.CalledProcessError as e:
         return None
 
@@ -67,6 +68,7 @@ def git_branch_release_version(branch, tag):
         release_version = re.search(r"^v([0-9]*\.[0-9]*).*", tag)
         if release_version:
             release_version = release_version.group(1)
+    release_version = "2.93"
     return release_version
 
 

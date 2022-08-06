@@ -15,8 +15,21 @@ motion tracking and video editing.
    :scale: 50 %
    :align: center
 
+PyClone
+=======
 
-Project Pages
+PyClone is a custom build of Blender that enables drag and drop to be accessed from the Blender PythonAPI.
+
+PyClone Project Pages
+-------------
+
+- `Main Website <https://creativedesigner3d.com/>`__
+- `Build instructions <https://wiki.blender.org/wiki/Building_Blender>`--
+  - PyClone build caveats:
+    - "make update" will return a make error. This is expected so you can ignore.
+    - The build scripts have been hardcoded to 2.93-release to fix existing dependencies
+
+Blender Project Pages
 -------------
 
 - `Main Website <http://www.blender.org>`__
